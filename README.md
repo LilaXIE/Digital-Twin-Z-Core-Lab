@@ -26,6 +26,9 @@ Open [the overview](http://127.0.0.1:5173/overview.html) or [the 3D twin](http:/
 - `npm run test:bridge`: check the running data bridge with read-only telemetry requests.
 - `npm run test:resilience`: test database failure and recovery using an isolated mock service.
 - `npm run bim:convert`: convert IFC source models to Fragments.
+- `npm run test:strategy`: unit tests for the AI ventilation strategy.
+- `npm run strategy:backtest -- --days 14`: replay InfluxDB history through the strategy (`--synthetic` works offline).
+- `npm run strategy:calibrate -- --days 60`: estimate sensor offsets, outdoor CO₂ and decay airflow; add `--write` to save.
 
 ## Project structure
 
@@ -56,6 +59,16 @@ ZB202_DT/
 ```
 
 The frontend loads the Architecture, MEP and Sensor Fragments models. Keep their IFC and Revit sources for future model updates. See [the BIM conversion workflow](docs/architecture/bim-fragments.md).
+
+## AI outdoor-air recommendation
+
+The bridge recalculates every 10 minutes the least outdoor airflow that keeps forecast CO₂ at or below 750 ppm (limit 800 ppm). It combines a single-zone CO₂ model, a CO₂-based occupancy estimate, the meeting schedule and the HKO King's Park outdoor conditions. It runs in shadow mode (L1) by default and never writes to the BMS. Open [the recommendation page](http://127.0.0.1:5173/strategy.html) or the AI card in the 3D twin. Method and open questions: [the strategy document](docs/strategy/ai-recommendation-strategy.md).
+
+- `scripts/strategy/`: engine modules. Each recommendation is broadcast as a `recommendation` WebSocket message.
+- `data/strategy/calibration.json`: calibration results that override the defaults in `scripts/strategy/config.mjs`.
+- `data/strategy/calendar.json`: meetings entered on the recommendation page.
+- `data/strategy/shadow-log.jsonl`: a local log of every recommendation and shadow command. It is not committed.
+- Virtual demo data on the 3D twin appears only with `?demo=1` (or a double-click on the clock) and is labelled "Demo data".
 
 ## Outdoor solar radiation
 

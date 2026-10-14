@@ -24,6 +24,9 @@ npm run dev
 - `npm run test:bridge`：检查运行中的数据桥接（只读）
 - `npm run test:resilience`：隔离模拟数据库故障与恢复
 - `npm run bim:convert`：将 IFC 转为 Fragments
+- `npm run test:strategy`：AI 新风策略单元测试
+- `npm run strategy:backtest -- --days 14`：用 InfluxDB 历史数据回测策略（加 `--synthetic` 可离线运行）
+- `npm run strategy:calibrate -- --days 60`：估计传感器偏差、室外 CO₂ 和衰减新风量；加 `--write` 保存结果
 
 ## 项目结构
 
@@ -56,6 +59,16 @@ ZB202_DT/
 ```
 
 配置文件 `.env` 仅保存在本地，不要提交真实凭据。
+
+## AI 新风推荐
+
+桥接服务每 10 分钟重算一次：在预测 CO₂ 不超过 750 ppm（限值 800 ppm）的前提下，求最小新风量。计算结合单区 CO₂ 模型、由 CO₂ 反推的人数估计、会议日程，以及天文台京士柏的室外温湿度。默认以影子模式（L1）运行，不会写入 BMS。在 `http://127.0.0.1:5173/strategy.html` 查看推荐详情，或查看三维孪生左侧的 AI 卡片。方法与待确认事项见[策略方案](strategy/ai-recommendation-strategy.md)。
+
+- `scripts/strategy/`：策略引擎；每条推荐通过 WebSocket 以 `recommendation` 消息推送。
+- `data/strategy/calibration.json`：标定结果，覆盖 `scripts/strategy/config.mjs` 中的默认值。
+- `data/strategy/calendar.json`：在推荐页面录入的会议。
+- `data/strategy/shadow-log.jsonl`：每条推荐和影子指令的本地日志，不提交。
+- 三维孪生中的虚拟演示数据仅在 `?demo=1`（或双击时钟）时显示，并标注"Demo data"。
 
 ## 室外太阳辐射
 

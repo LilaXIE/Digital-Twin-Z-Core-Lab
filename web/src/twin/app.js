@@ -7,6 +7,7 @@ import { demandAxis } from "../shared/demand-axis.js";
 
 const THEME_STORAGE_KEY = "zb202-theme";
 const DEBUG_MOCK_STORAGE_KEY = "zb202-debug-mock-data";
+// Virtual demonstration data, shown only with ?demo=1 or after double-clicking the clock, and always labelled.
 const DEBUG_OCCUPIED_SEATS = new Set([0, 1, 2, 3, 6, 8, 9]);
 const DEBUG_OFFLINE_SENSORS = new Set(["VS341-03", "AM103-05"]);
 const query = new URLSearchParams(window.location.search);
@@ -570,9 +571,11 @@ const state = {
   ahuSetpoint: 23,
   ahuAppliedSetpoint: 23,
   debugMockData: (() => {
+    if (query.get("demo") === "1") return true;
     try { return sessionStorage.getItem(DEBUG_MOCK_STORAGE_KEY) === "true"; }
     catch { return false; }
   })(),
+  recommendation: null,
   renderedDebugMockData: null,
   socketDemandRange: "today",
   socketDemandHistory: new Map(),
@@ -1259,7 +1262,6 @@ async function createOccupancySeats() {
       const seat = new THREE.Group();
       seat.name = `occupancy-seat-${seatIndex + 1}`;
       seat.userData.seatIndex = seatIndex;
-      seat.userData.occupied = DEBUG_OCCUPIED_SEATS.has(seatIndex);
 
       const overlaySize = Math.min(seatWidth, seatDepth) - inset * 2;
       const overlayWidth = overlaySize;
@@ -1695,13 +1697,17 @@ function renderDebugDashboardData() {
     button.disabled = !mock;
     button.classList.toggle("active", mock && index === 0);
   });
-  document.querySelector(".dt-recommendations").innerHTML = mock ? `
+  document.querySelector(".dt-mode-toggle").hidden = !mock;
+  document.getElementById("ai-reason").hidden = mock;
+  document.getElementById("demo-badge").hidden = !mock;
+  if (mock) {
+    document.querySelector(".dt-recommendations").innerHTML = `
     <div><span>Recommended supply-air setpoint</span><strong>22.5<small>°C</small></strong><p>Current setpoint 23.0°C</p><em class="waiting">Awaiting execution</em></div>
     <div><span>Recommended outdoor-air damper</span><strong>46<small>%</small></strong><p>Current position 32%</p><em>Executed successfully</em></div>
-  ` : `
-    <div><span>Recommended supply-air setpoint</span><strong>—</strong><p>—</p></div>
-    <div><span>Recommended outdoor-air damper</span><strong>—</strong><p>—</p></div>
   `;
+  } else {
+    renderAiRecommendation();
+  }
 
   const healthData = mock
     ? { sensor: [Math.max(0, demoDeviceCount - 3), 2, 1], battery: [Math.max(0, demoDeviceCount - 5), 4, 1] }
@@ -1732,6 +1738,29 @@ function renderDebugDashboardData() {
     line.innerHTML = mock ? outdoorMockLines[index] : "<strong>—</strong>";
   });
 
+}
+
+const CONTROL_MODE_LABELS = { L0: "Recommendation only", L1: "Shadow mode", L2: "Automatic control" };
+
+function renderAiRecommendation() {
+  if (state.debugMockData) return;
+  const rec = state.recommendation;
+  const reason = document.getElementById("ai-reason");
+  const container = document.querySelector(".dt-recommendations");
+  if (!rec || rec.status === "no-data") {
+    reason.textContent = rec ? rec.reasonEn : "Waiting for the first recommendation";
+    container.innerHTML = `
+      <div><span>Recommended outdoor air</span><strong>—</strong><p>—</p></div>
+      <div><span>CO₂ peak, next 60 min</span><strong>—</strong><p>—</p></div>`;
+    return;
+  }
+  const occupantsLabel = rec.occupancy.measured ? "Occupants" : "Estimated occupants";
+  const time = new Date(rec.generatedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  reason.textContent = rec.reasonEn;
+  reason.title = `${CONTROL_MODE_LABELS[rec.controlMode] || rec.controlMode} · updated ${time}`;
+  container.innerHTML = `
+    <div><span>Recommended outdoor air</span><strong>${escapeHtml(rec.airflow.recommendedLps)}<small>L/s</small></strong><p>Damper ${escapeHtml(rec.airflow.recommendedDamperPct)}% · now ${escapeHtml(rec.airflow.baselineDamperPct)}%</p>${rec.airflow.atMax ? '<em class="waiting">Outdoor air at maximum</em>' : ""}</div>
+    <div><span>CO₂ peak, next 60 min</span><strong>${escapeHtml(rec.co2.peakRecommended)}<small>ppm</small></strong><p>${occupantsLabel} ${escapeHtml(rec.occupancy.current)}</p></div>`;
 }
 
 function renderAhuData() {
@@ -2439,7 +2468,9 @@ let bridgeReconnectTimer = null;
 let pageClosing = false;
 function connectInfluxBridge() {
   if (state.influxSocket && state.influxSocket.readyState < WebSocket.CLOSING) return;
-  const bridgeUrl = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:8787`;
+  const requestedPort = Number(query.get("bridgePort"));
+  const bridgePort = Number.isInteger(requestedPort) && requestedPort > 0 && requestedPort < 65536 ? requestedPort : 8787;
+  const bridgeUrl = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:${bridgePort}`;
   let socket;
   try {
     socket = new WebSocket(bridgeUrl);
@@ -2464,6 +2495,11 @@ function connectInfluxBridge() {
         }
       }
       renderSelectedDevice();
+      return;
+    }
+    if (message.type === "recommendation") {
+      state.recommendation = message;
+      renderAiRecommendation();
       return;
     }
     if (message.type === "solar-radiation") {
@@ -2929,7 +2965,11 @@ window.addEventListener("storage", (event) => {
   }
 });
 function setPlatformView(view) {
-  if (view === "bms" || view === "ai") return;
+  if (view === "ai") {
+    window.location.href = "strategy.html";
+    return;
+  }
+  if (view === "bms") return;
   const workspace = elements.wrap.closest(".dt-workspace");
   if (workspace.classList.contains("view-transitioning")) return;
   if (view === "sensors") {

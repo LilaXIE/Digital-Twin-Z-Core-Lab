@@ -1,9 +1,12 @@
 import "dotenv/config";
-import { InfluxDB } from "@influxdata/influxdb-client";
+import { InfluxDB, Point } from "@influxdata/influxdb-client";
 import mqtt from "mqtt";
 import { buildSensorHistoryQuery } from "./sensor-history.mjs";
 import { SOLAR_URL, SOLAR_MEASUREMENT, parseSolarCsv, solarPoint } from "./hko-solar.mjs";
 import { WebSocketServer, WebSocket } from "ws";
+import { loadConfig, strategyDataDir } from "./strategy/config.mjs";
+import { StrategyService } from "./strategy/service.mjs";
+import { buildCo2HistoryQuery, co2RowsToSeries } from "./strategy/influx-history.mjs";
 
 const url = process.env.ZB202_INFLUX_URL;
 const token = process.env.ZB202_INFLUX_TOKEN;
@@ -31,6 +34,9 @@ const socketDevices = new Map([
   ["WS523-04", "24E1241480609EE5"],
 ]);
 const socketCommands = { on: "080100ff", off: "080000ff" };
+const strategyEnabled = process.env.ZB202_STRATEGY_ENABLED !== "false";
+const strategyWriteInflux = process.env.ZB202_STRATEGY_INFLUX_WRITE === "true";
+const strategyBucket = process.env.ZB202_STRATEGY_INFLUX_BUCKET || bucket;
 
 const missing = [["ZB202_INFLUX_URL", url], ["ZB202_INFLUX_TOKEN", token], ["ZB202_INFLUX_ORG", org]]
   .filter(([, value]) => !value).map(([name]) => name);
@@ -73,6 +79,21 @@ async function pollSolar() {
     console.error(`[HKO] Solar ingestion failed: ${error.message}`);
   } finally { solarPolling = false; }
 }
+const strategyConfig = loadConfig();
+const strategyWriteApi = strategyEnabled && strategyWriteInflux ? new InfluxDB({ url, token, timeout: queryTimeoutMs }).getWriteApi(org, strategyBucket, "s") : null;
+const strategy = strategyEnabled ? new StrategyService({
+  config: strategyConfig,
+  dataDir: process.env.ZB202_STRATEGY_DATA_DIR || strategyDataDir,
+  // Optional write-back of each recommendation; off unless ZB202_STRATEGY_INFLUX_WRITE=true.
+  writePoint: strategyWriteApi ? async (entry) => {
+    strategyWriteApi.writePoint(new Point("zb202-ai-recommendation").tag("mode", entry.mode)
+      .floatField("recommended_lps", entry.lps).intField("damper_pct", entry.damperPct).floatField("baseline_lps", entry.baselineLps)
+      .intField("room_co2_ppm", entry.roomPpm).floatField("occupancy_estimate", entry.occupancy).intField("peak_ppm", entry.peak)
+      .timestamp(new Date(entry.t)));
+    await strategyWriteApi.flush();
+  } : null,
+}) : null;
+let strategyStarted = false;
 const weatherQueryApi = weatherBucket ? new InfluxDB({ url, token: weatherToken, timeout: queryTimeoutMs }).getQueryApi(org) : null;
 const websocketServer = new WebSocketServer({ host: websocketHost, port: websocketPort, maxPayload: 16 * 1024,
   verifyClient({ origin, req }) {
@@ -285,6 +306,7 @@ function databaseStatus() {
 }
 function updateDatabaseStatus(connected) {
   databaseConnected = connected;
+  strategy?.setBridgeHealthy(connected);
   broadcast(databaseStatus());
 }
 
@@ -380,7 +402,10 @@ async function poll() {
       const telemetry = acceptRow(row);
       if (telemetry) changedTelemetry.add(telemetry);
     }
-    for (const telemetry of changedTelemetry) broadcast(telemetry);
+    for (const telemetry of changedTelemetry) {
+      strategy?.ingestTelemetry(telemetry);
+      broadcast(telemetry);
+    }
     if (!databaseConnected) console.log(`[InfluxDB] Connected to ${url}; loaded ${rows.length} rows from ${bucket}${weatherBucket ? ` + ${weatherBucket}` : ""}`);
     hasLoadedHistory = true;
     consecutiveFailures = 0;
@@ -397,6 +422,64 @@ async function poll() {
   }
 }
 
+async function handleStrategyMessage(socket, message) {
+  const requestId = String(message.requestId || "");
+  if (!strategy) {
+    send(socket, { type: "strategy-error", requestId, error: "AI ventilation strategy is disabled" });
+    return;
+  }
+  if (message.type === "recommendation-history-request") {
+    const hours = Math.min(192, Math.max(1, Number(message.hours) || 24));
+    send(socket, { type: "recommendation-history", requestId, hours, entries: strategy.recommendationHistory(hours), room: strategy.roomCo2History() });
+    return;
+  }
+  if (message.type === "calendar-update") {
+    try {
+      const meetings = await strategy.updateCalendar(message);
+      send(socket, { type: "calendar-result", requestId, ok: true });
+      broadcast({ type: "calendar", meetings });
+      if (strategyStarted) void runStrategyTick();
+    } catch (error) {
+      send(socket, { type: "calendar-result", requestId, ok: false, error: error.message });
+    }
+    return;
+  }
+  try {
+    const mode = await strategy.setControlMode(String(message.mode || ""));
+    send(socket, { type: "control-mode-result", requestId, ok: true, mode });
+    broadcast({ type: "control-mode", mode });
+    if (strategyStarted) void runStrategyTick();
+  } catch (error) {
+    send(socket, { type: "control-mode-result", requestId, ok: false, mode: strategy.controller.mode, error: error.message });
+  }
+}
+
+let strategyTicking = false;
+async function runStrategyTick() {
+  if (strategyTicking) return;
+  strategyTicking = true;
+  try { await strategy.tick(); }
+  catch (error) { console.error(`[Strategy] Recalculation failed: ${error.message}`); }
+  finally { strategyTicking = false; }
+}
+
+// Seeds the occupancy filter and 8-hour average from InfluxDB, then recalculates every 10 minutes.
+async function startStrategy() {
+  strategyStarted = true;
+  try {
+    const stop = Date.now();
+    const rows = await queryApi.collectRows(buildCo2HistoryQuery({ bucket, sensors: strategyConfig.co2.sensors, start: stop - 8 * 3600000, stop }));
+    strategy.warmUp(co2RowsToSeries(rows));
+  } catch (error) {
+    console.warn(`[Strategy] Warm-up history unavailable: ${error.message}`);
+  }
+  await runStrategyTick();
+  const stepMs = strategyConfig.horizon.stepMinutes * 60000;
+  const schedule = () => setTimeout(async () => { await runStrategyTick(); schedule(); }, stepMs - (Date.now() % stepMs) + 30000);
+  schedule();
+  console.log(`[Strategy] AI ventilation recommendations running in ${strategy.controller.mode} mode (${strategyConfig.optimizer.method}).`);
+}
+
 websocketServer.on("connection", (socket) => {
   if (latestSolar) send(socket, latestSolar);
   socket.isAlive = true;
@@ -406,11 +489,16 @@ websocketServer.on("connection", (socket) => {
   const pendingHistory = new Set();
   send(socket, { type: "control-status", connected: mqttConnected, source: "mqtt", supportedDevices: [...socketDevices.keys()] });
   for (const history of historyByDevice.values()) for (const telemetry of history) send(socket, telemetry);
+  if (strategy) {
+    send(socket, { type: "calendar", meetings: strategy.calendar.meetings });
+    if (strategy.latest) send(socket, strategy.latest);
+  }
   socket.on("message", (data) => {
     let message;
     try { message = JSON.parse(data.toString()); } catch { return; }
     if (!message || typeof message !== "object") return;
     if (message.type === "socket-control") enqueueSocketControl(socket, message);
+    if (["recommendation-history-request", "calendar-update", "control-mode-request"].includes(message.type)) void handleStrategyMessage(socket, message);
     if (["sensor-history-request", "demand-history-request"].includes(message.type)) {
       if (pendingHistory.has(message.type)) {
         send(socket, message.type === "sensor-history-request"
@@ -429,6 +517,10 @@ await new Promise((resolve, reject) => {
   websocketServer.once("listening", resolve);
   websocketServer.once("error", reject);
 });
+if (strategy) {
+  await strategy.init();
+  strategy.onRecommendation(broadcast);
+}
 console.log(`[Bridge] WebSocket ready at ws://${websocketHost}:${websocketPort}`);
 const heartbeat = setInterval(() => {
   for (const socket of websocketServer.clients) {
@@ -442,6 +534,9 @@ void pollSolar();
 setInterval(pollSolar, 10 * 60 * 1000);
 async function pollLoop() {
   await poll();
+  if (strategy && !strategyStarted && hasLoadedHistory) {
+    void startStrategy().catch((error) => console.error(`[Strategy] Start failed: ${error.message}`));
+  }
   setTimeout(pollLoop, Math.min(60000, pollIntervalMs * 2 ** Math.min(consecutiveFailures, 3)));
 }
 void pollLoop();

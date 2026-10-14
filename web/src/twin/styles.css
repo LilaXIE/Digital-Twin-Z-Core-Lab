@@ -4268,3 +4268,12 @@ body[data-page="twin"] { --dt-panel-title-size: 1rem; }
 }
 .dt-sensor-item .dt-device-event.is-active { color: var(--dt-accent); }
 .dt-sensor-item .dt-device-event[hidden] { display: none; }
+
+/* AI recommendation card: live outdoor-air recommendation from the strategy engine. */
+.dt-ai-card .dt-card-heading { align-items: center; }
+.dt-ai-card [hidden] { display: none !important; }
+.dt-ai-details { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; padding: 4px 8px; border: 1px solid var(--dt-border); border-radius: 999px; color: var(--dt-text-muted); background: var(--dt-panel-raised); font-size: 0.56rem; font-weight: 600; text-decoration: none; }
+.dt-ai-details:hover, .dt-ai-details:focus-visible { color: var(--dt-text); border-color: color-mix(in srgb, var(--dt-ok) 40%, var(--dt-border)); }
+.dt-ai-reason { margin: 5px 10px 6px; overflow: hidden; color: var(--dt-text-muted); font-size: 0.56rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.dt-demo-badge { flex: 0 0 auto; margin-left: 8px; padding: 2px 8px; border-radius: 999px; color: #7a4d00; background: #ffe8b3; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.02em; }
+:root[data-theme="dark"] .dt-demo-badge { color: #ffd88a; background: #4a3510; }

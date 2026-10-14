@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="ZB202 AI outdoor-air recommendation" />
+  <title>ZB202 AI 新风推荐</title>
+  <script>
+    (() => {
+      let saved = null;
+      try { saved = localStorage.getItem("zb202-theme"); } catch { saved = null; }
+      document.documentElement.dataset.theme = saved === "light" || saved === "dark" ? saved : "light";
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="src/strategy/styles.css" />
+</head>
+<body>
+  <div class="st-page">
+    <header class="st-topbar">
+      <a class="st-back" href="twin.html" data-i18n-aria="back" aria-label="返回三维孪生"><i class="ph ph-arrow-left" aria-hidden="true"></i></a>
+      <div class="st-title">
+        <p data-i18n="eyebrow">ZB202 · 预测型新风控制</p>
+        <h1 data-i18n="title">AI 新风推荐</h1>
+      </div>
+      <div class="st-actions">
+        <span class="st-connection" id="connection" data-state="connecting"></span>
+        <select id="lang-select" class="st-select" aria-label="语言 / Language">
+          <option value="zh">简体中文</option>
+          <option value="zh-Hant">繁體中文</option>
+          <option value="en">English</option>
+        </select>
+        <button type="button" class="st-icon-button" id="theme-toggle" aria-label="Theme"><i class="ph ph-moon-stars" aria-hidden="true"></i></button>
+      </div>
+    </header>
+
+    <section class="st-summary" aria-live="polite">
+      <article class="st-tile st-tile-main">
+        <span data-i18n="recommended">推荐新风量</span>
+        <strong id="tile-airflow">—</strong>
+        <small id="tile-damper">—</small>
+      </article>
+      <article class="st-tile">
+        <span id="tile-occupancy-label" data-i18n="estimatedOccupancy">估计人数</span>
+        <strong id="tile-occupancy">—</strong>
+        <small id="tile-occupancy-note">—</small>
+      </article>
+      <article class="st-tile">
+        <span data-i18n="peak60">未来 60 分钟 CO₂ 峰值</span>
+        <strong id="tile-peak">—</strong>
+        <small id="tile-forecast-points">—</small>
+      </article>
+      <article class="st-tile">
+        <span data-i18n="currentCo2">当前 CO₂</span>
+        <strong id="tile-co2">—</strong>
+        <small id="tile-average">—</small>
+      </article>
+      <p class="st-reason" id="reason">—</p>
+    </section>
+
+    <section class="st-card" aria-labelledby="co2-title">
+      <header class="st-card-head">
+        <div><h2 id="co2-title" data-i18n="co2Chart">CO₂ 预测：按推荐运行 vs 按现状运行</h2><p id="co2-sub">—</p></div>
+        <ul class="st-legend" id="co2-legend"></ul>
+      </header>
+      <div class="st-chart" id="co2-chart"></div>
+      <details class="st-table-view"><summary data-i18n="tableView">数据表</summary><div id="co2-table"></div></details>
+    </section>
+
+    <div class="st-grid">
+      <section class="st-card" aria-labelledby="occupancy-title">
+        <header class="st-card-head">
+          <div><h2 id="occupancy-title" data-i18n="occupancyChart">人数时间线</h2><p data-i18n="occupancySub">过去 6 小时估计 + 未来预测；灰色区域为日程中的会议</p></div>
+          <ul class="st-legend" id="occupancy-legend"></ul>
+        </header>
+        <div class="st-chart st-chart-small" id="occupancy-chart"></div>
+        <details class="st-table-view"><summary data-i18n="tableView">数据表</summary><div id="occupancy-table"></div></details>
+      </section>
+
+      <section class="st-card" aria-labelledby="airflow-title">
+        <header class="st-card-head">
+          <div><h2 id="airflow-title" data-i18n="airflowChart">推荐新风量变化</h2><p data-i18n="airflowSub">过去 24 小时；悬停可查看对应风阀开度</p></div>
+          <ul class="st-legend" id="airflow-legend"></ul>
+        </header>
+        <div class="st-chart st-chart-small" id="airflow-chart"></div>
+        <details class="st-table-view"><summary data-i18n="tableView">数据表</summary><div id="airflow-table"></div></details>
+      </section>
+    </div>
+
+    <div class="st-grid">
+      <section class="st-card" aria-labelledby="energy-title">
+        <header class="st-card-head"><div><h2 id="energy-title" data-i18n="energy">节能估算（相对现状运行）</h2><p id="energy-sub">—</p></div></header>
+        <table class="st-energy">
+          <thead><tr><th></th><th data-i18n="today">今日</th><th data-i18n="week">本周</th></tr></thead>
+          <tbody>
+            <tr><th data-i18n="savedAir">节省新风量</th><td id="energy-air-today">—</td><td id="energy-air-week">—</td></tr>
+            <tr><th data-i18n="savedCooling">节省冷量</th><td id="energy-cooling-today">—</td><td id="energy-cooling-week">—</td></tr>
+            <tr><th data-i18n="savedElectric">节省电量</th><td id="energy-electric-today">—</td><td id="energy-electric-week">—</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="st-card" aria-labelledby="calendar-title">
+        <header class="st-card-head"><div><h2 id="calendar-title" data-i18n="calendar">会议日程</h2><p data-i18n="calendarSub">录入会议后，推荐会提前加大新风</p></div></header>
+        <form class="st-calendar-form" id="calendar-form">
+          <label><span data-i18n="meetingTitle">名称</span><input name="title" maxlength="80" data-i18n-placeholder="meetingPlaceholder" placeholder="组会"></label>
+          <label><span data-i18n="date">日期</span><input name="date" type="date" required></label>
+          <label><span data-i18n="start">开始</span><input name="start" type="time" step="300" required></label>
+          <label><span data-i18n="end">结束</span><input name="end" type="time" step="300" required></label>
+          <label><span data-i18n="people">预计人数</span><input name="people" type="number" min="1" max="10" value="8" required></label>
+          <button type="submit" class="st-button" data-i18n="add">添加</button>
+        </form>
+        <p class="st-form-status" id="calendar-status" role="status"></p>
+        <ul class="st-meetings" id="meetings"></ul>
+      </section>
+    </div>
+
+    <section class="st-card" aria-labelledby="basis-title">
+      <header class="st-card-head"><div><h2 id="basis-title" data-i18n="basis">推荐依据</h2></div></header>
+      <ul class="st-basis" id="basis"></ul>
+    </section>
+
+    <details class="st-card st-internal" id="internal">
+      <summary><h2 data-i18n="internal">内部：影子模式与控制级别</h2></summary>
+      <div class="st-internal-body">
+        <dl class="st-stats" id="internal-stats"></dl>
+        <div class="st-control">
+          <span data-i18n="controlLevel">控制级别</span>
+          <div class="st-segmented" role="group" aria-label="Control level">
+            <button type="button" data-mode="L0">L0</button>
+            <button type="button" data-mode="L1">L1</button>
+            <button type="button" data-mode="L2">L2</button>
+          </div>
+          <button type="button" class="st-button st-button-danger" id="exit-auto" data-i18n="exitAuto">退出自动控制</button>
+          <p class="st-form-status" id="control-status" role="status"></p>
+          <p class="st-note" data-i18n="l2Note">L2（BACnet 写入新风阀）需 FMO 授权并配置写入点位后才能启用。</p>
+        </div>
+      </div>
+    </details>
+  </div>
+  <div class="st-tooltip" id="tooltip" role="tooltip" hidden></div>
+  <script type="module" src="src/strategy/app.js"></script>
+</body>
+</html>

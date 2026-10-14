@@ -29,6 +29,7 @@
           <i class="ph ph-arrow-left" aria-hidden="true"></i>
         </a>
         <h1>ZB202 AI-Empowered Digital Twin Platform</h1>
+        <span class="dt-demo-badge" id="demo-badge" title="Virtual demonstration data, not measurements" hidden>Demo data</span>
       </div>
       <time class="dt-platform-clock" id="dt-clock"><span class="dt-clock-date">—</span><span class="dt-clock-time">--:--</span></time>
     </header>
@@ -148,11 +149,15 @@
         </section>
 
         <section class="dt-dashboard-card dt-ai-card">
-          <header class="dt-card-heading"><div><p>Predictive HVAC optimisation</p><h2>AI Recommendation</h2></div></header>
-          <div class="dt-mode-toggle" role="group" aria-label="Control mode"><button type="button" disabled><i class="ph ph-sparkle"></i>AI Auto Mode</button><button type="button" disabled><i class="ph ph-hand"></i>Manual Mode</button></div>
+          <header class="dt-card-heading">
+            <div><p>Predictive outdoor-air control</p><h2>AI Recommendation</h2></div>
+            <a class="dt-ai-details" href="strategy.html" title="AI recommendation details"><span>Details</span><i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+          </header>
+          <div class="dt-mode-toggle" role="group" aria-label="Control mode" hidden><button type="button" disabled><i class="ph ph-sparkle"></i>AI Auto Mode</button><button type="button" disabled><i class="ph ph-hand"></i>Manual Mode</button></div>
+          <p class="dt-ai-reason" id="ai-reason" aria-live="polite">Waiting for the first recommendation</p>
           <div class="dt-recommendations">
-            <div><span>Recommended supply-air setpoint</span><strong>—</strong><p>—</p></div>
-            <div><span>Recommended outdoor-air damper</span><strong>—</strong><p>—</p></div>
+            <div><span>Recommended outdoor air</span><strong>—</strong><p>—</p></div>
+            <div><span>CO₂ peak, next 60 min</span><strong>—</strong><p>—</p></div>
           </div>
         </section>
 
@@ -249,7 +254,7 @@
         <button type="button" class="active" data-view="overview" title="Overview" aria-label="Overview" aria-controls="dashboard-left dashboard-right" aria-expanded="true"><i class="ph ph-squares-four" aria-hidden="true"></i><span>Overview</span></button>
         <button type="button" id="device-panel-btn" data-view="sensors" title="IoT" aria-label="IoT" aria-controls="device-panel" aria-expanded="false"><i class="ph ph-broadcast" aria-hidden="true"></i><span>IoT</span></button>
         <button type="button" data-view="bms" title="BMS (unavailable)" aria-label="BMS (unavailable)" disabled><i class="ph ph-hard-drives" aria-hidden="true"></i><span>BMS</span></button>
-        <button type="button" data-view="ai" title="AI (unavailable)" aria-label="AI (unavailable)" disabled><i class="ph ph-brain" aria-hidden="true"></i><span>AI</span></button>
+        <button type="button" data-view="ai" title="AI recommendation" aria-label="AI recommendation"><i class="ph ph-brain" aria-hidden="true"></i><span>AI</span></button>
         <button type="button" data-view="alerts" title="Alerts" aria-label="Alerts"><i class="ph ph-warning" aria-hidden="true"></i><span>Alerts</span></button>
       </nav>
     </main>
