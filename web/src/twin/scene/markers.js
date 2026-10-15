@@ -1,6 +1,6 @@
 // Sensor markers (section 9.4): small glass dots drawn in HTML over the canvas, projected every
 // rendered frame. Readout labels in the Environment and Energy themes, floor halos for the
-// environment sensors, faint person icons over occupied seats.
+// environment sensors, and a person chip over each seat (occupancy sensors), which can be clicked.
 import * as THREE from "three";
 import { camera, scene, getCanvas, onBeforeRender, requestRender, getControls, startAnimation, stopAnimation } from "./viewer.js";
 
@@ -42,7 +42,7 @@ export function addMarker(deviceId, anchor, { kind = "sensor", halo = false } = 
   el.setAttribute("aria-hidden", "true");
   el.dataset.id = deviceId;
   el.innerHTML = kind === "seat"
-    ? '<i class="ph ph-user" aria-hidden="true"></i>'
+    ? '<span class="tw-seat"><i class="ph ph-user" aria-hidden="true"></i></span>'
     : '<span class="tw-marker-dot"><span class="tw-marker-core"></span></span><span class="tw-marker-label"></span>';
   layer.appendChild(el);
   const marker = { id: deviceId, kind, anchor: anchor.clone(), el, label: el.querySelector(".tw-marker-label"), visible: true, x: 0, y: 0, onScreen: false, occluded: false, halo: null, haloTarget: 0, haloColor: new THREE.Color() };
@@ -141,11 +141,14 @@ export function updateMarker(id, state) {
   }
 }
 
-export function updateSeat(id, occupied) {
+// state: "occupied" | "vacant" | "unknown", or null to hide the seat (Energy view, replay).
+export function updateSeat(id, state, { selected = false } = {}) {
   const seat = seats.get(id);
   if (!seat) return;
-  seat.wanted = occupied === true;
+  seat.wanted = Boolean(state);
   setVisible(seat, displayMode === "all" && seat.wanted);
+  if (state) seat.el.dataset.state = state;
+  seat.el.classList.toggle("is-selected", selected);
 }
 
 // Halo colour fades over 300 ms (no flicker between replay samples).
@@ -193,7 +196,7 @@ export function pulseMarker(id) {
 export function nearestMarker(x, y, radius) {
   let best = null;
   let bestDistance = radius * radius;
-  for (const marker of markers.values()) {
+  for (const marker of [...markers.values(), ...seats.values()]) {
     if (!marker.visible || !marker.onScreen) continue;
     const distance = (marker.x - x) ** 2 + (marker.y - y) ** 2;
     if (distance < bestDistance) { bestDistance = distance; best = marker; }

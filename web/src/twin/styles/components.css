@@ -92,7 +92,7 @@ button { cursor: pointer; }
   pointer-events: none;
 }
 .tw-top > * { pointer-events: auto; }
-.tw-identity { justify-self: start; max-width: 360px; padding: 10px 16px 11px; border-radius: 22px; }
+.tw-identity { justify-self: start; max-width: 360px; padding: 10px 16px 11px; border-radius: 22px; transition: --rim-lit 450ms ease, box-shadow 300ms ease; }
 .tw-identity-row { display: flex; align-items: center; gap: 10px; }
 .tw-room { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
 .tw-live { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-caption); color: var(--text-2); }
@@ -170,7 +170,7 @@ body[data-view]:not([data-view="home"]) .tw-capsule .tw-capsule-label { display:
 .tw-ai-card {
   position: relative; padding: 14px 16px 15px;
   border-radius: var(--r-panel); cursor: pointer; view-transition-name: ai-surface; overflow: hidden;
-  transition: transform var(--dur-release) var(--ease-spring);
+  transition: transform var(--dur-release) var(--ease-spring), --rim-lit 450ms ease, box-shadow 300ms ease;
 }
 .tw-ai-card header { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: var(--fs-caption); color: var(--text-2); font-weight: 500; }
 .tw-ai-card header i { font-size: 15px; color: var(--accent); }
@@ -204,9 +204,9 @@ body[data-view="ai"] .tw-ai-card { opacity: 0; pointer-events: none; }
 .tw-dock > * { flex: none; pointer-events: auto; }
 .tw-dock-left { left: calc(var(--edge) - var(--dock-pad)); top: calc(var(--dock-left-top, 150px) - 4px); }
 .tw-dock-right { right: calc(var(--edge) - var(--dock-pad)); top: calc(var(--dock-right-top, 68px) - 4px); }
-.tw-dock > [data-home] { transition: opacity 280ms ease, transform 420ms var(--ease-panel), visibility 0s linear 0s; }
+.tw-dock > [data-home] { transition: opacity 280ms ease, transform 420ms var(--ease-panel), visibility 0s linear 0s, --rim-lit 450ms ease, box-shadow 300ms ease; }
 body:not([data-view="home"]) .tw-dock > [data-home], body[data-replay] .tw-dock-right > [data-home], body[data-sheet] .tw-dock-right > [data-home] {
-  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 200ms ease, transform 300ms var(--ease-panel), visibility 0s linear 300ms;
+  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 200ms ease, transform 300ms var(--ease-panel), visibility 0s linear 300ms, --rim-lit 450ms ease, box-shadow 300ms ease;
 }
 body:not([data-view="home"]) .tw-dock-left > [data-home] { transform: translateX(-12px); }
 body:not([data-view="home"]) .tw-dock-right > [data-home], body[data-replay] .tw-dock-right > [data-home], body[data-sheet] .tw-dock-right > [data-home] { transform: translateX(12px); }
@@ -370,7 +370,8 @@ body:not([data-view="home"]) .tw-dock-right > [data-home], body[data-replay] .tw
 .tw-caption.is-error { color: var(--poor); }
 .tw-caption.is-success { color: var(--good); }
 .tw-caption.is-pending { color: var(--caution); }
-.tw-metric-switch { display: flex; flex-wrap: wrap; gap: 6px; }
+.tw-metric-switch { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; }
+.tw-metric-switch button { min-width: 0; padding: 0 6px; overflow: hidden; text-overflow: ellipsis; }
 
 .tw-metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .tw-metric { padding: 10px 12px; border-radius: var(--r-inner); background: var(--surface-sunken); min-width: 0; }
@@ -644,8 +645,18 @@ table.tw-energy th:first-child { text-align: left; color: var(--text-2); font-we
   border: 2px solid var(--accent); animation: tw-ring var(--dur-flash) var(--ease-out) 1;
 }
 .tw-marker.is-pulsing .tw-marker-dot::after { border-color: var(--poor); animation-duration: 1.2s; }
-.tw-marker-seat { color: var(--accent); font-size: 18px; opacity: 0.55; }
-.tw-marker-seat i { position: absolute; transform: translate(-50%, -50%); filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.25)); }
+/* Occupancy seats: a small glass chip with a person; filled blue when occupied, clickable like any sensor. */
+.tw-seat {
+  position: absolute; left: -11px; top: -11px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 13px; color: var(--text-3); background: rgba(255, 255, 255, 0.72); border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.28); transition: transform 150ms var(--ease-out), background 200ms ease, color 200ms ease;
+}
+.tw-marker-seat[data-state="occupied"] .tw-seat { color: #fff; background: var(--accent); border-color: rgba(255, 255, 255, 0.85); box-shadow: 0 0 0 3px var(--accent-soft), 0 1px 4px rgba(15, 23, 42, 0.3); }
+.tw-marker-seat[data-state="unknown"] .tw-seat { opacity: 0.55; }
+.tw-marker-seat.is-hovered .tw-seat, .tw-marker-seat.is-selected .tw-seat { transform: scale(1.25); }
+.tw-marker-seat.is-selected .tw-seat { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1px var(--accent), 0 1px 4px rgba(15, 23, 42, 0.3); }
+.tw-marker-seat.is-flashing .tw-seat { animation: tw-seat-tap 420ms var(--ease-out) 1; }
+@keyframes tw-seat-tap { 50% { transform: scale(1.4); } }
 .tw-marker-node .tw-marker-dot { display: none; }
 .tw-marker-node .tw-marker-label { display: block; bottom: 6px; color: var(--accent-strong); }
 .tw-digital-label {
