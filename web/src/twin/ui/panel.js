@@ -18,7 +18,7 @@ function tabFor(view) { return document.querySelector(`.tw-tab[data-view="${view
 export async function showTheme(view, previous) {
   const panel = $("#theme-panel");
   const theme = THEMES[view];
-  if (sceneState.ready && view !== "ai") void flyToView(view, 1000);
+  if (sceneState.ready) void flyToView(view, 1000);
   themeLayers(view);
   if (!theme) {
     if (mounted) {
@@ -47,7 +47,8 @@ export async function showTheme(view, previous) {
 
 // Keep the room clear of whichever panel is open (right side, or bottom sheet on narrow screens).
 export function updateViewInset() {
-  const open = [$("#theme-panel"), $("#sensor-sheet")].filter((element) => !element.hidden);
+  const aiPage = $("#ai-page");
+  const open = [$("#theme-panel"), $("#sensor-sheet"), ...(aiPage.classList.contains("is-full") ? [] : [aiPage])].filter((element) => !element.hidden);
   document.body.toggleAttribute("data-sheet", !$("#sensor-sheet").hidden); // the right-hand Overview cards make way
   if (!open.length) { setViewInset({}); return; }
   const narrow = document.documentElement.dataset.tier === "narrow";

@@ -1,0 +1,19 @@
+{
+  "_note": "Asset information for the sensor sheet (Phase D4). Model rows describe the hardware; device rows hold what FMO or the lab records per unit. Leave a field empty until it is known; the page shows 'to be added'. datasheet: link to the manufacturer's datasheet once confirmed.",
+  "models": {
+    "AM103": { "manufacturer": "Milesight", "family": "AM100", "radio": "LoRaWAN", "power": "battery", "datasheet": "" },
+    "AM308": { "manufacturer": "Milesight", "family": "AM300", "radio": "LoRaWAN", "power": "battery", "datasheet": "" },
+    "VS341": { "manufacturer": "Milesight", "family": "VS340", "radio": "LoRaWAN", "power": "battery", "datasheet": "" },
+    "WS301": { "manufacturer": "Milesight", "family": "WS301", "radio": "LoRaWAN", "power": "battery", "datasheet": "" },
+    "WS302": { "manufacturer": "Milesight", "family": "WS302", "radio": "LoRaWAN", "power": "battery", "datasheet": "" },
+    "WS303": { "manufacturer": "Milesight", "family": "WS303", "radio": "LoRaWAN", "power": "battery", "datasheet": "" },
+    "WS523": { "manufacturer": "Milesight", "family": "WS52x", "radio": "LoRaWAN", "power": "mains", "datasheet": "" }
+  },
+  "devices": {
+    "AM103-05": { "installed": "", "lastService": "", "location": "" },
+    "AM103-06": { "installed": "", "lastService": "", "location": "" },
+    "AM103-07": { "installed": "", "lastService": "", "location": "" },
+    "AM103-08": { "installed": "", "lastService": "", "location": "Top of the server cabinet" },
+    "AM308-01": { "installed": "", "lastService": "", "location": "" }
+  }
+}

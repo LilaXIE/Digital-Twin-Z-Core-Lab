@@ -3,7 +3,6 @@ import * as THREE from "three";
 import { camera, getControls, flyTo, onCameraStep, startAnimation, stopAnimation } from "./viewer.js";
 
 let presets = {};
-const HOME_DISTANCE = 1.3;
 let room = null;
 
 // The door is on the south wall (+Z). Positions are derived from the model so they follow model changes.
@@ -15,16 +14,18 @@ export function initPresets({ box, floorY, tableCenter, socketCenter }) {
   const table = tableCenter || new THREE.Vector3(c.x, floorY + 0.75, c.z);
   const sockets = socketCenter || new THREE.Vector3(c.x, floorY + 0.4, c.z);
   presets = {
-    // Pulled back far enough for the room to sit between the two Overview docks.
-    home: { target: new THREE.Vector3(c.x, floorY + 1.4, c.z), position: new THREE.Vector3(c.x - s.x * 1.05, floorY + s.y * 1.25, c.z + s.z * 1.05).sub(new THREE.Vector3(c.x, floorY + 1.4, c.z)).multiplyScalar(HOME_DISTANCE).add(new THREE.Vector3(c.x, floorY + 1.4, c.z)) },
+    // From the door side (south), lower than before so the meeting table, people and sensors sit in
+    // the middle of the picture rather than the ducts and the ladder (section B4).
+    home: { target: new THREE.Vector3(c.x + 0.3, floorY + 1.5, c.z + 0.4), position: new THREE.Vector3(c.x - s.x * 0.75, floorY + s.y * 1.12, room.box.max.z + s.z * 1.3) },
     // From the door (south), below the 4 m grating, looking down across the meeting table.
     environment: { target: table.clone().setY(table.y - 0.2), position: new THREE.Vector3(table.x - 0.9, floorY + 3.1, room.box.max.z + 4.4) },
-    // From the east, looking at the west and south walls where the sockets are.
-    energy: { target: new THREE.Vector3(sockets.x + 0.6, floorY + 0.7, sockets.z + 0.4), position: new THREE.Vector3(room.box.max.x + 3.2, floorY + 3.6, c.z + s.z * 0.42) },
+    // From the door side, below the 4 m grating and west of the ladder, looking along the west wall:
+    // all sockets and the lines to the total meter are in view (the old east view looked through the ladder).
+    energy: { target: new THREE.Vector3(room.box.min.x + 0.8, floorY + 0.4, c.z - 0.2), position: new THREE.Vector3(c.x + 1.5, floorY + 3.3, room.box.max.z + 5.0) },
     // High, steep view to show the ducts and terminals.
     devices: { target: new THREE.Vector3(c.x, floorY + 2.2, c.z), position: new THREE.Vector3(c.x - s.x * 0.45, floorY + s.y * 2.05, c.z + s.z * 0.55) },
   };
-  presets.ai = presets.home;
+  presets.ai = presets.home; // the AI drawer insets the view instead (ui/panel.js updateViewInset)
   const controls = getControls();
   controls.minDistance = 1.2;
   controls.maxDistance = s.length() * 2.6;
@@ -58,7 +59,8 @@ export function focusBox(box, duration = 1000) {
   const direction = camera.position.clone().sub(getControls().target).normalize();
   if (direction.y < 0.35) direction.y = 0.35;
   direction.normalize();
-  const position = center.clone().addScaledVector(direction, Math.max(2.4, radius * 6));
+  // Far enough to see where in the room the object is, not just its surface.
+  const position = center.clone().addScaledVector(direction, Math.max(3.6, radius * 8));
   return flyTo(position, center, duration);
 }
 

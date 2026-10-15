@@ -1,12 +1,13 @@
 // Devices theme (section 5.4): status summary, search, categories, list or table, layers, AHU.
 import { t, pick, formatNumber, ago } from "../../i18n.js";
-import { settings, select, ui } from "../../state.js";
-import { data } from "../../data/store.js";
+import { settings, select, ui, on } from "../../state.js";
+import { data, provider } from "../../data/store.js";
 import { registry, sensorGroupFor, SENSOR_GROUPS } from "../../data/devices.js";
-import { deviceStatus, healthSummary, sensorReading } from "../../data/derived.js";
-import { sceneState, setLayerVisible, setSensorMode } from "../../scene/index.js";
+import { deviceStatus, healthSummary, isSuspect, recommendationState, sensorReading } from "../../data/derived.js";
+import { sceneState, setLayerVisible, setMepMode, setSensorMode } from "../../scene/index.js";
 import { escapeHtml, icon } from "../dom.js";
 import { valueHtml } from "../format.js";
+import { ahuHours, dayTime } from "../ai-text.js";
 
 let body = null;
 let query = "";
@@ -18,6 +19,7 @@ export function mount(element) {
   body = element;
   body.innerHTML = `
     <section class="tw-section"><h3>${escapeHtml(t("summary"))}</h3><div class="tw-dist" data-part="summary"></div></section>
+    <section class="tw-section"><h3>${escapeHtml(t("healthTitle"))}<small>${escapeHtml(t("healthWindow"))}</small></h3><div data-part="data-health"></div></section>
     <section class="tw-section">
       <div class="tw-search">${icon("ph-magnifying-glass")}<input type="search" autocomplete="off" placeholder="${escapeHtml(t("searchDevices"))}" aria-label="${escapeHtml(t("searchDevices"))}" data-part="search"></div>
       <div class="tw-toolbar">
@@ -27,6 +29,7 @@ export function mount(element) {
       <div class="tw-tags" data-part="tags"></div>
       <div data-part="list"></div>
     </section>
+    <section class="tw-section" data-part="audit-section" hidden><h3>${escapeHtml(t("auditTitle"))}</h3><div data-part="audit"></div></section>
     <section class="tw-section" data-part="ahu-section" hidden><h3>${escapeHtml(t("ahu"))}</h3><div class="tw-rows" data-part="ahu"></div></section>
     <section class="tw-section">
       <details class="tw-collapse" data-part="layers"><summary>${escapeHtml(t("layers"))}</summary><div data-part="layers-body"></div></details>
@@ -37,7 +40,50 @@ export function mount(element) {
   body.querySelectorAll("[data-asset]").forEach((button) => button.addEventListener("click", () => { assetView = button.dataset.asset; renderList(); }));
   body.querySelectorAll("[data-mode]").forEach((button) => button.addEventListener("click", () => { listMode = button.dataset.mode; renderList(); }));
   renderLayers();
+  provider().requestDeviceHealth?.();
+  provider().requestAuditLog?.();
   update();
+}
+
+// Members see who switched, edited or noted what (section D1).
+const AUDIT_ACTIONS = { socket: "auditSocket", "meeting-upsert": "auditMeetingAdd", "meeting-delete": "auditMeetingDelete", "control-mode": "auditMode", "note-add": "auditNoteAdd", "note-delete": "auditNoteDelete", login: "auditLogin" };
+function renderAudit() {
+  const section = body.querySelector('[data-part="audit-section"]');
+  const entries = data().auditLog || [];
+  section.hidden = !entries.length;
+  if (!entries.length) return;
+  const detail = (entry) => entry.action === "socket" ? `${entry.detail?.deviceId} ${t(entry.detail?.action === "on" ? "socketOn" : "socketOff")}` : entry.action === "control-mode" ? entry.detail?.mode : entry.detail?.target || "";
+  body.querySelector('[data-part="audit"]').innerHTML = `<div class="tw-health-log">${entries.slice(-12).reverse().map((entry) => `<p${entry.ok === false ? ' class="is-error"' : ""}>${escapeHtml(`${ago(Date.parse(entry.t))} · ${entry.member} · ${t(AUDIT_ACTIONS[entry.action] || entry.action)}${detail(entry) ? ` · ${detail(entry)}` : ""}${entry.ok === false ? ` · ${t("auditFailed")}` : ""}`)}</p>`).join("")}</div>`;
+}
+
+// "10 min" or "3.4 h".
+const gapText = (minutes) => (minutes < 90 ? t("gapMinutes", { n: minutes }) : t("gapHours", { n: formatNumber(minutes / 60, 1) }));
+
+// Data health (section C3): per device how it reported over 24 hours, worst first, and the latest
+// changes of the CO₂ health check.
+function renderDataHealth() {
+  const host = body.querySelector('[data-part="data-health"]');
+  const report = data().deviceHealth;
+  if (!report) { host.innerHTML = `<p class="tw-caption">${escapeHtml(t("loading"))}</p>`; return; }
+  if (report.error) { host.innerHTML = `<p class="tw-caption is-error">${escapeHtml(t("historyFailed"))}</p>`; return; }
+  const rows = Object.entries(report.devices || {}).map(([id, item]) => {
+    const battery = data().snapshots.get(id)?.values.battery;
+    const suspect = isSuspect(id);
+    const gapLimit = item.intervalMinutes ? Math.max(60, item.intervalMinutes * 6) : null;
+    const issue = suspect || (item.completeness !== null && item.completeness < 95) || (Number.isFinite(battery) && battery < 20) || (gapLimit !== null && item.longestGapMinutes > gapLimit && item.completeness !== null);
+    return { id, item, battery, suspect, issue };
+  }).sort((a, b) => Number(b.issue) - Number(a.issue) || (a.item.completeness ?? 101) - (b.item.completeness ?? 101) || b.item.longestGapMinutes - a.item.longestGapMinutes || a.id.localeCompare(b.id));
+  const periodic = rows.filter((row) => row.item.completeness !== null);
+  const average = periodic.length ? periodic.reduce((sum, row) => sum + row.item.completeness, 0) / periodic.length : null;
+  const issues = rows.filter((row) => row.issue).length;
+  const summary = `<p class="tw-health-summary">${escapeHtml([average === null ? "" : t("healthAverage", { n: periodic.length, v: formatNumber(average, 1) }), issues ? t("healthIssues", { n: issues }) : t("healthNoIssues")].filter(Boolean).join(" · "))}</p>`;
+  const table = `<div class="tw-table-wrap"><table class="tw-table"><thead><tr><th>${escapeHtml(t("colId"))}</th><th>${escapeHtml(t("colUplinks"))}</th><th>${escapeHtml(t("colLongestGap"))}</th><th>${escapeHtml(t("colCompleteness"))}</th><th>${escapeHtml(t("colBattery"))}</th></tr></thead><tbody>
+    ${rows.map(({ id, item, battery, suspect, issue }) => `<tr data-device="${escapeHtml(id)}" tabindex="0" class="${issue ? "is-issue" : ""}"><td>${issue ? `<span class="tw-dot" data-level="caution"></span> ` : ""}${escapeHtml(id)}${suspect ? ` <small>${escapeHtml(t("readingSuspect"))}</small>` : ""}</td><td>${item.uplinks}</td><td>${escapeHtml(gapText(item.longestGapMinutes))}</td><td>${item.completeness === null ? `<small>${escapeHtml(t("eventDriven"))}</small>` : `${formatNumber(item.completeness, 1)}%`}</td><td>${Number.isFinite(battery) ? `${Math.round(battery)}%` : ""}</td></tr>`).join("")}
+  </tbody></table></div>`;
+  const events = (report.events || data().sensorHealth?.events || []).slice(-5).reverse();
+  const log = events.length ? `<div class="tw-health-log"><small>${escapeHtml(t("healthLog"))}</small>${events.map((event) => `<p>${escapeHtml(`${ago(Date.parse(event.t))} · ${event.id} · ${event.state === "suspect" ? t("readingSuspect") : t("statusNormal")}`)}</p>`).join("")}</div>` : "";
+  host.innerHTML = summary + table + log;
+  host.querySelectorAll("[data-device]").forEach((row) => row.addEventListener("click", () => select({ kind: "sensor", id: row.dataset.device })));
 }
 
 export function unmount() { body = null; }
@@ -61,6 +107,17 @@ export function summaryHtml() {
 
 const normalized = (value) => String(value || "").normalize("NFKD").toLowerCase();
 
+// "Battery 78% · 3 min ago" under each device (section B8).
+function deviceMeta(device) {
+  const snapshot = data().snapshots.get(device.id);
+  const battery = snapshot?.values.battery;
+  return [Number.isFinite(battery) ? t("batteryShort", { v: Math.round(battery) }) : "", snapshot?.updatedAt ? ago(snapshot.updatedAt) : ""].filter(Boolean).join(" · ");
+}
+const batteryLevel = (device) => {
+  const battery = data().snapshots.get(device.id)?.values.battery;
+  return !Number.isFinite(battery) ? "" : battery < 20 ? "poor" : battery < 50 ? "caution" : "";
+};
+
 function latestSummary(device) {
   const metric = device.metrics.find((m) => !["battery", "tamperStatus"].includes(m.key) && sensorReading(device.id, m.key).value !== null);
   if (!metric) return "";
@@ -69,9 +126,11 @@ function latestSummary(device) {
 
 function statusLevel(id) {
   const status = deviceStatus(id);
+  if (status === "normal" && isSuspect(id)) return "caution";
   return status === "normal" ? "good" : status === "fault" ? "poor" : "offline";
 }
-const statusText = (id) => ({ normal: t("statusNormal"), fault: t("statusFault"), offline: t("statusOffline"), unavailable: t("statusUnavailable") })[deviceStatus(id)] || "";
+const statusText = (id) => (deviceStatus(id) === "normal" && isSuspect(id) ? t("readingSuspect")
+  : ({ normal: t("statusNormal"), fault: t("statusFault"), offline: t("statusOffline"), unavailable: t("statusUnavailable") })[deviceStatus(id)] || "");
 
 function renderList() {
   if (!body) return;
@@ -102,8 +161,8 @@ function renderList() {
     && (!q || normalized(`${device.id} ${pick(device.name)} ${device.devEui}`).includes(q))).sort((a, b) => a.id.localeCompare(b.id));
   if (!visible.length) { list.innerHTML = emptyResult(); return; }
   if (listMode === "table") {
-    list.innerHTML = `<div class="tw-table-wrap"><table class="tw-table"><thead><tr><th>${escapeHtml(t("colName"))}</th><th>${escapeHtml(t("colId"))}</th><th>${escapeHtml(t("colStatus"))}</th><th>${escapeHtml(t("colLatest"))}</th></tr></thead><tbody>
-      ${visible.map((device) => `<tr data-device="${device.id}" tabindex="0"><td>${escapeHtml(pick(device.type))}</td><td>${escapeHtml(device.id)}</td><td><span class="tw-dot" data-level="${statusLevel(device.id)}"></span> ${escapeHtml(statusText(device.id))}</td><td>${latestSummary(device)}</td></tr>`).join("")}
+    list.innerHTML = `<div class="tw-table-wrap"><table class="tw-table"><thead><tr><th>${escapeHtml(t("colName"))}</th><th>${escapeHtml(t("colId"))}</th><th>${escapeHtml(t("colStatus"))}</th><th>${escapeHtml(t("colLatest"))}</th><th>${escapeHtml(t("colBattery"))}</th><th>${escapeHtml(t("colLastSeen"))}</th></tr></thead><tbody>
+      ${visible.map((device) => { const snapshot = data().snapshots.get(device.id); const battery = snapshot?.values.battery; return `<tr data-device="${device.id}" tabindex="0"><td>${escapeHtml(pick(device.type))}</td><td>${escapeHtml(device.id)}</td><td><span class="tw-dot" data-level="${statusLevel(device.id)}"></span> ${escapeHtml(statusText(device.id))}</td><td>${latestSummary(device)}</td><td>${Number.isFinite(battery) ? `${Math.round(battery)}%` : ""}</td><td>${snapshot?.updatedAt ? escapeHtml(ago(snapshot.updatedAt)) : ""}</td></tr>`; }).join("")}
     </tbody></table></div>`;
   } else {
     list.innerHTML = groups.filter((group) => visible.some((device) => sensorGroupFor(device).key === group.key)).map((group) => `
@@ -111,7 +170,7 @@ function renderList() {
         ${visible.filter((device) => sensorGroupFor(device).key === group.key).map((device) => `
           <button type="button" class="tw-device${ui.selection?.kind === "sensor" && ui.selection.id === device.id ? " is-selected" : ""}" data-device="${device.id}">
             <span class="tw-dot" data-level="${statusLevel(device.id)}" aria-label="${escapeHtml(statusText(device.id))}"></span>
-            <span><strong>${escapeHtml(device.id)}</strong><small>${escapeHtml(pick(device.type))}</small></span>
+            <span><strong>${escapeHtml(device.id)}</strong><small>${escapeHtml(pick(device.type))}</small><small class="tw-device-meta${batteryLevel(device) ? ` is-${batteryLevel(device)}` : ""}">${escapeHtml(deviceMeta(device))}</small></span>
             <span class="tw-device-value">${latestSummary(device)}</span>
           </button>`).join("")}
       </div>`).join("");
@@ -127,12 +186,24 @@ function emptyResult() {
   return `<div class="tw-empty">${icon("ph-magnifying-glass")}<span>${escapeHtml(query.trim() ? t("noResults", { q: query.trim() }) : t("noDevices"))}</span></div>`;
 }
 
+// Without BMS data the AHU shows only what is known: its (inferred) hours and whether it runs now.
+function ahuScheduleHtml(info) {
+  const state = info.running ? t("ahuRunningState") : t("ahuOffTitle");
+  const next = info.running ? (info.nextStop ? t("ahuNextStop", { when: dayTime(Date.parse(info.nextStop)) }) : "") : (info.nextStart ? t("ahuNextStart", { when: dayTime(Date.parse(info.nextStart)) }) : "");
+  return `<div class="tw-row"><span>${escapeHtml(t("ahuState"))}</span><strong><span class="tw-dot" data-level="${info.running ? "good" : "offline"}"></span> ${escapeHtml(state)}</strong></div>
+    ${next ? `<div class="tw-row"><span></span><span class="tw-caption" style="margin:0">${escapeHtml(next)}</span></div>` : ""}
+    <div class="tw-row"><span>${escapeHtml(t("ahuHoursLine", { hours: ahuHours(info.schedule) }))}</span></div>
+    ${info.source === "bms" ? "" : `<p class="tw-caption">${escapeHtml(t("ahuHoursInferred"))}</p>`}
+    <div class="tw-empty">${icon("ph-hard-drives")}<span>${escapeHtml(t("ahuBmsPending"))}</span></div>`;
+}
+
 function renderAhu() {
   const ahu = data().ahu;
+  const schedule = recommendationState().rec?.ahu;
   const section = body.querySelector('[data-part="ahu-section"]');
-  // AHU data is not connected yet: hidden for customers, "not connected" in internal mode.
-  section.hidden = !ahu && !settings.internal;
+  section.hidden = !ahu && !schedule && !settings.internal;
   const host = body.querySelector('[data-part="ahu"]');
+  if (!ahu && schedule) { host.innerHTML = ahuScheduleHtml(schedule); return; }
   if (!ahu) { host.innerHTML = `<div class="tw-empty">${icon("ph-hard-drives")}<span>${escapeHtml(t("bmsReservedCopy"))}</span></div>`; return; }
   const row = (label, value, unit) => `<div class="tw-row"><span>${escapeHtml(label)}</span><strong><span class="tw-num">${formatNumber(value, 1)}</span><span class="tw-unit">${unit}</span></strong></div>`;
   host.innerHTML = [row(t("ahuSupply"), ahu.supply, "°C"), row(t("ahuReturn"), ahu.return, "°C"), row(t("ahuWater"), ahu.water, "%"), row(t("ahuOa"), ahu.oa, "%"), row(t("ahuFan"), ahu.fan, "Hz"), row(t("ahuSetpoint"), ahu.setpoint, "°C")].join("");
@@ -145,16 +216,24 @@ function renderLayers() {
     <div class="tw-layer-row"><span>${escapeHtml(t("layerSensors"))}</span><div class="tw-seg" role="group">
       ${[["all", "sensorModeAll"], ["model", "sensorModeModel"], ["hidden", "sensorModeHidden"]].map(([mode, key]) => `<button type="button" data-sensor-mode="${mode}" aria-pressed="${sceneState.sensorMode === mode}">${escapeHtml(t(key))}</button>`).join("")}
     </div></div>`;
-  host.querySelectorAll("[data-layer]").forEach((input) => input.addEventListener("change", () => setLayerVisible(input.dataset.layer, input.checked)));
+  host.querySelectorAll("[data-layer]").forEach((input) => input.addEventListener("change", () => {
+    if (input.dataset.layer === "mep") setMepMode(input.checked ? "shown" : "hidden");
+    else setLayerVisible(input.dataset.layer, input.checked);
+  }));
   host.querySelectorAll("[data-sensor-mode]").forEach((button) => button.addEventListener("click", () => { setSensorMode(button.dataset.sensorMode); renderLayers(); }));
 }
 
 export function update() {
   if (!body) return;
   body.querySelector('[data-part="summary"]').innerHTML = summaryHtml();
+  if (!body.contains(document.activeElement) || !document.activeElement.closest('[data-part="data-health"]')) renderDataHealth();
   if (document.activeElement?.closest?.('[data-part="list"]') === null || !body.contains(document.activeElement)) renderList();
   renderAhu();
+  renderAudit();
 }
+
+// The toolbar button and this panel's MEP switch show the same state.
+on("mep", () => { if (body) renderLayers(); });
 
 export const titleKey = "devicesTitle";
 export { ago };

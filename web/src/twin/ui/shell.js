@@ -3,13 +3,14 @@
 import { t, ago, clockTime, formatNumber, getLang, pick } from "../i18n.js";
 import { ui, settings, setView, setFocusMetric, emit, on, updateSetting, coarsePointer } from "../state.js";
 import { data } from "../data/store.js";
-import { roomMetric, metricStatus, occupancyInfo, lastReadingAt, alarms, socketDevices, socketInfo, safetyFacts, recommendationState, roomSeries } from "../data/derived.js";
-import { isWorkingTime, thresholds } from "../config/site.js";
+import { roomMetric, metricStatus, occupancyInfo, lastReadingAt, alarms, socketDevices, socketInfo, safetyFacts, recommendationState, roomSeries, healthSummary } from "../data/derived.js";
+import { SITE, isWorkingTime, thresholds } from "../config/site.js";
 import { roomState, sentenceText } from "./room-state.js";
 import { $, $$, escapeHtml, rollNumber, term } from "./dom.js";
 import { sparkline } from "./charts/timeline.js";
 import { daylightState } from "../scene/daylight.js";
 import { startReplay } from "../data/replay.js";
+import { renderMobile } from "./mobile.js";
 
 const CAPSULES = [
   { key: "co2", unit: "ppm", digits: 0, glossary: "co2" },
@@ -122,7 +123,14 @@ function renderSentence() {
     recommendation: valid && !stale ? rec : null,
   });
   ui.roomState = result;
-  const text = sentenceText(result, t, getLang());
+  // One line answers "is the room OK, what is the AI doing, what has it saved" (section B1).
+  const parts = [sentenceText(result, t, getLang())];
+  if (rec && valid && !stale) {
+    parts.push(rec.ahu?.running === false ? t("lineAhuOff") : t("lineAi", { lps: rec.airflow.recommendedLps }));
+    const kwh = rec.energy?.savedTodayKwhElectric;
+    if (kwh >= 0.01) parts.push(t("lineSaved", { kwh: formatNumber(kwh, kwh < 1 ? 2 : 1), kg: formatNumber(kwh * SITE.carbonKgPerKwh, kwh * SITE.carbonKgPerKwh < 1 ? 2 : 1) }));
+  }
+  const text = parts.join(" · ");
   if (element.textContent !== text) element.textContent = text;
 }
 
@@ -158,7 +166,8 @@ function renderIdentity() {
   const stats = dataset.readingStats;
   const statsLine = $("#stats-line");
   statsLine.hidden = !stats;
-  if (stats) statsLine.textContent = t("statsLine", { sensors: stats.sensorsReporting, readings: stats.readingsToday.toLocaleString("en-US") });
+  // One count everywhere: the registry's devices (as "devices online n / total"), then how many reported today.
+  if (stats) statsLine.textContent = t("statsLine", { total: healthSummary().total, sensors: stats.sensorsReporting, readings: stats.readingsToday.toLocaleString("en-US") });
 }
 
 function renderBadges() {
@@ -266,6 +275,7 @@ export function renderShell() {
     renderAlarmCapsule();
     renderTabs();
     renderLang();
+    renderMobile(); // the phone page reuses the status line computed above
   });
 }
 

@@ -1,5 +1,5 @@
 // Builds one recommendation from the current room state. Pure: used by the bridge service and backtest.
-import { baselineAirflowAt, lpsToDamper } from "./config.mjs";
+import { ahuStatus, baselineAirflowAt, damperToLps, lpsToDamper } from "./config.mjs";
 import { simulateCo2, peakPpm } from "./co2-model.mjs";
 import { horizonMinutes, hkTime, meetingAt, nextMeeting, occupancyForecast } from "./occupancy-forecast.mjs";
 import { enthalpyDifference } from "./energy.mjs";
@@ -15,7 +15,22 @@ function valueAt(points, tMs) {
   return points.find((point) => point.t >= tMs - 1000)?.ppm ?? points.at(-1).ppm;
 }
 
-function buildReason({ atMax, exceedAt, meetingNow, upcoming, lps, minLps, people, config }) {
+// The page renders the reason from { code, params } in its own language; zh/en text stays for logs and the CLI.
+function reasonCode({ ahu, ahuStartPpm, atMax, exceedAt, meetingNow, upcoming, lps, minLps, people, config }) {
+  if (!ahu.running) return { code: "ahu-off", params: { nextStart: ahu.nextStart ? iso(ahu.nextStart) : null, ppmAtStart: ahuStartPpm } };
+  if (atMax) return exceedAt ? { code: "at-max-exceed", params: { limit: config.co2.limitPpm, at: iso(exceedAt) } } : { code: "at-max", params: { target: config.co2.targetPpm } };
+  const raised = lps > minLps + 0.5;
+  if (meetingNow) return { code: "meeting-now", params: { title: meetingNow.title || "", people: meetingNow.people, raised } };
+  if (upcoming) return { code: "meeting-upcoming", params: { title: upcoming.title || "", people: upcoming.people, at: upcoming.start, raised } };
+  if (!raised) return { code: "headroom", params: {} };
+  return { code: "raised", params: { people: Math.round(people), target: config.co2.targetPpm } };
+}
+
+function buildReason({ ahu, atMax, exceedAt, meetingNow, upcoming, lps, minLps, people, config }) {
+  if (!ahu.running) {
+    const at = ahu.nextStart ? hkTime(ahu.nextStart).label : "";
+    return { zh: `AHU 已停机${at ? `，下次 ${at} 开机` : ""}`, en: `AHU is off${at ? `; next start ${at}` : ""}` };
+  }
   if (atMax) {
     return exceedAt
       ? { zh: `预计 ${hkTime(exceedAt).label} CO₂ 超过 ${config.co2.limitPpm} ppm，新风已达上限`, en: `CO₂ forecast to exceed ${config.co2.limitPpm} ppm at ${hkTime(exceedAt).label}; outdoor air at maximum` }
@@ -38,7 +53,8 @@ function buildReason({ atMax, exceedAt, meetingNow, upcoming, lps, minLps, peopl
 }
 
 // input: { nowMs, roomPpm, occupancy: { current, measured }, meetings, config, outdoor, indoor, baselineLps?, previousDamperPct? }
-export function buildRecommendation({ nowMs, roomPpm, occupancy, meetings = [], config, outdoor, indoor, baselineLps, previousDamperPct = null }) {
+// forecastToAhuStart: while the AHU is off, also simulate CO₂ up to its next start (skipped in backfills).
+export function buildRecommendation({ nowMs, roomPpm, occupancy, meetings = [], config, outdoor, indoor, baselineLps, previousDamperPct = null, forecastToAhuStart = true }) {
   const curve = config.ventilation.damperCurve;
   const baselineAt = baselineLps === undefined ? (t) => baselineAirflowAt(t, config) : () => baselineLps;
   const baseline = baselineAt(nowMs);
@@ -53,12 +69,20 @@ export function buildRecommendation({ nowMs, roomPpm, occupancy, meetings = [], 
   const exceedAt = result.trajectory.find((point, index) => index > 0 && point.ppm > config.co2.limitPpm)?.t ?? null;
   const meetingNow = meetingAt(nowMs, meetings);
   const upcoming = meetingNow ? null : nextMeeting(nowMs, nowMs + horizon * 60000, meetings);
-  const reason = buildReason({ atMax: result.atMax, exceedAt, meetingNow, upcoming, lps: result.lps, minLps: result.minLps, people: occupancy.current, config });
+  const ahu = ahuStatus(nowMs, config);
+  let ahuStartPpm = null;
+  if (!ahu.running && ahu.nextStart && forecastToAhuStart) {
+    const minutes = Math.min(80 * 60, Math.round((ahu.nextStart - nowMs) / 60000));
+    const untilStart = simulateCo2({ startPpm: roomPpm, startMs: nowMs, minutes, occupancyAt, airflowAt: baselineAt, config, stepMinutes: 10 });
+    ahuStartPpm = Math.round(untilStart.at(-1).ppm);
+  }
+  const reasonInput = { ahu, ahuStartPpm, atMax: result.atMax, exceedAt, meetingNow, upcoming, lps: result.lps, minLps: result.minLps, people: occupancy.current, config };
+  const reason = buildReason(reasonInput);
 
   const forecastTimes = sample(result.trajectory, nowMs, step).map((point) => point.t);
   return {
     type: "recommendation",
-    status: result.atMax ? "at-max" : "ok",
+    status: !ahu.running ? "ahu-off" : result.atMax ? "at-max" : "ok",
     generatedAt: iso(nowMs),
     horizonMinutes: horizon,
     occupancy: {
@@ -90,6 +114,10 @@ export function buildRecommendation({ nowMs, roomPpm, occupancy, meetings = [], 
       plan: result.plan.map((item) => ({ t: iso(item.t), lps: Math.round(item.lps), damperPct: item.damperPct ?? damperPct })),
     },
     meeting: meetingNow || upcoming || null,
+    ahu: { running: ahu.running, nextStart: ahu.nextStart ? iso(ahu.nextStart) : null, nextStop: ahu.nextStop ? iso(ahu.nextStop) : null,
+      source: ahu.source, schedule: config.ventilation.ahuSchedule, ppmAtNextStart: ahuStartPpm,
+      assumedDamperPct: config.ventilation.baselineDamperPct, assumedLps: Math.round(damperToLps(config.ventilation.baselineDamperPct, curve)), offLps: config.ventilation.ahuOffLps },
+    reasonCode: reasonCode(reasonInput),
     reason: reason.zh,
     reasonEn: reason.en,
     // Unrounded values for logging and savings; the page does not display these.

@@ -5,9 +5,14 @@ import { t, pick, ago, formatNumber } from "../i18n.js";
 import { ui, settings, select, on, emit } from "../state.js";
 import { data, provider } from "../data/store.js";
 import { deviceById } from "../data/devices.js";
-import { deviceStatus, sensorReading } from "../data/derived.js";
+import { deviceStatus, sensorHealth, sensorReading } from "../data/derived.js";
 import { sceneState, focusDevice, focusItem, selectOutline, detailsFor, itemByKey } from "../scene/index.js";
 import { markerFor } from "../scene/markers.js";
+import { planOutline } from "../scene/intro.js";
+import { shareUrl, showQr } from "./export.js";
+import assets from "../config/assets.json";
+import { camera, getControls, flyTo } from "../scene/viewer.js";
+import { controlUnlocked, unlockControl } from "./sockets.js";
 import { lineChart, cssVar } from "./charts/timeline.js";
 import { escapeHtml, icon, term, growFrom, shrinkTo } from "./dom.js";
 import { valueHtml, metricLabel } from "./format.js";
@@ -68,6 +73,91 @@ function bimSection() {
   </dl></div></details>`;
 }
 
+// A small floor plan with the sensor's position, so a close-up still says where in the room it is.
+function locationMap(deviceId) {
+  const lines = planOutline();
+  const anchor = sceneState.anchors.get(deviceId);
+  if (!lines?.length || !anchor) return "";
+  const xs = lines.flatMap(([, x1, , x2]) => [x1, x2]);
+  const zs = lines.flatMap(([, , z1, , z2]) => [z1, z2]);
+  const [minX, maxX, minZ, maxZ] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+  const pad = 0.4;
+  const view = `${(minX - pad).toFixed(2)} ${(minZ - pad).toFixed(2)} ${(maxX - minX + 2 * pad).toFixed(2)} ${(maxZ - minZ + 2 * pad).toFixed(2)}`;
+  const path = lines.map(([kind, x1, z1, x2, z2]) => `<line class="is-${kind}" x1="${x1.toFixed(2)}" y1="${z1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${z2.toFixed(2)}"/>`).join("");
+  return `<figure class="tw-locmap"><svg viewBox="${view}" role="img" aria-label="${escapeHtml(t("locationMap"))}">${path}
+    <circle class="tw-locmap-ring" cx="${anchor.x.toFixed(2)}" cy="${anchor.z.toFixed(2)}" r="0.45"/><circle class="tw-locmap-dot" cx="${anchor.x.toFixed(2)}" cy="${anchor.z.toFixed(2)}" r="0.18"/></svg>
+    <figcaption>${escapeHtml(t("locationMapCaption"))}</figcaption></figure>`;
+}
+
+// Asset card (section D4): model facts plus what FMO records per unit (config/assets.json).
+function assetSection(device) {
+  const model = assets.models[device.model];
+  if (!model) return "";
+  const unit = assets.devices[device.id] || {};
+  const health = data().deviceHealth?.devices?.[device.id];
+  const pending = `<span class="tw-unit">${escapeHtml(t("toBeAdded"))}</span>`;
+  const row = (label, value) => `<div><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`;
+  return `<details class="tw-collapse"><summary>${escapeHtml(t("assetTitle"))}</summary><div><dl class="tw-props">
+    ${row(t("assetModel"), escapeHtml(`${model.manufacturer} ${device.model} (${model.family})`))}
+    ${row(t("assetRadio"), escapeHtml(`${model.radio} · ${t(model.power === "mains" ? "powerMains" : "powerBattery")}`))}
+    ${health?.intervalMinutes ? row(t("assetInterval"), escapeHtml(t("gapMinutes", { n: health.intervalMinutes }))) : ""}
+    ${device.devEui ? row("DevEUI", escapeHtml(device.devEui)) : ""}
+    ${row(t("assetInstalled"), unit.installed ? escapeHtml(unit.installed) : pending)}
+    ${row(t("assetService"), unit.lastService ? escapeHtml(unit.lastService) : pending)}
+    ${unit.location ? row(t("assetLocation"), escapeHtml(unit.location)) : ""}
+    ${row(t("assetDatasheet"), model.datasheet ? `<a href="${escapeHtml(model.datasheet)}" target="_blank" rel="noopener">${escapeHtml(t("open"))}</a>` : pending)}
+  </dl></div></details>`;
+}
+
+// Notes pinned to this device (section D4), with the view they were written from. Members only.
+function notesSection(target) {
+  const dataset = data();
+  if (dataset.kind === "live" && dataset.control.writeProtected && !dataset.member) return "";
+  const notes = (dataset.notes || []).filter((note) => note.target === target);
+  return `<section class="tw-section"><h3>${escapeHtml(t("notesTitle"))}<small>${escapeHtml(t("notesMembers"))}</small></h3>
+    ${notes.map((note) => `<div class="tw-note"><p>${escapeHtml(note.text)}</p><small>${escapeHtml(`${note.member} · ${ago(Date.parse(note.t))}`)}</small>
+      <span class="tw-h3-actions">${note.camera ? `<button type="button" class="tw-link" data-note-view="${escapeHtml(note.id)}">${icon("ph-eye")}${escapeHtml(t("noteView"))}</button>` : ""}<button type="button" class="tw-link" data-note-delete="${escapeHtml(note.id)}">${icon("ph-trash")}</button></span></div>`).join("")}
+    <form class="tw-note-form"><textarea name="text" rows="2" maxlength="500" placeholder="${escapeHtml(t("notePlaceholder"))}"></textarea><button type="submit" class="tw-button tw-button-small">${escapeHtml(t("noteAdd"))}</button></form>
+    <p class="tw-caption">${escapeHtml(t("noteHint"))}</p></section>`;
+}
+
+function bindNotes(body, target) {
+  const form = body.querySelector(".tw-note-form");
+  if (!form) return;
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const text = form.text.value.trim();
+    if (!text) return;
+    if (!controlUnlocked() && !(await unlockControl())) return;
+    const view = { position: camera.position.toArray(), target: getControls().target.toArray() };
+    const result = await provider().writeRequest({ type: "note-add", target, text, camera: view });
+    if (result?.ok) form.text.value = "";
+  });
+  body.querySelectorAll("[data-note-delete]").forEach((button) => button.addEventListener("click", () => void provider().writeRequest({ type: "note-delete", id: button.dataset.noteDelete })));
+  body.querySelectorAll("[data-note-view]").forEach((button) => button.addEventListener("click", () => {
+    const note = data().notes.find((item) => item.id === button.dataset.noteView);
+    if (note?.camera) void flyTo({ x: note.camera.position[0], y: note.camera.position[1], z: note.camera.position[2] }, { x: note.camera.target[0], y: note.camera.target[1], z: note.camera.target[2] }, 900);
+  }));
+}
+
+// CO₂ sensors: raw reading, calibration offset and the health check's verdict.
+function qualitySection(device, snapshot) {
+  const calibration = data().calibration;
+  const offset = calibration?.offsets?.[device.id];
+  if (offset === undefined) return "";
+  const raw = snapshot?.corrections?.co2?.raw;
+  const health = sensorHealth(device.id);
+  const reasons = health?.state === "suspect" ? health.reasons.map((reason) => t({ "below-outdoor": "healthBelowOutdoor", flatline: "healthFlatline", deviates: "healthDeviates" }[reason] || reason, { v: calibration.outdoorPpm })) : [];
+  const row = (label, value) => `<div><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`;
+  return `<section class="tw-section"><h3>${escapeHtml(t("dataQuality"))}</h3>
+    ${reasons.length ? `<p class="tw-caption is-warning">${icon("ph-warning")} ${escapeHtml(reasons.join(" · "))} · ${escapeHtml(t("excludedFromRoom"))}</p>` : ""}
+    <dl class="tw-props">
+      ${Number.isFinite(raw) ? row(t("rawReading"), `${formatNumber(raw, 0)} ppm`) : ""}
+      ${row(t("correction"), `${offset > 0 ? "−" : offset < 0 ? "+" : "±"}${formatNumber(Math.abs(offset), 0)} ppm`)}
+      ${calibration.calibratedAt ? row(t("calibratedOn"), escapeHtml(new Date(calibration.calibratedAt).toLocaleDateString("en-CA", { timeZone: "Asia/Hong_Kong" }))) : ""}
+    </dl></section>`;
+}
+
 function render() {
   const body = document.getElementById("sheet-body");
   if (!current) return;
@@ -91,9 +181,11 @@ function render() {
   const history = data().sensorHistory;
   const loading = history.deviceId === device.id && history.loading;
   body.innerHTML = `
+    ${locationMap(device.id)}
     <div class="tw-sheet-status">
       <span class="tw-pill" data-level="${statusLevel}"><span class="tw-dot" data-level="${statusLevel === "normal" ? "good" : statusLevel === "fault" ? "poor" : "offline"}"></span>${escapeHtml(statusText)}</span>
       <span>${escapeHtml(snapshot?.updatedAt ? t("lastRecord", { ago: ago(snapshot.updatedAt) }) : t("noRecord"))}</span>
+      <button type="button" class="tw-button tw-button-small" data-action="qr">${icon("ph-qr-code")}<span>${escapeHtml(t("qrCode"))}</span></button>
     </div>
     ${readings.length ? `<div class="tw-metric-grid">${readings.map(({ metric, reading }) => `
       <div class="tw-metric${reading.stale ? " is-stale" : ""}"><span>${icon(metric.icon)}${metric.glossary ? term(metric.glossary, metricLabel(metric)) : escapeHtml(metricLabel(metric))}</span>
@@ -105,6 +197,9 @@ function render() {
       <p class="tw-caption${history.error && history.deviceId === device.id ? " is-error" : ""}">${escapeHtml(loading ? t("loading") : history.error && history.deviceId === device.id ? t("historyFailed") : t("readingsInRange", { range: range.key === "custom" ? `${range.hours}h` : range.key, count: countInRange(snapshot, metrics[0]) }))}</p>
       ${trendMetrics.map((metric) => `<div class="tw-chart-head" style="margin-top:12px"><span class="tw-caption" style="margin:0">${escapeHtml(metricLabel(metric))}</span></div><div class="tw-chart is-small" data-trend="${metric.key}"></div>`).join("") || (loading ? '<div class="tw-skeleton" style="height:120px;margin-top:12px"></div>' : `<div class="tw-empty">${icon("ph-chart-line")}<span>${escapeHtml(t("noRecords"))}</span></div>`)}
     </section>
+    ${data().kind === "live" ? qualitySection(device, snapshot) : ""}
+    ${notesSection(device.id)}
+    ${assetSection(device)}
     ${bimSection()}
     ${settings.demo ? `<button type="button" class="tw-button ${data().faults?.has(device.id) ? "" : "tw-button-danger"}" data-action="fault" style="margin-top:14px;width:100%">${icon("ph-warning")}${escapeHtml(t(data().faults?.has(device.id) ? "restoreNormal" : "simulateFault"))}</button>` : ""}`;
   const now = Date.now();
@@ -129,6 +224,8 @@ function render() {
     provider().requestSensorHistory(device.id, range.hours);
     render();
   });
+  bindNotes(body, device.id);
+  body.querySelector('[data-action="qr"]').addEventListener("click", (event) => showQr(event.currentTarget, { title: pick(device.name), url: shareUrl(`#sensor=${device.id}`), printable: true }));
   body.querySelector('[data-action="fault"]')?.addEventListener("click", () => {
     const faults = data().faults;
     if (faults.has(device.id)) faults.delete(device.id); else faults.add(device.id);
@@ -147,7 +244,7 @@ export function initSensorSheet() {
   on("data", (event) => {
     if (!current || sheet().hidden) return;
     if (document.activeElement?.closest?.("#sheet-body input")) return;
-    if (event?.kind === "sensor-history" || event?.kind === "fault" || event?.kind === "dataset" || (event?.kind === "telemetry" && (event.deviceId === current.id || event.demo))) render();
+    if (["sensor-history", "fault", "dataset", "sensor-health", "calibration", "notes", "control", "device-health"].includes(event?.kind) || (event?.kind === "telemetry" && (event.deviceId === current.id || event.demo))) render();
   });
   on("settings", () => { if (current) render(); });
 }

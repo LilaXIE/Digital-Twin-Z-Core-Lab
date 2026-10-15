@@ -1,6 +1,7 @@
-// Standby showcase for the lab display (section 13.7): after 3 idle minutes it cycles
-// Overview → Environment → Energy → Devices (≈20 s each), sways the camera gently, plays one ripple
-// per round, and stops on the first touch, click or key. Live data throughout; 30 fps cap.
+// Standby showcase for the lab display (section 13.7, D5): after 3 idle minutes it cycles
+// Overview → Environment → Energy → Devices → AI (≈20 s each), sways the camera gently, plays one
+// ripple per round, and stops on the first touch, click or key. Live data throughout; 30 fps cap.
+// While it runs, Overview shows the indoor and outdoor cards side by side and the socket card.
 import { settings, ui, setView, select, on, reducedMotion, queryParams } from "../state.js";
 import { SITE } from "../config/site.js";
 import { setFrameCap } from "../scene/viewer.js";
@@ -9,7 +10,7 @@ import { ripple } from "../scene/digital-layer.js";
 import { closeAiPage } from "./ai-page.js";
 import { closePopover } from "./dom.js";
 
-const ORDER = ["home", "environment", "energy", "devices"];
+const ORDER = ["home", "environment", "energy", "devices", "ai"];
 let idleTimer = 0;
 let cycleTimer = 0;
 let active = false;
@@ -31,6 +32,7 @@ function start() {
   closeAiPage();
   select(null);
   setFrameCap(30);
+  document.body.setAttribute("data-showcase", "");
   document.getElementById("kiosk-hint").hidden = false;
   advance();
 }
@@ -58,6 +60,7 @@ function stop() {
   window.clearTimeout(cycleTimer);
   stopSway();
   setFrameCap(0);
+  document.body.removeAttribute("data-showcase");
   document.getElementById("kiosk-hint").hidden = true;
   setView("home");
   void flyToView("home", 600);

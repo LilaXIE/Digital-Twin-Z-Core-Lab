@@ -56,7 +56,9 @@ test("AHU schedule switches the baseline to infiltration", () => {
   assert.equal(ahuRunning(wednesday("19:00"), scheduled), false);
   assert.equal(baselineAirflowAt(wednesday("19:00"), scheduled), 22);
   assert.equal(baselineAirflowAt(wednesday("10:00"), scheduled), 90);
-  assert.equal(ahuRunning(wednesday("19:00"), config), true, "no schedule means always running");
+  const unscheduled = { ...config, ventilation: { ...config.ventilation, ahuSchedule: null } };
+  assert.equal(ahuRunning(wednesday("19:00"), unscheduled), true, "no schedule means always running");
+  assert.equal(ahuRunning(wednesday("19:00"), config), false, "the default schedule is the inferred 08:00–18:00");
 });
 
 test("local times in CSV logs are Hong Kong time", () => {

@@ -55,6 +55,7 @@ function demoRecommendation(dataset, t) {
       exceedAt: null, average8h: Math.round(room - 20), average8hCoverageHours: 8 },
     airflow: { recommendedLps: lps, recommendedDamperPct: damper, minLps: min, maxLps: 300, baselineLps: 90, baselineDamperPct: 30, atMax: lps >= 300, method: "bisection", plan: [] },
     meeting: { id: "demo", title: "Group meeting", start: iso(t + 35 * 60000), end: iso(t + 95 * 60000), people: 8 },
+    reasonCode: { code: "meeting-upcoming", params: { title: "", people: 8, at: iso(t + 35 * 60000), raised: true } },
     reason: `${clockTime(t + 35 * 60000)} 组会预计 8 人，提前加大新风`, reasonEn: `Group meeting at ${clockTime(t + 35 * 60000)} with 8 expected; increasing outdoor air in advance`,
     energy: { savedTodayM3: 386, savedTodayKwhCooling: 2.9, savedTodayKwhElectric: 0.64, savedWeekM3: 2240, savedWeekKwhCooling: 16.8, savedWeekKwhElectric: 3.73, outdoorSource: "hko-kings-park", plantCop: 4.5 },
     controlMode: dataset.demoControlMode || "L1", calendar: dataset.meetings,
@@ -197,6 +198,47 @@ demoFactory.api = {
     return dataset.roomHistory;
   },
   requestRecommendationHistory() { emit("data", { kind: "rec-history" }); },
+  // Illustrative data health and standby figures for the demo devices.
+  requestDeviceHealth() {
+    const dataset = currentDemo();
+    if (!dataset) return;
+    const devices = {};
+    for (const id of dataset.snapshots.keys()) devices[id] = { uplinks: 144, intervalMinutes: 10, longestGapMinutes: id === "AM103-07" ? 70 : 10, completeness: id === "AM103-07" ? 96.5 : 100, last: new Date().toISOString() };
+    dataset.deviceHealth = { hours: 24, devices, events: [] };
+    emit("data", { kind: "device-health" });
+  },
+  requestStandbyReport() {
+    const dataset = currentDemo();
+    if (!dataset) return;
+    const sockets = Object.keys(SOCKET_POWER).map((id, index) => ({ id, standbyW: [12, 3.5, 1.2, 0][index] ?? 0, workingW: SOCKET_POWER[id], yearKwh: Math.round(([12, 3.5, 1.2, 0][index] ?? 0) * 6157 / 1000) })).sort((a, b) => b.yearKwh - a.yearKwh);
+    dataset.standby = { days: 7, sockets, totalYearKwh: sockets.reduce((s, x) => s + x.yearKwh, 0), standbyHoursPerYear: 6157 };
+    emit("data", { kind: "standby" });
+  },
+  // Illustrative AI review: working-hours savings for a week and a forecast that tracks the room.
+  requestAiReview() {
+    const dataset = currentDemo();
+    if (!dataset) return;
+    const now = Date.now();
+    const hours = [];
+    const points = [];
+    for (let t = Math.floor((now - 7 * 24 * HOUR) / HOUR) * HOUR; t < now; t += HOUR) {
+      const h = hkHour(t);
+      const day = new Date(t + 8 * HOUR).getUTCDay();
+      if (day >= 1 && day <= 5 && h >= 8 && h < 18) hours.push({ t: new Date(t).toISOString(), baselineKwh: 0.21, recommendedKwh: peopleAt(t) ? 0.16 : 0.06 });
+    }
+    for (let t = now - 24 * HOUR; t < now; t += 600000) {
+      const actual = Math.round(co2At(t, 0));
+      points.push({ t: new Date(t).toISOString(), actual, predicted: Math.round(actual + 14 * Math.sin(t / 4e6)) });
+    }
+    const baselineKwh = hours.reduce((s, h) => s + h.baselineKwh, 0);
+    const recommendedKwh = hours.reduce((s, h) => s + h.recommendedKwh, 0);
+    const savedKwh = baselineKwh - recommendedKwh;
+    dataset.aiReview = {
+      savings: { hours, days: [], totals: { baselineKwh, recommendedKwh, savedKwh, savedSharePct: Math.round(savedKwh / baselineKwh * 1000) / 10, savedKwhLow: savedKwh * 0.62, savedKwhHigh: savedKwh * 1.6 }, assumptions: { plantCop: 4.5, baselineDamperPct: 30, airflowShare: 0.25, copDelta: 1 } },
+      forecast: { hours: 24, points, mae30: 9, mae60: 11, bias60: 2, samples30: 144, samples60: 138 },
+    };
+    emit("data", { kind: "ai-review" });
+  },
   async socketControl(deviceId, desired) {
     const dataset = currentDemo();
     if (!dataset) return false;
@@ -214,6 +256,18 @@ demoFactory.api = {
     emit("data", { kind: "telemetry", deviceId, changed: ["socketStatus", "activePower"] });
     return true;
   },
+  // Demo mode needs no login; votes stay on this page.
+  async login() { return true; },
+  logout() {},
+  async ensureMember() { return true; },
+  requestAuditLog() {},
+  async sendFeedback(vote) {
+    const dataset = currentDemo();
+    if (!dataset) return { ok: false };
+    dataset.feedback = [...dataset.feedback, { t: new Date().toISOString(), vote, member: null, room: {} }];
+    emit("data", { kind: "feedback" });
+    return { ok: true };
+  },
   async writeRequest(message) {
     const dataset = currentDemo();
     if (!dataset) return { ok: false };
@@ -222,6 +276,12 @@ demoFactory.api = {
       else dataset.meetings = [...dataset.meetings, { id: `demo-${Date.now()}`, ...message.meeting }];
       dataset.recommendation = demoRecommendation(dataset, Date.now());
       emit("data", { kind: "calendar" });
+      return { ok: true };
+    }
+    if (message.type === "note-add" || message.type === "note-delete") {
+      if (message.type === "note-add") dataset.notes = [...dataset.notes, { id: `demo-${Date.now()}`, t: new Date().toISOString(), member: "demo", target: message.target, text: message.text, camera: message.camera || null }];
+      else dataset.notes = dataset.notes.filter((note) => note.id !== message.id);
+      emit("data", { kind: "notes" });
       return { ok: true };
     }
     if (message.type === "control-mode-request") {

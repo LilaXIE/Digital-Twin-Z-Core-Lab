@@ -2,12 +2,13 @@
 import { t, formatNumber, clockTime } from "../../i18n.js";
 import { ui, settings, setFocusMetric, on } from "../../state.js";
 import { data, provider } from "../../data/store.js";
-import { roomMetric, metricStatus, occupancyInfo, recommendationState, roomSeries, sensorReading } from "../../data/derived.js";
+import { roomMetric, metricStatus, occupancyInfo, recommendationState, roomSeries, sensorReading, isSuspect } from "../../data/derived.js";
 import { registry } from "../../data/devices.js";
 import { SITE, thresholds } from "../../config/site.js";
 import { startReplay } from "../../data/replay.js";
 import { lineChart, legend, cssVar } from "../charts/timeline.js";
-import { escapeHtml, icon, term } from "../dom.js";
+import { escapeHtml, icon, term, toast } from "../dom.js";
+import { exportRoomCsv } from "../export.js";
 import { compassText } from "../format.js";
 
 const METRICS = [
@@ -58,8 +59,9 @@ export function mount(element) {
   body = element;
   body.innerHTML = `
     <section class="tw-section" data-part="switch"></section>
+    <p class="tw-halo-legend" data-part="halo-legend"></p>
     <section class="tw-section">
-      <h3><span data-part="timeline-title"></span><button type="button" class="tw-button tw-button-small" data-action="replay">${icon("ph-play")}<span>${escapeHtml(t("replay"))}</span></button></h3>
+      <h3><span data-part="timeline-title"></span><span class="tw-h3-actions"><button type="button" class="tw-button tw-button-small" data-action="csv" title="${escapeHtml(t("exportCsvHint"))}">${icon("ph-download-simple")}<span>CSV</span></button><button type="button" class="tw-button tw-button-small" data-action="replay">${icon("ph-play")}<span>${escapeHtml(t("replay"))}</span></button></span></h3>
       <div class="tw-ranges" role="group" aria-label="${escapeHtml(t("rangeAria"))}" data-part="ranges"></div>
       <div class="tw-chart" data-part="timeline" style="margin-top:10px"></div>
       <div data-part="legend"></div>
@@ -71,6 +73,7 @@ export function mount(element) {
   body.querySelector('[data-action="replay"]').addEventListener("click", () => void startReplay());
   ensureHistory();
   update();
+  body.querySelector('[data-action="csv"]').addEventListener("click", () => { if (!exportRoomCsv()) toast(t("loading"), { icon: "ph-hourglass" }); });
 }
 
 export function unmount() { body = null; }
@@ -84,6 +87,21 @@ function renderSwitch() {
     host.innerHTML = html;
     host.querySelectorAll("[data-metric]").forEach((button) => button.addEventListener("click", () => setFocusMetric(button.dataset.metric)));
   }
+}
+
+// What the coloured rings on the floor mean for the metric shown (section B4).
+function renderHaloLegend() {
+  const host = body.querySelector('[data-part="halo-legend"]');
+  const key = ui.focusMetric;
+  const c = thresholds[key];
+  let items = null;
+  if (key === "co2") items = [["good", `< ${c.goodBelow}`], ["caution", `${c.goodBelow}–${c.poorAbove}`], ["poor", `> ${c.poorAbove}`]];
+  else if (key === "temperature" || key === "humidity") items = [["good", `${c.comfort[0]}–${c.comfort[1]}`], ["caution", `${c.caution[0]}–${c.caution[1]}`], ["poor", t("haloOutside")]];
+  else if (key === "pm25") items = [["good", `≤ ${c.goodAtMost}`], ["caution", `${c.goodAtMost}–${c.poorAbove}`], ["poor", `> ${c.poorAbove}`]];
+  host.hidden = !items;
+  if (!items) return;
+  const unit = { co2: "ppm", temperature: "°C", humidity: "%", pm25: "µg/m³" }[key];
+  host.innerHTML = `<span>${escapeHtml(t("haloLegend"))}</span>${items.map(([level, text]) => `<span><i class="tw-dot" data-level="${level}"></i>${escapeHtml(text)}</span>`).join("")}<span class="tw-unit">${escapeHtml(unit)}</span>`;
 }
 
 function renderRanges() {
@@ -199,6 +217,7 @@ export function update() {
   if (!body) return;
   if (!available().some((m) => m.key === ui.focusMetric) && available().length) setFocusMetric(available()[0].key);
   renderSwitch();
+  renderHaloLegend();
   renderRanges();
   renderTimeline();
   renderIndoor();
@@ -212,7 +231,7 @@ export function markerReadout(deviceId) {
   const field = metric.key === "noise" ? "noiseLaeq" : metric.key;
   const reading = sensorReading(deviceId, field);
   if (reading.value === null) return null;
-  return { text: formatNumber(reading.value, metric.digits), unit: metric.unit, status: metricStatus(metric.key, reading.value), stale: reading.stale };
+  return { text: formatNumber(reading.value, metric.digits), unit: metric.unit, status: metricStatus(metric.key, reading.value), stale: reading.stale, suspect: metric.key === "co2" && isSuspect(deviceId) };
 }
 
 on("focus-metric", () => update());

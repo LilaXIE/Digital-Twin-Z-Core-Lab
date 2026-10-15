@@ -15,6 +15,7 @@
       root.dataset.transparency = transparency || (matchMedia("(prefers-reduced-transparency: reduce)").matches ? "reduced" : "standard");
       const kiosk = innerWidth >= 1920 || (new URLSearchParams(location.search).get("kiosk") === "1" && innerWidth >= 1600);
       root.dataset.tier = kiosk ? "kiosk" : innerWidth < 1280 ? "narrow" : "standard";
+      if (matchMedia("(orientation: portrait) and (max-width: 760px)").matches) root.dataset.phone = "";
       root.dataset.touch = String(matchMedia("(pointer: coarse)").matches || matchMedia("(hover: none)").matches);
     })();
   </script>
@@ -32,6 +33,7 @@
 
   <section class="tw-intro" id="intro" role="status" aria-live="polite">
     <p class="tw-intro-status"><span id="intro-text" data-i18n="introLoading">正在载入 BIM 模型</span> <b id="intro-percent">0%</b></p>
+    <div class="tw-intro-bar" aria-hidden="true"><i id="intro-bar"></i></div>
     <p class="tw-intro-skip" id="intro-skip" data-i18n="introSkip" hidden>点击或按任意键跳过</p>
     <div class="tw-intro-error glass-thick" id="intro-error" role="alert" hidden>
       <i class="ph ph-warning-circle" aria-hidden="true"></i>
@@ -68,6 +70,7 @@
         <button type="button" role="radio" data-lang="en" lang="en">EN</button>
       </div>
       <div class="tw-toolgroup glass-thin" role="group" aria-label="工具" data-i18n-aria="toolsAria">
+        <button type="button" class="tw-icon-button tw-mep-button" id="mep-btn" data-state="faded"><i class="ph ph-pipe" aria-hidden="true"></i></button>
         <button type="button" class="tw-icon-button" id="snapshot-btn" data-i18n-aria="snapshot" data-i18n-title="snapshot"><i class="ph ph-camera" aria-hidden="true"></i></button>
         <button type="button" class="tw-icon-button" id="settings-btn" aria-haspopup="menu" aria-expanded="false" data-i18n-aria="settings" data-i18n-title="settings"><i class="ph ph-gear-six" aria-hidden="true"></i></button>
       </div>
@@ -82,7 +85,6 @@
   <aside class="tw-dock tw-dock-right" id="dock-right">
     <section class="tw-card glass-thick" id="alarm-card" aria-labelledby="alarm-card-title" data-home></section>
     <section class="tw-card glass-thick" id="socket-card" aria-labelledby="socket-card-title" data-home hidden></section>
-    <section class="tw-card glass-thick" id="ahu-card" aria-labelledby="ahu-card-title" data-home></section>
   </aside>
 
   <aside class="tw-panel glass-thick" id="theme-panel" aria-labelledby="panel-title" hidden>
@@ -111,7 +113,7 @@
     <span class="tw-tab-thumb" aria-hidden="true"></span>
     <button type="button" role="tab" class="tw-tab" data-view="home"><i class="ph ph-squares-four" aria-hidden="true"></i><span data-i18n="tabHome">总览</span></button>
     <button type="button" role="tab" class="tw-tab" data-view="environment"><i class="ph ph-thermometer-simple" aria-hidden="true"></i><span data-i18n="tabEnvironment">环境</span></button>
-    <button type="button" role="tab" class="tw-tab" data-view="energy"><i class="ph ph-lightning" aria-hidden="true"></i><span data-i18n="tabEnergy">能耗</span></button>
+    <button type="button" role="tab" class="tw-tab" data-view="energy"><i class="ph ph-lightning" aria-hidden="true"></i><span data-i18n="tabEnergy">用电</span></button>
     <button type="button" role="tab" class="tw-tab" data-view="devices"><i class="ph ph-cpu" aria-hidden="true"></i><span data-i18n="tabDevices">设备</span></button>
     <button type="button" role="tab" class="tw-tab" data-view="ai"><i class="ph ph-sparkle" aria-hidden="true"></i><span data-i18n="tabAi">AI</span></button>
   </nav>
@@ -121,6 +123,8 @@
   <div class="tw-popover glass-thick" id="alarm-popover" role="dialog" aria-labelledby="alarm-popover-title" hidden></div>
   <div class="tw-popover glass-thick" id="settings-menu" role="menu" hidden></div>
   <div class="tw-popover tw-confirm glass-thick" id="confirm-popover" role="alertdialog" hidden></div>
+  <div class="tw-popover glass-thick" id="qr-popover" role="dialog" hidden></div>
+  <section class="tw-print-host" id="print-report" aria-hidden="true"></section>
   <div class="tw-popover tw-glossary glass-thick" id="glossary-tip" role="tooltip" hidden></div>
   <div class="tw-chart-tip glass-thick" id="chart-tip" role="tooltip" hidden></div>
   <div class="tw-toast glass-thin" id="toast" role="status" aria-live="polite" hidden></div>
@@ -131,9 +135,7 @@
   <aside class="tw-hud" id="hud" hidden></aside>
   <div class="tw-coordinate glass-thin" id="coordinate" hidden><span id="coordinate-value"></span><button type="button" class="tw-button tw-button-small" id="coordinate-copy" data-i18n="copy">复制</button></div>
 
-  <section class="tw-landscape-required" role="status" aria-live="polite">
-    <div><i class="ph ph-device-mobile-camera" aria-hidden="true"></i><strong data-i18n="rotate">请将设备横向放置</strong></div>
-  </section>
+  <section class="tw-mobile" id="mobile-view" aria-label="ZB202" hidden></section>
   <script type="module" src="src/twin/app.js"></script>
 </body>
 </html>

@@ -12,3 +12,6 @@ data/strategy/backtest-latest.json
 data/strategy/*.tmp
 
 .vercel
+data/strategy/audit-log.jsonl
+data/strategy/feedback.jsonl
+data/strategy/notes.json

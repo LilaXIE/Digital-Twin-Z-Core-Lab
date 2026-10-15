@@ -31,7 +31,9 @@ function segments(points, gapMs) {
 export function lineChart(container, spec) {
   const width = Math.max(240, container.clientWidth || 320);
   const height = container.clientHeight || 160;
-  const margin = { top: 10, right: spec.rightMargin ?? (spec.series.some((s) => s.directLabel) || spec.refs?.length ? 70 : 10), bottom: 22, left: 38 };
+  // Margins scale with the interface's base size (1 rem), like the axis labels inside them.
+  const k = (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16;
+  const margin = { top: 10 * k, right: (spec.rightMargin ?? (spec.series.some((s) => s.directLabel) || spec.refs?.length ? 70 : 10)) * k, bottom: 22 * k, left: 38 * k };
   const plotW = width - margin.left - margin.right;
   const plotH = height - margin.top - margin.bottom;
   const all = spec.series.flatMap((series) => series.points.filter((point) => Number.isFinite(point.v)));
@@ -79,6 +81,19 @@ export function lineChart(container, spec) {
   }
   if (spec.nowT && spec.nowT >= xMin && spec.nowT <= xMax) {
     parts.push(`<line class="now" x1="${x(spec.nowT)}" x2="${x(spec.nowT)}" y1="${margin.top}" y2="${margin.top + plotH}"></line><text class="band-label" x="${x(spec.nowT) + 3}" y="${margin.top + plotH - 4}">${escapeHtml(t("nowLine"))}</text>`);
+  }
+  // fillBetween: { from, to, color } shades the gap between two series that share timestamps
+  // (e.g. baseline and recommended energy: the shaded area is the saving).
+  if (spec.fillBetween) {
+    const upper = spec.series[spec.fillBetween.from]?.points || [];
+    const lowerByT = new Map((spec.series[spec.fillBetween.to]?.points || []).map((p) => [p.t, p.v]));
+    for (const piece of segments(upper.filter((p) => lowerByT.has(p.t)), spec.fillBetween.gapMs)) {
+      if (piece.length < 2) continue;
+      const top = piece.map((p) => `${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`);
+      // Only where the first series is above the second (a saving); where it is below, nothing is shaded.
+      const bottom = [...piece].reverse().map((p) => `${x(p.t).toFixed(1)},${y(Math.min(p.v, lowerByT.get(p.t))).toFixed(1)}`);
+      parts.push(`<polygon class="area" fill="${spec.fillBetween.color}" points="${[...top, ...bottom].join(" ")}"></polygon>`);
+    }
   }
   const usedLabelY = [];
   for (const series of spec.series) {

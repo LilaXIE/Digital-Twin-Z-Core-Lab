@@ -6,7 +6,7 @@ import { registerProviders, setDemo, data, provider } from "./data/store.js";
 import { connect, bridgeApi } from "./data/bridge.js";
 import { demoFactory, activeDemo, previewTime } from "./data/demo.js";
 import { registry, deviceById } from "./data/devices.js";
-import { deviceStatus, metricStatus, roomMetric, occupancyInfo, seatOccupancy, socketInfo, sensorReading } from "./data/derived.js";
+import { deviceStatus, metricStatus, roomMetric, occupancyInfo, seatOccupancy, socketInfo, sensorReading, isSuspect } from "./data/derived.js";
 import { SITE } from "./config/site.js";
 import { stopReplay } from "./data/replay.js";
 import { initScene, runIntro, sceneState, flyToView, offPreset, themeLayers } from "./scene/index.js";
@@ -28,6 +28,9 @@ import { initReplayBar } from "./ui/replay-bar.js";
 import { initPointer } from "./ui/pointer.js";
 import { initGlossary } from "./ui/glossary.js";
 import { initInternal } from "./ui/internal.js";
+import { initMobile, phoneQuery } from "./ui/mobile.js";
+import { initFeedback } from "./ui/today.js";
+import { initMepToggle } from "./ui/mep-toggle.js";
 import { $, $$, toast, closePopover, popoverOpen } from "./ui/dom.js";
 
 const root = document.documentElement;
@@ -48,7 +51,7 @@ function applyLanguage(lang, animate = false) {
     renderHomeDock();
   };
   // 150 ms cross-fade, no full-page flash.
-  if (animate && document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) document.startViewTransition(apply);
+  if (animate && document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) document.startViewTransition(apply).ready.catch(() => {});
   else apply();
 }
 
@@ -102,8 +105,8 @@ function updateSceneBindings() {
       if (readout) {
         label = readout;
         stale = readout.stale;
-        markerStatus = readout.stale ? "offline" : readout.status?.level || "normal";
-        halo = readout.stale ? "offline" : readout.status?.level || null;
+        markerStatus = readout.stale ? "offline" : readout.suspect ? "suspect" : readout.status?.level || "normal";
+        halo = readout.stale || readout.suspect ? "offline" : readout.status?.level || null;
       } else markerStatus = "offline";
     } else if (ui.view === "energy" && device.model === "WS523") {
       label = markerReadout("energy", device.id);
@@ -111,7 +114,7 @@ function updateSceneBindings() {
     } else if (ENV_MODELS.includes(device.model) && status === "normal") {
       // Elsewhere an environment sensor's dot shows its own CO₂ state.
       const reading = sensorReading(device.id, "co2");
-      if (reading.value !== null) { markerStatus = reading.stale ? "offline" : metricStatus("co2", reading.value)?.level || "normal"; stale = reading.stale; }
+      if (reading.value !== null) { markerStatus = reading.stale ? "offline" : isSuspect(device.id) ? "suspect" : metricStatus("co2", reading.value)?.level || "normal"; stale = reading.stale; }
     }
     updateMarker(device.id, { status: markerStatus, label, halo, stale, selected: ui.selection?.kind === "sensor" && ui.selection.id === device.id });
   }
@@ -205,6 +208,9 @@ async function boot() {
   initReplayBar();
   initKiosk();
   initInternal();
+  initMobile();
+  initFeedback();
+  initMepToggle();
 
   on("setting:lang", (lang) => applyLanguage(lang, true));
   on("setting:theme", () => applyTheme());
@@ -227,7 +233,7 @@ async function boot() {
   });
   window.addEventListener("keydown", handleEscape);
   window.addEventListener("resize", applyTier);
-  $("#reset-view").addEventListener("click", () => { sceneState.userMoved = false; $("#reset-view").hidden = true; void flyToView(ui.view === "ai" ? "home" : ui.view); });
+  $("#reset-view").addEventListener("click", () => { sceneState.userMoved = false; $("#reset-view").hidden = true; void flyToView(ui.view); });
   $("#snapshot-btn").addEventListener("click", () => void snapshot());
   $("#reload-btn").addEventListener("click", () => window.location.reload());
 
@@ -236,9 +242,19 @@ async function boot() {
   window.setInterval(() => requestHistory(true), 10 * 60000);
   window.setInterval(() => updateDaylight(), 10 * 60000);
 
+  // Portrait phones get the 2D page and never download the model; turning sideways loads it.
+  if (phoneQuery.matches) {
+    const later = () => { if (!phoneQuery.matches) { phoneQuery.removeEventListener("change", later); void startScene(); } };
+    phoneQuery.addEventListener("change", later);
+    return;
+  }
+  await startScene();
+}
+
+async function startScene() {
   const percent = $("#intro-percent");
   try {
-    await initScene({ canvas: $("#twin-canvas"), markerLayer: $("#marker-layer"), onProgress: (value) => { percent.textContent = `${Math.round(value * 100)}%`; } });
+    await initScene({ canvas: $("#twin-canvas"), markerLayer: $("#marker-layer"), onProgress: (value) => { percent.textContent = `${Math.round(value * 100)}%`; $("#intro-bar").style.width = `${Math.round(value * 100)}%`; } });
   } catch (error) {
     console.error("Model loading failed", error);
     $("#intro-error").hidden = false;
@@ -251,7 +267,7 @@ async function boot() {
   setDisplayMode("all");
   updateSceneBindings();
   getControls().addEventListener("end", () => {
-    if (sceneState.userMoved && offPreset(ui.view === "ai" ? "home" : ui.view)) $("#reset-view").hidden = false;
+    if (sceneState.userMoved && offPreset(ui.view)) $("#reset-view").hidden = false;
   });
   initPointer();
   document.body.classList.add("ui-entering");

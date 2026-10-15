@@ -3,7 +3,9 @@
 import { t, pick } from "../i18n.js";
 import { on, select, setView } from "../state.js";
 import { setAlarmState } from "../data/store.js";
-import { alarms, ALARM_TITLE, ALARM_ICON } from "../data/derived.js";
+import { alarms, ALARM_TITLE, ALARM_ICON, todaySummary } from "../data/derived.js";
+import { startReplay } from "../data/replay.js";
+import { feedbackHtml, todayHtml } from "./today.js";
 import { deviceById } from "../data/devices.js";
 import { pulseMarker } from "../scene/markers.js";
 import { summaryHtml } from "./themes/devices.js";
@@ -29,9 +31,9 @@ function listHtml() {
       : `<div class="tw-empty">${icon("ph-bell-slash")}<span>${escapeHtml(t("alarmNoneFiltered", { filter: t(filter === "acknowledged" ? "alarmAcknowledged" : "alarmAll") }))}</span></div>`;
   }
   return list.map((alarm) => `
-    <div class="tw-alarm-item${alarm.level === "critical" ? " is-critical" : ""}${alarm.state === "acknowledged" ? " is-acknowledged" : ""}" data-alarm="${escapeHtml(alarm.id)}" data-device="${escapeHtml(alarm.deviceId)}" role="button" tabindex="0">
-      ${icon(ALARM_ICON[alarm.type] || "ph-warning-circle")}
-      <span><strong>${escapeHtml(t(ALARM_TITLE[alarm.type] || alarm.type))}</strong><small>${escapeHtml(deviceLabel(alarm.deviceId))}${detail(alarm) ? ` · ${escapeHtml(detail(alarm))}` : ""}</small></span>
+    <div class="tw-alarm-item${alarm.level === "critical" ? " is-critical" : ""}${alarm.state === "acknowledged" ? " is-acknowledged" : ""}" data-alarm="${escapeHtml(alarm.id)}" data-device="${escapeHtml(alarm.deviceId)}">
+      <button type="button" class="tw-alarm-open" data-open>${icon(ALARM_ICON[alarm.type] || "ph-warning-circle")}
+      <span><strong>${escapeHtml(t(ALARM_TITLE[alarm.type] || alarm.type))}</strong><small>${escapeHtml(deviceLabel(alarm.deviceId))}${detail(alarm) ? ` · ${escapeHtml(detail(alarm))}` : ""}</small></span></button>
       <button type="button" class="tw-button tw-button-small" data-ack="${alarm.state === "active" ? "acknowledged" : "active"}">${escapeHtml(t(alarm.state === "active" ? "acknowledge" : "reopen"))}</button>
     </div>`).join("");
 }
@@ -41,21 +43,18 @@ function renderPopover() {
   popover.innerHTML = `<header><h2 id="alarm-popover-title">${escapeHtml(t("alarmTitle"))}</h2><button type="button" class="tw-icon-button" data-action="close" aria-label="${escapeHtml(t("close"))}">${icon("ph-x")}</button></header>
     <div class="tw-dist">${summaryHtml()}</div>
     <div class="tw-toolbar"><div class="tw-seg" role="group">${[["active", "alarmActive"], ["acknowledged", "alarmAcknowledged"], ["all", "alarmAll"]].map(([key, label]) => `<button type="button" data-filter="${key}" aria-pressed="${filter === key}">${escapeHtml(t(label))}</button>`).join("")}</div></div>
-    <div data-part="list">${listHtml()}</div>`;
+    <div data-part="list">${listHtml()}</div>
+    <section class="tw-today" data-part="today"><h3>${escapeHtml(t("todayTitle"))}</h3>${todayHtml(todaySummary())}${feedbackHtml()}</section>`;
+  popover.querySelectorAll("[data-replay-at]").forEach((button) => button.addEventListener("click", () => { closePopover(); void startReplay({ at: Number(button.dataset.replayAt) }); }));
   popover.querySelector('[data-action="close"]').addEventListener("click", () => closePopover());
   popover.querySelectorAll("[data-filter]").forEach((button) => button.addEventListener("click", () => { filter = button.dataset.filter; renderPopover(); }));
-  popover.querySelectorAll("[data-alarm]").forEach((item) => {
-    const open = (event) => {
-      if (event.target.closest("[data-ack]")) return;
-      const id = item.dataset.device;
-      if (!deviceById(id)) return;
-      closePopover();
-      if (["environment", "energy", "devices"].includes(document.body.dataset.view) === false) setView("devices");
-      select({ kind: "sensor", id });
-    };
-    item.addEventListener("click", open);
-    item.addEventListener("keydown", (event) => { if (event.key === "Enter") open(event); });
-  });
+  popover.querySelectorAll("[data-alarm] [data-open]").forEach((button) => button.addEventListener("click", () => {
+    const id = button.closest("[data-alarm]").dataset.device;
+    if (!deviceById(id)) return;
+    closePopover();
+    if (["environment", "energy", "devices"].includes(document.body.dataset.view) === false) setView("devices");
+    select({ kind: "sensor", id });
+  }));
   popover.querySelectorAll("[data-ack]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
     setAlarmState(button.closest("[data-alarm]").dataset.alarm, button.dataset.ack);

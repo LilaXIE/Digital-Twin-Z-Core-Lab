@@ -1,11 +1,16 @@
 // Values derived from the active dataset: room representative values, statuses, occupancy, alarms.
 // During a replay the replay values take precedence (data/replay.js fills ui.replay).
-import { SITE, thresholds } from "../config/site.js";
+import { SITE, isWorkingTime, thresholds } from "../config/site.js";
 import { data, alarmStates } from "./store.js";
 import { deviceById, deviceStatusFromValues, registry } from "./devices.js";
-import { ui } from "../state.js";
+import { settings, ui } from "../state.js";
 
-const average = (values) => (values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null);
+const median = (values) => {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+};
 const now = () => (ui.replay ? ui.replay.t : Date.now());
 
 export function deviceStatus(id, dataset = data()) {
@@ -38,7 +43,15 @@ export function sensorReading(id, key) {
   return { value: Number.isFinite(value) ? value : null, at, stale: isStale(at) };
 }
 
-// Room value = mean of the five environment sensors; fresh readings win over stale ones.
+// CO₂ health from the bridge (scripts/co2-quality.mjs): { state: "ok" | "suspect" | "stale", reasons }.
+export function sensorHealth(id) {
+  const dataset = data();
+  return dataset.kind === "live" ? dataset.sensorHealth?.sensors?.[id] || null : null;
+}
+export const isSuspect = (id) => sensorHealth(id)?.state === "suspect";
+
+// Room value = median of the five environment sensors (CO₂ already offset-corrected by the bridge);
+// fresh readings win over stale ones, and CO₂ sensors flagged by the health check are left out.
 export function roomMetric(key) {
   if (ui.replay) {
     const value = ui.replay.room?.[key];
@@ -46,11 +59,17 @@ export function roomMetric(key) {
   }
   const ids = key === "pm25" ? ["AM308-01"] : key === "noise" ? registry.devices.filter((d) => d.model === "WS302").map((d) => d.id) : SITE.envSensors;
   const field = key === "noise" ? "noiseLaeq" : key;
-  const readings = ids.map((id) => sensorReading(id, field)).filter((reading) => reading.value !== null);
+  const readings = ids.map((id) => ({ id, ...sensorReading(id, field) })).filter((reading) => reading.value !== null);
   if (!readings.length) return { value: null, at: null, stale: true, sources: 0 };
   const fresh = readings.filter((reading) => !reading.stale);
-  const used = fresh.length ? fresh : readings;
-  return { value: average(used.map((reading) => reading.value)), at: Math.max(...used.map((reading) => reading.at || 0)), stale: !fresh.length, sources: used.length };
+  let used = fresh.length ? fresh : readings;
+  let excluded = 0;
+  if (key === "co2") {
+    const trusted = used.filter((reading) => !isSuspect(reading.id));
+    excluded = trusted.length ? used.length - trusted.length : 0;
+    if (trusted.length) used = trusted;
+  }
+  return { value: median(used.map((reading) => reading.value)), at: Math.max(...used.map((reading) => reading.at || 0)), stale: !fresh.length, sources: used.length, excluded };
 }
 
 // Good / caution / poor, with comfort wording for temperature and humidity (section 4.5).
@@ -168,7 +187,9 @@ export function alarms() {
     if (device.model === "WS523" && Number.isFinite(values.voltage) && (values.voltage < 200 || values.voltage > 250)) add("socket-voltage", "warning", device.id, "raw", { text: `${values.voltage.toFixed(1)} V` });
   }
   if (dataset.kind === "live" && dataset.connection.known && !dataset.connection.connected) {
-    list.unshift({ id: "connection:database", type: "connection", level: "critical", deviceId: "dataService", detailKey: "raw", detailVars: { text: dataset.connection.diagnostic } });
+    // The bridge's diagnostic is English technical text: internal mode only.
+    list.unshift({ id: "connection:database", type: "connection", level: "critical", deviceId: "dataService",
+      ...(settings.internal ? { detailKey: "raw", detailVars: { text: dataset.connection.diagnostic } } : { detailKey: "connectionRetrying", detailVars: {} }) });
   }
   return list.map((alarm) => ({ ...alarm, state: alarmStates[alarm.id] || "active" }));
 }
@@ -178,7 +199,7 @@ export const ALARM_TITLE = { door: "alarmDoor", leak: "alarmLeak", tamper: "alar
 export const ALARM_ICON = { door: "ph-door-open", leak: "ph-drop", tamper: "ph-shield-warning", battery: "ph-battery-warning", "socket-load": "ph-plug",
   "socket-voltage": "ph-plug", connection: "ph-plugs", offline: "ph-wifi-slash", fault: "ph-warning-circle" };
 
-// Room-level series from a room-history response: mean of the environment sensors at each step.
+// Room-level series from a room-history response: median of the environment sensors at each step.
 export function roomSeries(history, key) {
   if (!history?.sensors) return [];
   const byTime = new Map();
@@ -189,7 +210,43 @@ export function roomSeries(history, key) {
       byTime.set(time, entry);
     }
   }
-  return [...byTime.entries()].sort((a, b) => a[0] - b[0]).map(([time, values]) => ({ t: time, v: average(values) }));
+  return [...byTime.entries()].sort((a, b) => a[0] - b[0]).map(([time, values]) => ({ t: time, v: median(values) }));
+}
+
+const hkDayStart = (tMs) => Math.floor((tMs + 8 * 3600000) / 86400000) * 86400000 - 8 * 3600000;
+
+// Today's air quality in one place (section B2): working-hours CO₂ compliance, the times CO₂ went
+// over the limit, how complete today's data is, and the HK EPD IAQ class from the 8-hour average.
+export function todaySummary(nowMs = Date.now()) {
+  const limit = thresholds.co2.goodBelow;
+  const stepMs = (data().roomHistory?.stepMinutes || 10) * 60000;
+  const series = roomSeries(data().roomHistory, "co2").filter((p) => Number.isFinite(p.v) && p.t <= nowMs);
+  if (!series.length) return null;
+  const dayStart = hkDayStart(nowMs);
+  const today = series.filter((p) => p.t >= dayStart);
+  const working = today.filter((p) => isWorkingTime(p.t));
+  const events = [];
+  let run = null;
+  for (const point of today) {
+    if (point.v > limit && run && point.t - run.end <= stepMs * 2.5) { run.end = point.t; run.peak = Math.max(run.peak, point.v); continue; }
+    if (run) { events.push(run); run = null; }
+    if (point.v > limit) run = { start: point.t, end: point.t, peak: point.v };
+  }
+  if (run) events.push(run);
+  for (const event of events) event.minutes = Math.round((event.end - event.start + stepMs) / 60000);
+  const expected = Math.max(1, Math.floor((nowMs - dayStart) / stepMs));
+  const last8h = series.filter((p) => p.t >= nowMs - 8 * 3600000);
+  const average8h = last8h.length ? last8h.reduce((sum, p) => sum + p.v, 0) / last8h.length : null;
+  const iaqClass = average8h === null ? null : average8h < 800 ? "excellent" : average8h < 1000 ? "good" : "below";
+  return {
+    compliance: working.length ? working.filter((p) => p.v <= limit).length / working.length : null,
+    workingSamples: working.length,
+    events,
+    completeness: Math.min(1, today.length / expected),
+    average8h,
+    iaqClass,
+    limit,
+  };
 }
 
 // Splits a series wherever consecutive points are further apart than maxGapMs (gaps are never interpolated).

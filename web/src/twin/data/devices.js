@@ -137,7 +137,16 @@ export function createDataset(kind) {
     readingStats: null,
     recommendation: null,
     recommendationAt: 0,
+    calibration: null, // { offsets: { "AM103-08": -130 }, outdoorPpm, calibratedAt }
+    sensorHealth: null, // { sensors: { "AM103-08": { state, reasons, ppm, at } }, outdoorPpm }
     recHistory: [],
+    aiReview: null, // { savings, forecast } from scripts/strategy/review.mjs
+    deviceHealth: null, // { devices: { id: { uplinks, longestGapMinutes, completeness, ... } }, events } (scripts/device-health.mjs)
+    standby: null, // { sockets: [{ id, standbyW, yearKwh, ... }], totalYearKwh } (scripts/standby.mjs)
+    member: null, // { name } once logged in (scripts/members.mjs)
+    auditLog: [], // members only: who switched, edited or noted what
+    notes: [], // members only: notes pinned to devices and components
+    feedback: [], // comfort votes from the last 48 hours
     recRoom: [],
     meetings: [],
     demandHistory: new Map(),
@@ -203,6 +212,10 @@ export function ingestTelemetry(dataset, message, trendWindowMs = 26 * 3600000) 
       snapshot.values[key] = value;
       snapshot.metricUpdatedAt[key] = sampleTime;
     }
+  }
+  // Bridge offset corrections: the raw reading behind each corrected value.
+  for (const [key, correction] of Object.entries(message.corrections || {})) {
+    if (sampleTime >= (snapshot.metricUpdatedAt[key] || 0) - 1) (snapshot.corrections ||= {})[key] = correction;
   }
   snapshot.updatedAt = Math.max(snapshot.updatedAt || 0, sampleTime);
   snapshot.status = deviceStatusFromValues(device, snapshot.values);

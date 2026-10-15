@@ -17,6 +17,7 @@ let labelLayer = null;
 let progressTarget = 0;
 let progressShown = 0;
 let skipRequested = false;
+let planOffset = { x: 0, z: 0 };
 
 const colors = { grid: 0x9fb2c8, wall: 0x2f6fd6, column: 0x2f6fd6, door: 0x5a8fe0, dim: 0x7c8ea6 };
 
@@ -109,6 +110,7 @@ export function failPlan() {
 export function alignPlan(archiBox) {
   if (!planGroup || !plan) return;
   const offset = archiBox.min.clone().sub(new THREE.Vector3(...plan.modelBox.min));
+  planOffset = { x: offset.x, z: offset.z };
   planGroup.position.copy(offset);
   planGroup.updateMatrixWorld(true);
   camera.position.add(offset);
@@ -117,6 +119,13 @@ export function alignPlan(archiBox) {
 }
 
 export function requestSkip() { skipRequested = true; }
+
+// Walls, columns and doors of the floor plan in model space, for the sensor sheet's location map.
+export function planOutline() {
+  if (!plan) return null;
+  return plan.lines.filter(([kind]) => kind === "wall" || kind === "column" || kind === "door")
+    .map(([kind, x1, z1, x2, z2]) => [kind, x1 + planOffset.x, z1 + planOffset.z, x2 + planOffset.x, z2 + planOffset.z]);
+}
 
 // The sequence itself. onUi() reveals the interface; onMarkers() lights the sensors.
 export async function playIntro({ box, floorY, home, onUi, onMarkers }) {
@@ -166,7 +175,12 @@ export async function playIntro({ box, floorY, home, onUi, onMarkers }) {
   let markersShown = false;
   let uiShown = !firstVisit;
   await new Promise((resolve) => {
+    // A tab in the background gets no animation frames; finish on a timer so start-up (deep links,
+    // the standby timer) never waits for the tab to be shown.
+    let done = false;
+    const fallback = window.setTimeout(() => { if (!done) { done = true; skipRequested = true; resolve(); } }, totalMs + 1500);
     const step = (now) => {
+      if (done) return;
       const t = skipRequested ? totalMs : now - start;
       const rise = Math.min(1, t / riseMs);
       shared.uIntroCut.value = floorY + (top - floorY) * (1 - (1 - rise) ** 2);
@@ -179,7 +193,7 @@ export async function playIntro({ box, floorY, home, onUi, onMarkers }) {
       if (!uiShown && t >= riseMs + realMs) { uiShown = true; onUi(skipRequested); }
       requestRender();
       if (t < totalMs) requestAnimationFrame(step);
-      else resolve();
+      else { done = true; window.clearTimeout(fallback); resolve(); }
     };
     requestAnimationFrame(step);
   });

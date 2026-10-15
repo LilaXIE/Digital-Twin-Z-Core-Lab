@@ -3,7 +3,8 @@
 // device itself reports it (queued → sent → applied, or the failure).
 import { t } from "../i18n.js";
 import { data, provider } from "../data/store.js";
-import { escapeHtml, openAsPopover, closePopover } from "./dom.js";
+import { settings, emit } from "../state.js";
+import { escapeHtml, icon, openAsPopover, closePopover } from "./dom.js";
 
 export function controlAvailability() {
   const dataset = data();
@@ -13,6 +14,29 @@ export function controlAvailability() {
   return { ok: true };
 }
 
+// Members unlock control with the access key; visitors on a protected bridge only see the states.
+export function controlUnlocked() {
+  const dataset = data();
+  if (dataset.kind === "demo") return true;
+  if (dataset.control.readOnly) return false;
+  return !dataset.control.writeProtected || Boolean(dataset.member);
+}
+
+// Switches appear only when a press can actually do something.
+export const switchesInteractive = () => controlAvailability().ok && controlUnlocked();
+
+export async function unlockControl() {
+  const ok = await provider().login?.();
+  if (ok) emit("data", { kind: "control" });
+  return Boolean(ok);
+}
+
+// Read-only socket state in place of a switch: a dot and "On" / "Off".
+export function socketStateHtml(info) {
+  if (info.on === null) return "";
+  return `<span class="tw-socket-state" data-on="${info.on}"><i class="tw-dot" data-level="${info.on ? "good" : "offline"}"></i>${escapeHtml(t(info.on ? "socketOn" : "socketOff"))}</span>`;
+}
+
 export const pendingSocketIds = () => new Set([...data().pendingControls.values()].map((item) => item.deviceId));
 
 // The status line under a socket list: unavailable reason, the latest control phase, or the demo note.
@@ -20,7 +44,15 @@ export function controlStatus(element) {
   if (!element) return;
   const availability = controlAvailability();
   const message = data().controlMessage;
-  if (!availability.ok) { element.className = "tw-caption"; element.textContent = `${t("controlUnavailable")} · ${availability.reason}`; }
+  if (!availability.ok) {
+    // Customers see that this is a view-only page; the technical reason is for internal mode.
+    element.className = "tw-caption";
+    element.textContent = settings.internal ? `${t("controlUnavailable")} · ${availability.reason}` : t("controlViewOnly");
+  } else if (!controlUnlocked()) {
+    element.className = "tw-caption";
+    element.innerHTML = `${escapeHtml(t("controlLocked"))} <button type="button" class="tw-link" data-action="unlock">${icon("ph-lock-key")}${escapeHtml(t("login"))}</button>`;
+    element.querySelector('[data-action="unlock"]').addEventListener("click", () => { void unlockControl(); });
+  }
   else if (message && Date.now() - message.at < 120000) { element.className = `tw-caption is-${message.level}`; element.textContent = t(message.key, message.vars); }
   else { element.className = "tw-caption"; element.textContent = data().kind === "demo" ? t("demoControl") : ""; }
 }

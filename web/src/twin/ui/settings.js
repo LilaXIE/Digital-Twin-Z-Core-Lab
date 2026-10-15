@@ -2,13 +2,23 @@
 import { t } from "../i18n.js";
 import { settings, updateSetting, on } from "../state.js";
 import { activeDemo, demoFactory } from "../data/demo.js";
-import { data } from "../data/store.js";
+import { data, provider } from "../data/store.js";
 import { currentTier, applyTier, TIERS } from "../scene/quality.js";
 import { escapeHtml, openAsPopover, closePopover } from "./dom.js";
 import { startCoordinatePick } from "./internal.js";
+import { printWeeklyReport, shareUrl, showQr } from "./export.js";
 
 function seg(name, options, value) {
   return `<div class="tw-seg" role="group" data-setting="${name}">${options.map(([key, label]) => `<button type="button" data-value="${key}" aria-pressed="${String(value) === String(key)}">${escapeHtml(label)}</button>`).join("")}</div>`;
+}
+
+// Members log in here (or when they first try to switch something); visitors only look.
+function memberRow() {
+  const dataset = data();
+  if (dataset.kind !== "live" || !dataset.control.writeProtected) return "";
+  const member = dataset.member;
+  return `<div class="tw-menu-row"><span>${escapeHtml(t("memberLabel"))}<small>${escapeHtml(member ? t("memberAs", { name: member.name }) : t("visitorHint"))}</small></span>
+    <button type="button" class="tw-button tw-button-small" data-action="${member ? "logout" : "login"}">${escapeHtml(t(member ? "logout" : "login"))}</button></div>`;
 }
 
 function render() {
@@ -19,6 +29,8 @@ function render() {
     <div class="tw-menu-row"><span>${escapeHtml(t("language"))}</span>${seg("lang", [["zh", "简"], ["zh-Hant", "繁"], ["en", "EN"]], settings.lang)}</div>
     <div class="tw-menu-row"><span>${escapeHtml(t("appearance"))}</span>${seg("theme", [["light", t("themeLight")], ["dark", t("themeDark")], ["system", t("themeSystem")]], settings.theme)}</div>
     <div class="tw-menu-row"><span>${escapeHtml(t("transparency"))}</span>${seg("transparency", [["standard", t("standard")], ["reduced", t("reduced")]], settings.transparency)}</div>
+    ${memberRow()}
+    <div class="tw-menu-row"><span>${escapeHtml(t("shareTitle"))}<small>${escapeHtml(t("shareHint"))}</small></span><span class="tw-h3-actions"><button type="button" class="tw-button tw-button-small" data-action="qr">${escapeHtml(t("qrCode"))}</button><button type="button" class="tw-button tw-button-small" data-action="report">${escapeHtml(t("weeklyReport"))}</button></span></div>
     <div class="tw-menu-row"><span>${escapeHtml(t("kiosk"))}</span><label class="tw-switch"><input type="checkbox" role="switch" data-toggle="kiosk" ${settings.kiosk ? "checked" : ""}><span></span></label></div>
     <div class="tw-menu-row"><span>${escapeHtml(t("demoMode"))}<small>${escapeHtml(t("demoHint"))}</small></span><label class="tw-switch"><input type="checkbox" role="switch" data-toggle="demo" ${settings.demo ? "checked" : ""}><span></span></label></div>
     ${demo ? `
@@ -41,6 +53,10 @@ function render() {
     demoFactory.setPreview(dataset, input.dataset.preview, Number(input.value));
     input.closest(".tw-menu-row").querySelector("small").textContent = input.dataset.preview === "co2" ? `${input.value} ppm` : `${String(Math.floor(input.value)).padStart(2, "0")}:${String(Math.round((input.value % 1) * 60)).padStart(2, "0")}`;
   }));
+  menu.querySelector('[data-action="qr"]').addEventListener("click", () => { const button = document.getElementById("settings-btn"); closePopover(); showQr(button, { title: t("shareTitle"), url: shareUrl() }); });
+  menu.querySelector('[data-action="report"]').addEventListener("click", () => { closePopover(); void printWeeklyReport(); });
+  menu.querySelector('[data-action="login"]')?.addEventListener("click", async () => { closePopover(); await provider().login?.(); });
+  menu.querySelector('[data-action="logout"]')?.addEventListener("click", () => { provider().logout?.(); render(); });
   menu.querySelector('[data-action="pick"]')?.addEventListener("click", () => { closePopover(); startCoordinatePick(); });
 }
 

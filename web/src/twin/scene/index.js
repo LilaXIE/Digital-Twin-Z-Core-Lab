@@ -13,6 +13,7 @@ import { startPlan, setPlanProgress, alignPlan, failPlan, playIntro } from "./in
 import { setSelectionOutline, setHoverOutline } from "./outline.js";
 import { applyTier, initialTier, startMeasuring } from "./quality.js";
 import { registry } from "../data/devices.js";
+import { emit } from "../state.js";
 
 export const sceneState = {
   ready: false,
@@ -128,7 +129,53 @@ export function setSensorMode(mode) {
 }
 
 export function themeLayers(view) {
+  currentView = view;
   setFlowsVisible(view === "energy");
+  applyMep();
+}
+
+// MEP display. "auto" follows the theme: faded everywhere except Devices, where it is solid. The
+// toolbar button (ui/mep-toggle.js) pins "faded", "shown" or "hidden" for this visit.
+let mepMode = "auto";
+let currentView = "home";
+export function mepDisplay() {
+  if (!sceneState.layerVisibility.mep) return "hidden";
+  if (mepMode !== "auto") return mepMode;
+  return currentView === "devices" ? "shown" : "faded";
+}
+export function setMepMode(mode) {
+  mepMode = ["faded", "shown", "hidden"].includes(mode) ? mode : "auto";
+  if (mepMode !== "auto") setLayerVisible("mep", mepMode !== "hidden");
+  applyMep();
+}
+function applyMep() {
+  setMepEmphasis(mepDisplay() === "shown");
+  emit("mep", mepDisplay());
+}
+
+// Ducts, pipes and the AHU recede outside the Devices theme so the table, people and sensors lead
+// (section B4). Lamps stay solid. Materials are shared per kind, so each is changed once.
+const MEP_FADED_OPACITY = 0.3;
+let mepFull = null;
+export function setMepEmphasis(full) {
+  const group = sceneState.result?.groups.mep;
+  if (!group || mepFull === full) return;
+  mepFull = full;
+  const opacity = full ? 1 : MEP_FADED_OPACITY;
+  const done = new Set();
+  for (const mesh of group.children) {
+    if (/Lighting Fixture/i.test(sceneState.result.items.get(mesh.name)?.name || "")) continue;
+    for (const material of [].concat(mesh.material)) {
+      if (!material || done.has(material) || material.name === "lampFrame") continue;
+      done.add(material);
+      const transparent = opacity < 1;
+      // Toggling transparency changes the shader's OPAQUE define, so the program is rebuilt.
+      if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
+      material.opacity = opacity;
+      material.depthWrite = !transparent;
+    }
+  }
+  requestRender();
 }
 
 // Raycast against the display layer. Walls, floor and furniture are context, not selectable.

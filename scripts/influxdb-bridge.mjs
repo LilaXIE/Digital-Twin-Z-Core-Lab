@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { InfluxDB, Point } from "@influxdata/influxdb-client";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { appendFile, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { createServer } from "node:http";
 import mqtt from "mqtt";
 import { buildSensorHistoryQuery } from "./sensor-history.mjs";
@@ -10,7 +11,12 @@ import { WebSocketServer, WebSocket } from "ws";
 import { loadConfig, strategyDataDir } from "./strategy/config.mjs";
 import { StrategyService } from "./strategy/service.mjs";
 import { buildCo2HistoryQuery, co2RowsToSeries } from "./strategy/influx-history.mjs";
+import { hkWeekStart } from "./strategy/occupancy-forecast.mjs";
 import { fetchHkoOutdoor, fetchHkoWind } from "./strategy/weather.mjs";
+import { assessCo2Health, calibrationSummary, correctCo2Samples, correctTelemetry } from "./co2-quality.mjs";
+import { buildUplinkQuery, deviceHealthFromRows } from "./device-health.mjs";
+import { buildSocketHourlyQuery, standbyReport } from "./standby.mjs";
+import { createMemberAuth, forVisitor, parseMembers } from "./members.mjs";
 
 const url = process.env.ZB202_INFLUX_URL;
 const token = process.env.ZB202_INFLUX_TOKEN;
@@ -30,12 +36,18 @@ const websocketPort = Number(process.env.ZB202_INFLUX_BRIDGE_PORT || process.env
 // Public deployments either refuse socket control, meeting edits and mode changes (read-only)
 // or require an access key with each of those commands.
 const readOnly = process.env.ZB202_BRIDGE_READ_ONLY === "true";
-const writeKeyDigest = process.env.ZB202_BRIDGE_WRITE_KEY ? createHash("sha256").update(process.env.ZB202_BRIDGE_WRITE_KEY).digest() : null;
-// With ZB202_BRIDGE_REQUIRE_KEY=true a bridge without a configured key refuses every control command.
+// Members log in with their own key (scripts/members.mjs); with ZB202_BRIDGE_REQUIRE_KEY=true a bridge
+// without any member key refuses every control command.
+const memberAuth = createMemberAuth({ members: parseMembers(process.env), secret: process.env.ZB202_SESSION_SECRET || undefined });
 const requireWriteKey = process.env.ZB202_BRIDGE_REQUIRE_KEY === "true";
-const writeKeyMatches = (key) => writeKeyDigest
-  ? timingSafeEqual(createHash("sha256").update(String(key || "")).digest(), writeKeyDigest)
-  : !requireWriteKey;
+const writeProtected = memberAuth.hasMembers || requireWriteKey;
+// The member allowed to write on this connection, or "" on an unprotected local bridge; null means refuse.
+// A key sent with the command is still accepted for older pages.
+function writerFor(socket, message) {
+  if (socket.member) return socket.member;
+  if (message.key) return memberAuth.memberForKey(message.key);
+  return writeProtected ? null : "";
+}
 // Extra browser origins allowed to connect, e.g. https://zb202-digital-twin.vercel.app.
 const allowedOrigins = new Set((process.env.ZB202_BRIDGE_ALLOWED_ORIGINS || "").split(",").map((origin) => origin.trim().replace(/\/$/, "")).filter(Boolean));
 const bridgeStartedAt = new Date().toISOString();
@@ -138,7 +150,7 @@ const weatherQueryApi = weatherBucket ? new InfluxDB({ url, token: weatherToken,
 const httpServer = createServer((req, res) => {
   const healthy = req.url === "/healthz";
   res.writeHead(healthy ? 200 : 426, { "content-type": "application/json" });
-  res.end(JSON.stringify(healthy ? { ...databaseStatus(), readOnly, writeProtected: Boolean(writeKeyDigest) || requireWriteKey } : { error: "WebSocket upgrade required" }));
+  res.end(JSON.stringify(healthy ? { ...databaseStatus(), readOnly, writeProtected } : { error: "WebSocket upgrade required" }));
 });
 const websocketServer = new WebSocketServer({ server: httpServer, maxPayload: 16 * 1024,
   verifyClient({ origin, req }) {
@@ -250,6 +262,7 @@ async function sendSensorHistory(socket, message) {
       if (!field || !Number.isFinite(time) || !Number.isFinite(value)) continue;
       (trends[field.key] ||= []).push({ time, value });
     }
+    if (trends.co2) trends.co2 = correctCo2Samples(message.deviceId, trends.co2, strategyConfig);
     send(socket, { type: "sensor-history", requestId: message.requestId, deviceId: message.deviceId, hours, trends });
   } catch (error) {
     send(socket, { type: "sensor-history", requestId: message.requestId, deviceId: message.deviceId, hours, trends: {}, error: error.message });
@@ -286,7 +299,9 @@ async function sendRoomHistory(socket, message) {
           solarQueryApi.collectRows(queries.solar).catch(() => []),
           queryApi.collectRows(queries.events),
         ]);
-        return roomHistoryFromRows({ env, power, solar, events });
+        const history = roomHistoryFromRows({ env, power, solar, events });
+        for (const [id, metrics] of Object.entries(history.sensors)) if (metrics.co2) metrics.co2 = correctCo2Samples(id, metrics.co2, strategyConfig);
+        return history;
       })();
       roomHistoryCache.set(cacheKey, task);
       task.catch(() => roomHistoryCache.delete(cacheKey));
@@ -324,7 +339,103 @@ function send(socket, message) {
 }
 
 function broadcast(message) {
-  for (const socket of websocketServer.clients) send(socket, message);
+  for (const socket of websocketServer.clients) sendTo(socket, message);
+}
+// Meeting titles are for members only (scripts/members.mjs forVisitor).
+function sendTo(socket, message) {
+  send(socket, socket.member || !writeProtected ? message : forVisitor(message));
+}
+function broadcastToMembers(message) {
+  for (const socket of websocketServer.clients) if (socket.member || !writeProtected) send(socket, message);
+}
+
+// ---- Audit log, comfort feedback and notes (Phase D) ----
+// Kept as files next to the shadow log. On a host without a persistent disk they last until a restart.
+const phaseDataDir = process.env.ZB202_STRATEGY_DATA_DIR || strategyDataDir;
+const auditFile = path.join(phaseDataDir, "audit-log.jsonl");
+const feedbackFile = path.join(phaseDataDir, "feedback.jsonl");
+const notesFile = path.join(phaseDataDir, "notes.json");
+const auditLog = [];
+let feedback = [];
+let notes = [];
+async function readJsonLines(file) {
+  try { return (await readFile(file, "utf8")).split("\n").filter(Boolean).map((line) => { try { return JSON.parse(line); } catch { return null; } }).filter(Boolean); }
+  catch { return []; }
+}
+async function loadPhaseData() {
+  auditLog.push(...(await readJsonLines(auditFile)).slice(-200));
+  feedback = (await readJsonLines(feedbackFile)).filter((item) => Date.now() - Date.parse(item.t) < 8 * 86400000);
+  try { notes = JSON.parse(await readFile(notesFile, "utf8")); } catch { notes = []; }
+}
+function audit(member, action, detail, ok = true) {
+  const entry = { t: new Date().toISOString(), member: member || "local", action, detail, ok };
+  auditLog.push(entry);
+  while (auditLog.length > 200) auditLog.shift();
+  appendFile(auditFile, `${JSON.stringify(entry)}\n`).catch((error) => console.warn(`[Audit] Write failed: ${error.message}`));
+  broadcastToMembers({ type: "audit-log", entries: auditLog.slice(-50) });
+}
+
+// "Too stuffy / too warm / too cold / just right" from anyone, at most once per 5 minutes per
+// connection and 60 an hour overall; the room's readings at that moment are kept with each vote.
+const VOTES = ["stuffy", "warm", "cold", "ok"];
+function recentFeedback() { return feedback.filter((item) => Date.now() - Date.parse(item.t) < 48 * 3600000); }
+async function handleFeedback(socket, message) {
+  const requestId = String(message.requestId || "");
+  const vote = String(message.vote || "");
+  const lastHour = feedback.filter((item) => Date.now() - Date.parse(item.t) < 3600000).length;
+  if (!VOTES.includes(vote)) { send(socket, { type: "feedback-result", requestId, ok: false, error: "Unknown vote" }); return; }
+  if ((socket.lastVoteAt && Date.now() - socket.lastVoteAt < 5 * 60000) || lastHour >= 60) { send(socket, { type: "feedback-result", requestId, ok: false, limited: true }); return; }
+  socket.lastVoteAt = Date.now();
+  const indoor = strategy?.indoorConditions(Date.now());
+  const entry = { t: new Date().toISOString(), vote, member: socket.member || null,
+    room: { co2: strategy?.latest?.co2?.current ?? null, temperature: indoor?.source === "sensors" ? Math.round(indoor.temperatureC * 10) / 10 : null, humidity: indoor?.source === "sensors" ? Math.round(indoor.humidityPct) : null } };
+  feedback.push(entry);
+  appendFile(feedbackFile, `${JSON.stringify(entry)}\n`).catch((error) => console.warn(`[Feedback] Write failed: ${error.message}`));
+  send(socket, { type: "feedback-result", requestId, ok: true });
+  broadcast({ type: "feedback", entries: recentFeedback() });
+}
+
+// Notes pinned to a device or a component, with the camera view they were written from. Members only.
+async function handleNote(socket, message, member) {
+  const requestId = String(message.requestId || "");
+  if (message.type === "note-add") {
+    const text = String(message.text || "").trim().slice(0, 500);
+    const target = String(message.target || "").slice(0, 120);
+    if (!text || !target) { send(socket, { type: "note-result", requestId, ok: false, error: "Empty note" }); return; }
+    const vector = (v) => (Array.isArray(v) && v.length === 3 && v.every(Number.isFinite) ? v.map((n) => Math.round(n * 1000) / 1000) : null);
+    const camera = message.camera ? { position: vector(message.camera.position), target: vector(message.camera.target) } : null;
+    const note = { id: `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, t: new Date().toISOString(), member: member || "local", target, text, camera: camera?.position && camera?.target ? camera : null };
+    notes.push(note);
+    audit(member, "note-add", { target });
+  } else {
+    const before = notes.length;
+    notes = notes.filter((note) => note.id !== message.id);
+    if (notes.length === before) { send(socket, { type: "note-result", requestId, ok: false, error: "No such note" }); return; }
+    audit(member, "note-delete", { id: message.id });
+  }
+  await writeFile(notesFile, `${JSON.stringify(notes, null, 1)}\n`).catch((error) => console.warn(`[Notes] Write failed: ${error.message}`));
+  send(socket, { type: "note-result", requestId, ok: true });
+  broadcastToMembers({ type: "notes", notes });
+}
+
+// Login, resume (token after a reconnect) and logout.
+function handleSession(socket, message) {
+  const requestId = String(message.requestId || "");
+  if (message.type === "logout") { socket.member = null; send(socket, { type: "session", member: null }); return; }
+  const session = message.type === "login" ? memberAuth.login(message.key) : null;
+  const name = session ? session.name : message.type === "resume" ? memberAuth.verify(message.token) : null;
+  if (!name) {
+    send(socket, { type: "session", requestId, member: null, error: message.type === "login" ? "Access key incorrect" : "Session expired" });
+    if (message.type === "login" && ++socket.failedKeys >= 5) socket.close(1008, "Too many incorrect access keys");
+    return;
+  }
+  socket.member = name;
+  send(socket, { type: "session", requestId, member: name, ...(session ? { token: session.token, expiresAt: session.expiresAt } : {}) });
+  if (session) audit(name, "login", {});
+  // What visitors did not get: meeting titles, notes and the audit log.
+  if (strategy) { send(socket, { type: "calendar", meetings: strategy.calendar.meetings }); if (strategy.latest) send(socket, strategy.latest); }
+  send(socket, { type: "notes", notes });
+  send(socket, { type: "audit-log", entries: auditLog.slice(-50) });
 }
 
 function normalizeSocketId(value) {
@@ -361,8 +472,10 @@ async function processDownlinkQueue() {
   try {
     await publishSocketCommand(item.deviceId, item.action);
     send(item.socket, { type: "control-result", requestId: item.requestId, deviceId: item.deviceId, action: item.action, ok: true });
+    audit(item.member, "socket", { deviceId: item.deviceId, action: item.action });
   } catch (error) {
     send(item.socket, { type: "control-result", requestId: item.requestId, deviceId: item.deviceId, action: item.action, ok: false, error: error.message });
+    audit(item.member, "socket", { deviceId: item.deviceId, action: item.action, error: error.message }, false);
   } finally {
     setTimeout(() => {
       processingDownlink = false;
@@ -371,7 +484,7 @@ async function processDownlinkQueue() {
   }
 }
 
-function enqueueSocketControl(socket, message) {
+function enqueueSocketControl(socket, message, member) {
   const deviceId = normalizeSocketId(message.deviceId);
   const action = String(message.action || "").toLowerCase();
   const requestId = String(message.requestId || "");
@@ -383,7 +496,7 @@ function enqueueSocketControl(socket, message) {
     send(socket, { type: "control-result", requestId, deviceId, action, ok: false, error: "Control queue busy; retry after the pending command" });
     return;
   }
-  downlinkQueue.push({ socket, requestId, deviceId, action });
+  downlinkQueue.push({ socket, requestId, deviceId, action, member });
   send(socket, { type: "control-queued", requestId, deviceId, action, position: downlinkQueue.length + (processingDownlink ? 1 : 0) });
   processDownlinkQueue();
 }
@@ -477,6 +590,67 @@ async function collectPollingRows(api, query) {
   }
 }
 
+// Flags CO₂ sensors whose corrected readings look implausible; flagged sensors leave the room value.
+let latestSensorHealth = null;
+let sensorHealthSignature = "";
+function refreshSensorHealth() {
+  const history = {};
+  for (const [deviceKey, entries] of historyByDevice) {
+    const points = entries.filter((entry) => Number.isFinite(entry.values.co2))
+      .map((entry) => correctTelemetry(entry, strategyConfig))
+      .map((entry) => ({ t: Date.parse(entry.receivedAt), ppm: entry.values.co2 }));
+    if (points.length) history[deviceKey] = points;
+  }
+  const sensors = assessCo2Health({ history, nowMs: Date.now(), config: strategyConfig });
+  strategy?.setExcludedSensors(Object.entries(sensors).filter(([, item]) => item.state === "suspect").map(([id]) => id));
+  const signature = JSON.stringify(Object.entries(sensors).map(([id, item]) => [id, item.state, item.reasons]));
+  latestSensorHealth = { type: "sensor-health", outdoorPpm: strategyConfig.co2.outdoorPpm, sensors, at: new Date().toISOString() };
+  if (signature !== sensorHealthSignature) {
+    // Keep a short log of state changes for the data-health panel (not after the first assessment).
+    const previous = sensorHealthSignature ? Object.fromEntries(JSON.parse(sensorHealthSignature).map(([id, state, reasons]) => [id, { state, reasons }])) : null;
+    if (previous) {
+      for (const [id, item] of Object.entries(sensors)) {
+        if (previous[id]?.state !== item.state) healthEvents.push({ t: new Date().toISOString(), id, state: item.state, reasons: item.reasons });
+      }
+      while (healthEvents.length > 50) healthEvents.shift();
+    }
+    sensorHealthSignature = signature;
+    latestSensorHealth.events = healthEvents;
+    broadcast(latestSensorHealth);
+  }
+}
+const healthEvents = [];
+
+// Per-device uplinks over 24 hours and socket standby power over 7 days; cached for 5 minutes so
+// several viewers share one query.
+const reportCache = new Map();
+function cachedReport(key, build) {
+  const cached = reportCache.get(key);
+  if (cached && Date.now() - cached.at < 5 * 60000) return cached.task;
+  const task = build();
+  reportCache.set(key, { at: Date.now(), task });
+  task.catch(() => reportCache.delete(key));
+  return task;
+}
+async function sendDeviceHealth(socket, message) {
+  const requestId = String(message.requestId || "");
+  try {
+    const devices = await cachedReport("device-health", async () => deviceHealthFromRows(await queryApi.collectRows(buildUplinkQuery({ bucket, hours: 24 })), { nowMs: Date.now(), hours: 24 }));
+    send(socket, { type: "device-health", requestId, hours: 24, devices, events: healthEvents });
+  } catch (error) {
+    send(socket, { type: "device-health", requestId, devices: {}, events: healthEvents, error: error.message });
+  }
+}
+async function sendStandbyReport(socket, message) {
+  const requestId = String(message.requestId || "");
+  try {
+    const report = await cachedReport("standby", async () => standbyReport(await queryApi.collectRows(buildSocketHourlyQuery({ bucket, days: 7 }))));
+    send(socket, { type: "standby-report", requestId, days: 7, ...report });
+  } catch (error) {
+    send(socket, { type: "standby-report", requestId, sockets: [], error: error.message });
+  }
+}
+
 async function poll() {
   if (polling) return;
   polling = true;
@@ -499,9 +673,10 @@ async function poll() {
       if (telemetry) changedTelemetry.add(telemetry);
     }
     for (const telemetry of changedTelemetry) {
-      strategy?.ingestTelemetry(telemetry);
-      broadcast(telemetry);
+      strategy?.ingestTelemetry(telemetry); // the strategy applies the offsets itself
+      broadcast(correctTelemetry(telemetry, strategyConfig));
     }
+    refreshSensorHealth();
     if (!databaseConnected) console.log(`[InfluxDB] Connected to ${url}; loaded ${rows.length} rows from ${bucket}${weatherBucket ? ` + ${weatherBucket}` : ""}`);
     hasLoadedHistory = true;
     consecutiveFailures = 0;
@@ -518,10 +693,14 @@ async function poll() {
   }
 }
 
-async function handleStrategyMessage(socket, message) {
+async function handleStrategyMessage(socket, message, member = "") {
   const requestId = String(message.requestId || "");
   if (!strategy) {
     send(socket, { type: "strategy-error", requestId, error: "AI ventilation strategy is disabled" });
+    return;
+  }
+  if (message.type === "ai-review-request") {
+    send(socket, { type: "ai-review", requestId, ...strategy.aiReview({ days: Number(message.days) || 7, hours: Number(message.hours) || 24 }) });
     return;
   }
   if (message.type === "recommendation-history-request") {
@@ -533,6 +712,7 @@ async function handleStrategyMessage(socket, message) {
     try {
       const meetings = await strategy.updateCalendar(message);
       send(socket, { type: "calendar-result", requestId, ok: true });
+      audit(member, `meeting-${message.action}`, { start: message.meeting?.start, people: message.meeting?.people });
       broadcast({ type: "calendar", meetings });
       if (strategyStarted) void runStrategyTick();
     } catch (error) {
@@ -543,6 +723,7 @@ async function handleStrategyMessage(socket, message) {
   try {
     const mode = await strategy.setControlMode(String(message.mode || ""));
     send(socket, { type: "control-mode-result", requestId, ok: true, mode });
+    audit(member, "control-mode", { mode });
     broadcast({ type: "control-mode", mode });
     if (strategyStarted) void runStrategyTick();
   } catch (error) {
@@ -559,13 +740,16 @@ async function runStrategyTick() {
   finally { strategyTicking = false; }
 }
 
-// Seeds the occupancy filter and 8-hour average from InfluxDB, then recalculates every 10 minutes.
+// Seeds the occupancy filter and 8-hour average from InfluxDB and rebuilds this week's recommendations
+// (and savings) that the shadow log lacks, then recalculates every 10 minutes.
 async function startStrategy() {
   strategyStarted = true;
   try {
     const stop = Date.now();
-    const rows = await queryApi.collectRows(buildCo2HistoryQuery({ bucket, sensors: strategyConfig.co2.sensors, start: stop - 8 * 3600000, stop }));
-    strategy.warmUp(co2RowsToSeries(rows));
+    const weekStart = hkWeekStart(stop);
+    const rows = await queryApi.collectRows(buildCo2HistoryQuery({ bucket, sensors: strategyConfig.co2.sensors, start: Math.min(stop - 8 * 3600000, weekStart), stop }));
+    const rebuilt = await strategy.warmUp(co2RowsToSeries(rows), { backfillSince: weekStart });
+    if (rebuilt) console.log(`[Strategy] Rebuilt ${rebuilt} recommendations since ${new Date(weekStart).toISOString()} from InfluxDB history.`);
   } catch (error) {
     console.warn(`[Strategy] Warm-up history unavailable: ${error.message}`);
   }
@@ -586,27 +770,43 @@ websocketServer.on("connection", (socket) => {
   socket.on("error", (error) => console.warn(`[Bridge] Client error: ${error.message}`));
   send(socket, databaseStatus());
   const pendingHistory = new Set();
-  send(socket, { type: "control-status", connected: mqttConnected, readOnly, writeProtected: Boolean(writeKeyDigest) || requireWriteKey, source: "mqtt", supportedDevices: [...socketDevices.keys()] });
-  for (const history of historyByDevice.values()) for (const telemetry of history) send(socket, telemetry);
+  socket.member = null;
+  send(socket, { type: "control-status", connected: mqttConnected, readOnly, writeProtected, source: "mqtt", supportedDevices: [...socketDevices.keys()] });
+  for (const history of historyByDevice.values()) for (const telemetry of history) send(socket, correctTelemetry(telemetry, strategyConfig));
+  send(socket, calibrationSummary(strategyConfig));
+  if (latestSensorHealth) send(socket, latestSensorHealth);
   if (strategy) {
-    send(socket, { type: "calendar", meetings: strategy.calendar.meetings });
-    if (strategy.latest) send(socket, strategy.latest);
+    sendTo(socket, { type: "calendar", meetings: strategy.calendar.meetings });
+    if (strategy.latest) sendTo(socket, strategy.latest);
   }
+  send(socket, { type: "feedback", entries: recentFeedback() });
+  if (!writeProtected) { send(socket, { type: "notes", notes }); send(socket, { type: "audit-log", entries: auditLog.slice(-50) }); }
   socket.on("message", (data) => {
     let message;
     try { message = JSON.parse(data.toString()); } catch { return; }
     if (!message || typeof message !== "object") return;
-    const resultType = { "socket-control": "control-result", "calendar-update": "calendar-result", "control-mode-request": "control-mode-result" }[message.type];
-    if (resultType && (readOnly || !writeKeyMatches(message.key))) {
-      const keyRejected = !readOnly;
-      const error = keyRejected ? "Access key required or incorrect" : "This bridge is read-only; use the local bridge for control";
-      send(socket, { type: resultType, requestId: String(message.requestId || ""), deviceId: message.deviceId, action: message.action, ok: false, keyRejected, error });
-      // Limit key guessing on one connection.
-      if (keyRejected && message.key && ++socket.failedKeys >= 5) socket.close(1008, "Too many incorrect access keys");
-      return;
+    if (["login", "resume", "logout"].includes(message.type)) { handleSession(socket, message); return; }
+    if (message.type === "feedback") { void handleFeedback(socket, message); return; }
+    // Every write is checked here on the server: read-only bridges refuse, protected ones need a member.
+    const resultType = { "socket-control": "control-result", "calendar-update": "calendar-result", "control-mode-request": "control-mode-result", "note-add": "note-result", "note-delete": "note-result" }[message.type];
+    let member = "";
+    if (resultType) {
+      member = readOnly ? null : writerFor(socket, message);
+      if (member === null) {
+        const keyRejected = !readOnly;
+        const error = keyRejected ? "Member login required" : "This bridge is read-only; use the local bridge for control";
+        send(socket, { type: resultType, requestId: String(message.requestId || ""), deviceId: message.deviceId, action: message.action, ok: false, keyRejected, error });
+        // Limit key guessing on one connection.
+        if (keyRejected && message.key && ++socket.failedKeys >= 5) socket.close(1008, "Too many incorrect access keys");
+        return;
+      }
     }
-    if (message.type === "socket-control") enqueueSocketControl(socket, message);
-    if (["recommendation-history-request", "calendar-update", "control-mode-request"].includes(message.type)) void handleStrategyMessage(socket, message);
+    if (message.type === "socket-control") enqueueSocketControl(socket, message, member);
+    if (message.type === "note-add" || message.type === "note-delete") void handleNote(socket, message, member);
+    if (message.type === "audit-log-request" && (socket.member || !writeProtected)) send(socket, { type: "audit-log", entries: auditLog.slice(-50) });
+    if (["recommendation-history-request", "ai-review-request", "calendar-update", "control-mode-request"].includes(message.type)) void handleStrategyMessage(socket, message, member);
+    if (message.type === "device-health-request") void sendDeviceHealth(socket, message);
+    if (message.type === "standby-report-request") void sendStandbyReport(socket, message);
     if (["sensor-history-request", "demand-history-request", "room-history-request"].includes(message.type)) {
       if (pendingHistory.has(message.type)) {
         send(socket, message.type === "sensor-history-request"
@@ -633,6 +833,7 @@ if (strategy) {
   await strategy.init();
   strategy.onRecommendation(broadcast);
 }
+await loadPhaseData();
 console.log(`[Bridge] WebSocket ready at ws://${websocketHost}:${websocketPort}`);
 const heartbeat = setInterval(() => {
   for (const socket of websocketServer.clients) {

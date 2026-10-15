@@ -1,4 +1,6 @@
-// Adaptive quality (section 13.13): three tiers, measured automatically, never auto-raised.
+// Adaptive quality (section 13.13): three tiers, measured automatically. An automatic drop lasts for
+// this visit only (one slow moment must not leave a big screen on "low" for good), and every two
+// minutes the page tries one tier higher; a tier that proves too slow again is not retried.
 import { setPixelRatioCap, stats, onAfterRender, getRenderer } from "./viewer.js";
 import { setShadowMapSize, setAmbientOcclusion } from "./lighting.js";
 import { setGlassQuality } from "./materials.js";
@@ -15,15 +17,18 @@ const TARGET_FPS = 50;
 let tier = null;
 let measuring = false;
 let slowSince = null;
+let upgradedAt = 0;
+let upgradeBlocked = false;
+const UPGRADE_EVERY_MS = 2 * 60000;
 
 export function initialTier() {
   if (settings.quality && settings.quality !== "auto") return settings.quality;
-  const stored = storage.get("zb202-quality");
-  if (ORDER.includes(stored)) return stored;
+  // Earlier versions remembered automatic drops permanently; forget them.
+  if (storage.get("zb202-quality")) storage.set("zb202-quality", "");
   return settings.kioskTier ? "medium" : "high";
 }
 
-export function applyTier(next, { remember = false } = {}) {
+export function applyTier(next) {
   tier = next;
   const config = TIERS[next];
   // On 4K screens the low tier renders the 3D image at 0.75× and stretches it; text stays native.
@@ -34,7 +39,6 @@ export function applyTier(next, { remember = false } = {}) {
   setGlassQuality(config.glass);
   setOutlineMode(config.outline);
   document.documentElement.dataset.quality = next;
-  if (remember) storage.set("zb202-quality", next);
   emit("quality", next);
 }
 
@@ -60,10 +64,24 @@ function downgrade() {
   const index = ORDER.indexOf(tier);
   slowSince = null;
   samples.length = 0;
-  if (index < ORDER.length - 1) applyTier(ORDER[index + 1], { remember: true });
+  if (Date.now() - upgradedAt < 60000) upgradeBlocked = true; // the higher tier was too slow
+  if (index < ORDER.length - 1) applyTier(ORDER[index + 1]);
 }
 
-export function startMeasuring() { measuring = true; }
+function tryUpgrade() {
+  if (settings.quality !== "auto" || upgradeBlocked || document.hidden) return;
+  const index = ORDER.indexOf(tier);
+  const ceiling = ORDER.indexOf(initialTier());
+  if (index <= ceiling) return;
+  upgradedAt = Date.now();
+  samples.length = 0;
+  applyTier(ORDER[index - 1]);
+}
+
+export function startMeasuring() {
+  if (!measuring) window.setInterval(tryUpgrade, UPGRADE_EVERY_MS);
+  measuring = true;
+}
 export const currentTier = () => tier;
 export const currentFps = () => stats.fps;
 export const rendererInfo = () => getRenderer()?.info;

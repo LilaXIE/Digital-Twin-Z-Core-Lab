@@ -4,7 +4,7 @@ import { escapeHtml } from "./dom.js";
 
 const BINARY = {
   occupancy: ["vacant", "occupied"],
-  door: ["closed", "open"],
+  door: ["doorClosed", "doorOpen"],
   leak: ["leakNo", "leakYes"],
   socket: ["off", "on"],
   tamper: ["off", "on"],
