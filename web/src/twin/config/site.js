@@ -18,7 +18,9 @@ export const SITE = Object.freeze({
   aiStaleAfterMs: 25 * 60 * 1000,
   kioskIdleMs: 3 * 60 * 1000,
   kioskThemeMs: 20 * 1000,
-  // Room representative values average these five sensors (as the strategy service does).
+  // Grid carbon intensity for "kg CO₂e saved": CLP Power, 2024 (kg CO₂e per kWh).
+  carbonKgPerKwh: 0.38,
+  // Room representative values are the median of these five sensors (as the strategy service does).
   envSensors: ["AM103-05", "AM103-06", "AM103-07", "AM103-08", "AM308-01"],
 });
 

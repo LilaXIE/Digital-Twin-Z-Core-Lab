@@ -6,9 +6,9 @@
 // On Overview these cards replace the status capsules and the alarm capsule (same data, no repeats).
 // Narrow screens keep the capsules; every card also opens its full theme panel.
 import { t, formatNumber, clockTime, getLang } from "../i18n.js";
-import { ui, settings, setView, setFocusMetric, select, on } from "../state.js";
+import { ui, settings, setView, setFocusMetric, select, on, storage } from "../state.js";
 import { data, setAlarmState } from "../data/store.js";
-import { roomMetric, metricStatus, occupancyInfo, roomSeries, alarms, ALARM_TITLE, ALARM_ICON, healthSummary, socketDevices, socketInfo, totalPowerKw } from "../data/derived.js";
+import { roomMetric, metricStatus, occupancyInfo, roomSeries, alarms, ALARM_TITLE, ALARM_ICON, healthSummary, socketDevices, socketInfo, totalPowerKw, todaySummary } from "../data/derived.js";
 import { deviceById } from "../data/devices.js";
 import { SITE, thresholds } from "../config/site.js";
 import { startReplay } from "../data/replay.js";
@@ -18,6 +18,7 @@ import { compassText } from "./format.js";
 import { $, escapeHtml, icon, rollNumber } from "./dom.js";
 import { controlStatus, confirmSwitch, confirmOpen, pendingSocketIds, socketStateHtml, switchesInteractive } from "./sockets.js";
 import { toggleAlarmPopover } from "./alarms.js";
+import { todayHtml } from "./today.js";
 
 const INDOOR_STATS = [
   { key: "temperature", unit: "°C", digits: 1 },
@@ -148,7 +149,7 @@ function renderOutdoor() {
   card.querySelector('[data-part="source"]').textContent = [t("outdoorSource"), Number.isFinite(observed) ? clockTime(observed) : ""].filter(Boolean).join(" · ");
 }
 
-// ---- Alarms and device health ----
+// ---- Today: open alarms first, then how the air has been today (section B2) ----
 const deviceLabel = (id) => (id === "dataService" ? t("dataService") : id);
 function alarmDetail(alarm) {
   if (alarm.detailKey === "raw") return alarm.detailVars.text || "";
@@ -159,35 +160,47 @@ function renderAlarmCard() {
   const card = $("#alarm-card");
   if (needsBuild(card)) {
     card.innerHTML = `
-      <header class="tw-card-head"><h2 id="alarm-card-title">${icon("ph-bell-simple")}<span>${escapeHtml(t("alarmPanelTitle"))}</span></h2>
+      <header class="tw-card-head"><h2 id="alarm-card-title">${icon("ph-calendar-check")}<span>${escapeHtml(t("todayTitle"))}</span></h2>
         <button type="button" class="tw-link" data-action="all" aria-haspopup="dialog">${escapeHtml(t("viewAll"))}${icon("ph-caret-right")}</button></header>
       <div data-part="alarms"></div>
+      <div class="tw-today" data-part="today"></div>
       <div class="tw-health" data-part="health"></div>`;
     card.querySelector('[data-action="all"]').addEventListener("click", (event) => toggleAlarmPopover(event.currentTarget));
   }
   const active = alarms().filter((alarm) => alarm.state === "active");
   card.classList.toggle("has-alarms", active.length > 0);
   card.classList.toggle("is-critical", active.some((alarm) => alarm.level === "critical"));
+  // Each alarm row holds two sibling buttons (open, acknowledge) rather than a button inside a button.
   const list = active.length
     ? active.slice(0, MAX_ALARMS).map((alarm) => `
-      <div class="tw-alarm-row${alarm.level === "critical" ? " is-critical" : ""}" data-device="${escapeHtml(alarm.deviceId)}" role="button" tabindex="0">
-        ${icon(ALARM_ICON[alarm.type] || "ph-warning-circle")}
-        <span><strong>${escapeHtml(t(ALARM_TITLE[alarm.type] || alarm.type))}</strong><small>${escapeHtml(deviceLabel(alarm.deviceId))}${alarmDetail(alarm) ? ` · ${escapeHtml(alarmDetail(alarm))}` : ""}</small></span>
+      <div class="tw-alarm-row${alarm.level === "critical" ? " is-critical" : ""}">
+        <button type="button" class="tw-alarm-open" data-device="${escapeHtml(alarm.deviceId)}">
+          ${icon(ALARM_ICON[alarm.type] || "ph-warning-circle")}
+          <span><strong>${escapeHtml(t(ALARM_TITLE[alarm.type] || alarm.type))}</strong><small>${escapeHtml(deviceLabel(alarm.deviceId))}${alarmDetail(alarm) ? ` · ${escapeHtml(alarmDetail(alarm))}` : ""}</small></span>
+        </button>
         <button type="button" class="tw-icon-button tw-ack" data-ack="${escapeHtml(alarm.id)}" aria-label="${escapeHtml(t("acknowledge"))}" title="${escapeHtml(t("acknowledge"))}">${icon("ph-check")}</button>
       </div>`).join("") + (active.length > MAX_ALARMS ? `<button type="button" class="tw-link tw-more" data-action="more">${escapeHtml(t("moreAlarms", { n: active.length - MAX_ALARMS }))}</button>` : "")
     : `<div class="tw-card-ok">${icon("ph-check-circle")}<span><strong>${escapeHtml(t("allClear"))}</strong><small>${escapeHtml(t("noOpenAlarms"))}</small></span></div>`;
   setHtml(card.querySelector('[data-part="alarms"]'), list);
+  setHtml(card.querySelector('[data-part="today"]'), todayHtml(todaySummary()));
 
   const h = healthSummary();
   const total = h.online + h.offline + h.fault;
-  const bar = [[h.online, "var(--good)"], [h.fault, "var(--poor)"], [h.offline, "var(--offline)"]]
-    .filter(([count]) => count > 0).map(([count, color]) => `<i style="width:${((count / (total || 1)) * 100).toFixed(2)}%;background:${color}"></i>`).join("");
   const low = h.batteryLow;
   setHtml(card.querySelector('[data-part="health"]'), `
     <div class="tw-health-head"><span>${escapeHtml(t("devicesOnline"))}</span><strong><span class="tw-num">${h.online}</span><span class="tw-unit">/ ${total}</span></strong></div>
-    <div class="tw-dist-bar" aria-hidden="true">${bar}</div>
-    <div class="tw-dist-legend"><span><i class="tw-dot" data-level="good"></i>${escapeHtml(t("online"))} ${h.online}</span>${h.fault ? `<span><i class="tw-dot" data-level="poor"></i>${escapeHtml(t("fault"))} ${h.fault}</span>` : ""}${h.offline ? `<span><i class="tw-dot" data-level="offline"></i>${escapeHtml(t("offline"))} ${h.offline}</span>` : ""}${low ? `<span class="is-caution">${icon("ph-battery-warning")}${escapeHtml(t("batteryLowCount", { n: low }))}</span>` : ""}</div>
+    <div class="tw-dist-legend">${h.fault ? `<span><i class="tw-dot" data-level="poor"></i>${escapeHtml(t("fault"))} ${h.fault}</span>` : ""}${h.offline ? `<span><i class="tw-dot" data-level="offline"></i>${escapeHtml(t("offline"))} ${h.offline}</span>` : ""}${low ? `<span class="is-caution">${icon("ph-battery-warning")}${escapeHtml(t("batteryLowCount", { n: low }))}</span>` : ""}</div>
 `);
+}
+
+// "Show details" brings back the indoor, outdoor and socket cards; the choice is remembered per browser.
+const DETAILS_KEY = "zb202-home-details";
+function applyDetails(open) {
+  document.body.toggleAttribute("data-home-details", open);
+  const button = $("#home-details-toggle");
+  button.setAttribute("aria-expanded", String(open));
+  button.querySelector("span").textContent = t(open ? "hideDetails" : "showDetails");
+  button.querySelector("i").className = `ph ${open ? "ph-caret-up" : "ph-caret-down"}`;
 }
 
 // ---- Sockets: total power first, then each socket with its own switch ----
@@ -247,6 +260,7 @@ const socketInfos = () => socketDevices().map((device) => ({ device, info: socke
 
 export function renderHomeDock() {
   document.body.toggleAttribute("data-replay", Boolean(ui.replay));
+  if ($("#home-details-toggle")) applyDetails(document.body.hasAttribute("data-home-details")); // relabels after a language change
   if (!visible()) return;
   renderIndoor();
   renderOutdoor();
@@ -290,14 +304,25 @@ export function initHomeDock() {
       const ack = event.target.closest("[data-ack]");
       if (ack) { event.stopPropagation(); setAlarmState(ack.dataset.ack, "acknowledged"); return; }
       if (event.target.closest('[data-action="more"]')) { toggleAlarmPopover(event.target.closest('[data-action="more"]')); return; }
-      const row = event.target.closest(".tw-alarm-row");
+      const replayAt = event.target.closest("[data-replay-at]");
+      if (replayAt) { void startReplay({ at: Number(replayAt.dataset.replayAt) }); return; }
+      const row = event.target.closest(".tw-alarm-open");
       if (row && deviceById(row.dataset.device)) { setView("devices"); select({ kind: "sensor", id: row.dataset.device }); }
     });
-    dock.addEventListener("keydown", (event) => {
-      const row = event.target.closest?.(".tw-alarm-row");
-      if (row && event.key === "Enter" && event.target === row) row.click();
-    });
   }
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.id = "home-details-toggle";
+  toggle.className = "tw-details-toggle glass-thin";
+  toggle.innerHTML = '<i class="ph ph-caret-down" aria-hidden="true"></i><span></span>';
+  $("#dock-left").append(toggle);
+  toggle.addEventListener("click", () => {
+    const open = !document.body.hasAttribute("data-home-details");
+    storage.set(DETAILS_KEY, open ? "1" : "");
+    applyDetails(open);
+    renderHomeDock();
+  });
+  applyDetails(storage.get(DETAILS_KEY) === "1");
   on("data", renderHomeDock);
   on("replay", renderHomeDock);
   on("replay-tick", () => { if (visible()) { renderIndoor(); renderOutdoor(); } });

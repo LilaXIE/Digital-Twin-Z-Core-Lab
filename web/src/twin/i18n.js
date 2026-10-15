@@ -128,6 +128,7 @@ const zh = {
   ahuOffTitle: "AHU 已停机", ahuNextStart: "下次开机 {when}", ahuStartCo2: "开机时预计 CO₂ {v} ppm", ahuStartCo2Tile: "开机时预计 CO₂", ahuState: "AHU 状态", ahuRunningState: "运行中", ahuHoursLine: "运行时间：工作日 {hours}", ahuHoursInferred: "根据每晚 CO₂ 下降时刻推断，待 FMO 确认", ahuNextStop: "下次停机 {when}", ahuBmsPending: "接入 BMS 后显示送回风温度、阀门开度和风机频率", ahuOffNoSavings: "下班后 AHU 不送新风，AI 无需调节，也不计算节能", tomorrow: "明天", weekSince: "本周（自{day}起）", meetingDefault: "会议", rAhuOff: "AHU 已停机，{when} 开机后再给出新风推荐", rAtMaxExceed: "预计 {at} CO₂ 超过 {limit} ppm，新风已达上限", rAtMax: "新风已达上限，CO₂ 可能高于 {target} ppm 控制目标", rMeetingNowRaised: "{name}进行中（预计 {people} 人），维持较大新风", rMeetingNow: "{name}进行中（预计 {people} 人），CO₂ 余量充足", rMeetingSoonRaised: "{at} {name}预计 {people} 人，提前加大新风", rMeetingSoon: "{at} {name}预计 {people} 人，当前 CO₂ 余量充足", rHeadroom: "CO₂ 余量充足，保持最小新风量", rRaised: "估计 {people} 人，按需加大新风，使 CO₂ 不超过 {target} ppm", rNoData: "最近 20 分钟没有 CO₂ 数据，暂时无法给出推荐",
   socketOn: "开", socketOff: "关", controlViewOnly: "仅供查看，插座开关由实验室成员操作", controlLocked: "输入访问密钥后可开关插座", updatedAtShort: "更新于 {time}", aiAdviceOnly: "AI 目前只给出建议，是否采用由设施管理团队决定", calendarLocked: "输入访问密钥后可添加或删除会议",
   connectionRetrying: "暂时连不上数据服务，正在自动重试",
+  showDetails: "展开详情", hideDetails: "收起详情", lineAi: "AI 建议新风 {lps} L/s", lineAhuOff: "AHU 已停机", lineSaved: "今日已省 {kwh} kWh（{kg} kg CO₂e）", aiValueLess: "比假设现状少送 {d} L/s 新风", aiValueSaved: "今日省 {kwh} kWh · {kg} kg CO₂e", todayTitle: "今日小结", todayWaiting: "正在读取今日数据", todayCompliance: "工作时间 CO₂ 达标", todayNoWorkingData: "未开始", todayExceed: "超标次数", todayCompleteness: "数据完整率", todayEvents: "CO₂ 超过 {limit} ppm（点击回放）", eventPeak: "最高 {v} ppm · {m} 分钟", iaqExcellent: "室内空气质素 · 卓越级", iaqGood: "室内空气质素 · 良好级", iaqBelow: "未达良好级", iaqBasis: "8 小时平均 CO₂ {v} ppm · 香港环保署标准",
   basisItems: (r) => [
     `控制目标：预测时域内任一时刻 CO₂ ≤ <b>${r.co2.target} ppm</b>，比 ${r.co2.limit} ppm 限值留 ${r.co2.limit - r.co2.target} ppm 余量（传感器与预测误差）。`,
     `最小新风量 = 2.5 L/s·人 × 人数 + 0.3 L/s·m² × 46.6 m²，当前为 <b>${r.airflow.minLps} L/s</b>。`,
@@ -223,6 +224,7 @@ const zhHant = {
   socketOn: "開", socketOff: "關", controlViewOnly: "僅供查看，插座開關由實驗室成員操作", controlLocked: "輸入訪問密鑰後可開關插座", updatedAtShort: "更新於 {time}", aiAdviceOnly: "AI 目前只給出建議，是否採用由設施管理團隊決定", calendarLocked: "輸入訪問密鑰後可新增或刪除會議",
   forecastPoints: "30 分鐘 {a} ppm · 60 分鐘 {b} ppm", targetLine: "目標 {v}",
   connectionRetrying: "暫時連不上數據服務，正在自動重試",
+  showDetails: "展開詳情", hideDetails: "收起詳情", lineAi: "AI 建議新風 {lps} L/s", lineAhuOff: "AHU 已停機", lineSaved: "今日已省 {kwh} kWh（{kg} kg CO₂e）", aiValueLess: "比假設現狀少送 {d} L/s 新風", aiValueSaved: "今日省 {kwh} kWh · {kg} kg CO₂e", todayTitle: "今日小結", todayWaiting: "正在讀取今日數據", todayCompliance: "工作時間 CO₂ 達標", todayNoWorkingData: "未開始", todayExceed: "超標次數", todayCompleteness: "數據完整率", todayEvents: "CO₂ 超過 {limit} ppm（點擊回放）", eventPeak: "最高 {v} ppm · {m} 分鐘", iaqExcellent: "室內空氣質素 · 卓越級", iaqGood: "室內空氣質素 · 良好級", iaqBelow: "未達良好級", iaqBasis: "8 小時平均 CO₂ {v} ppm · 香港環保署標準",
   basisItems: (r) => [
     `控制目標：預測時域內任一時刻 CO₂ ≤ <b>${r.co2.target} ppm</b>，比 ${r.co2.limit} ppm 限值留 ${r.co2.limit - r.co2.target} ppm 餘量（感測器與預測誤差）。`,
     `最小新風量 = 2.5 L/s·人 × 人數 + 0.3 L/s·m² × 46.6 m²，當前為 <b>${r.airflow.minLps} L/s</b>。`,
@@ -325,6 +327,7 @@ const en = {
   socketOn: "On", socketOff: "Off", controlViewOnly: "View only; lab members switch the sockets", controlLocked: "Enter the access key to switch sockets", updatedAtShort: "Updated {time}", aiAdviceOnly: "The AI only advises for now; the facilities team decides whether to apply it", calendarLocked: "Enter the access key to add or remove meetings",
   replayEvent: "{device} {type}",
   connectionRetrying: "The data service is unreachable; retrying automatically",
+  showDetails: "Show details", hideDetails: "Hide details", lineAi: "AI suggests {lps} L/s outdoor air", lineAhuOff: "AHU off", lineSaved: "{kwh} kWh ({kg} kg CO₂e) saved today", aiValueLess: "{d} L/s less outdoor air than assumed now", aiValueSaved: "{kwh} kWh · {kg} kg CO₂e saved today", todayTitle: "Today", todayWaiting: "Loading today's data", todayCompliance: "CO₂ within limit (working hours)", todayNoWorkingData: "Not yet", todayExceed: "Times over limit", todayCompleteness: "Data completeness", todayEvents: "CO₂ above {limit} ppm (tap to replay)", eventPeak: "peak {v} ppm · {m} min", iaqExcellent: "Indoor air quality · Excellent class", iaqGood: "Indoor air quality · Good class", iaqBelow: "Below the Good class", iaqBasis: "8-hour average CO₂ {v} ppm · HK EPD scheme",
   basisItems: (r) => [
     `Target: CO₂ at or below <b>${r.co2.target} ppm</b> at every point of the horizon, ${r.co2.limit - r.co2.target} ppm below the ${r.co2.limit} ppm limit to cover sensor and forecast error.`,
     `Minimum outdoor air = 2.5 L/s per person + 0.3 L/s·m² × 46.6 m², currently <b>${r.airflow.minLps} L/s</b>.`,

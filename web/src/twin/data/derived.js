@@ -1,6 +1,6 @@
 // Values derived from the active dataset: room representative values, statuses, occupancy, alarms.
 // During a replay the replay values take precedence (data/replay.js fills ui.replay).
-import { SITE, thresholds } from "../config/site.js";
+import { SITE, isWorkingTime, thresholds } from "../config/site.js";
 import { data, alarmStates } from "./store.js";
 import { deviceById, deviceStatusFromValues, registry } from "./devices.js";
 import { settings, ui } from "../state.js";
@@ -211,6 +211,42 @@ export function roomSeries(history, key) {
     }
   }
   return [...byTime.entries()].sort((a, b) => a[0] - b[0]).map(([time, values]) => ({ t: time, v: median(values) }));
+}
+
+const hkDayStart = (tMs) => Math.floor((tMs + 8 * 3600000) / 86400000) * 86400000 - 8 * 3600000;
+
+// Today's air quality in one place (section B2): working-hours CO₂ compliance, the times CO₂ went
+// over the limit, how complete today's data is, and the HK EPD IAQ class from the 8-hour average.
+export function todaySummary(nowMs = Date.now()) {
+  const limit = thresholds.co2.goodBelow;
+  const stepMs = (data().roomHistory?.stepMinutes || 10) * 60000;
+  const series = roomSeries(data().roomHistory, "co2").filter((p) => Number.isFinite(p.v) && p.t <= nowMs);
+  if (!series.length) return null;
+  const dayStart = hkDayStart(nowMs);
+  const today = series.filter((p) => p.t >= dayStart);
+  const working = today.filter((p) => isWorkingTime(p.t));
+  const events = [];
+  let run = null;
+  for (const point of today) {
+    if (point.v > limit && run && point.t - run.end <= stepMs * 2.5) { run.end = point.t; run.peak = Math.max(run.peak, point.v); continue; }
+    if (run) { events.push(run); run = null; }
+    if (point.v > limit) run = { start: point.t, end: point.t, peak: point.v };
+  }
+  if (run) events.push(run);
+  for (const event of events) event.minutes = Math.round((event.end - event.start + stepMs) / 60000);
+  const expected = Math.max(1, Math.floor((nowMs - dayStart) / stepMs));
+  const last8h = series.filter((p) => p.t >= nowMs - 8 * 3600000);
+  const average8h = last8h.length ? last8h.reduce((sum, p) => sum + p.v, 0) / last8h.length : null;
+  const iaqClass = average8h === null ? null : average8h < 800 ? "excellent" : average8h < 1000 ? "good" : "below";
+  return {
+    compliance: working.length ? working.filter((p) => p.v <= limit).length / working.length : null,
+    workingSamples: working.length,
+    events,
+    completeness: Math.min(1, today.length / expected),
+    average8h,
+    iaqClass,
+    limit,
+  };
 }
 
 // Splits a series wherever consecutive points are further apart than maxGapMs (gaps are never interpolated).

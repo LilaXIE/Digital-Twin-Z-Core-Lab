@@ -1,6 +1,7 @@
 // AI recommendation card (section 7.1): recommended outdoor air and damper, the 60-minute CO₂ peak
 // and the reason. A new recommendation rolls the numbers and sweeps a soft highlight once.
-import { t, clockTime } from "../i18n.js";
+import { t, clockTime, formatNumber } from "../i18n.js";
+import { SITE } from "../config/site.js";
 import { ui, setView, on } from "../state.js";
 import { recommendationState } from "../data/derived.js";
 import { escapeHtml, icon, rollNumber } from "./dom.js";
@@ -21,6 +22,7 @@ export function renderAiCard() {
       <div class="tw-ai-value"><span class="tw-num" data-part="lps"></span><span class="tw-unit">L/s</span></div>
       <div class="tw-ai-value tw-ai-off" data-part="off" hidden></div>
       <div class="tw-ai-meta"><span data-part="damper"></span><span data-part="peak"></span></div>
+      <p class="tw-ai-value-line" data-part="value" hidden></p>
       <p class="tw-ai-reason" data-part="reason"></p>
       <p class="tw-ai-note" data-part="note" hidden></p>`;
   }
@@ -29,6 +31,8 @@ export function renderAiCard() {
   const lps = card.querySelector('[data-part="lps"]');
   const off = card.querySelector('[data-part="off"]');
   off.hidden = true;
+  const valueLine = card.querySelector('[data-part="value"]');
+  valueLine.hidden = true;
   if (!rec) {
     lps.textContent = "";
     lps.parentElement.hidden = true;
@@ -66,6 +70,15 @@ export function renderAiCard() {
   card.querySelector('[data-part="damper"]').textContent = t("aiDamper", { pct: rec.airflow.recommendedDamperPct });
   card.querySelector('[data-part="peak"]').textContent = `${t("aiPeak")} ${rec.co2.peakRecommended} ppm`;
   card.querySelector('[data-part="reason"]').textContent = reasonText(rec);
+  // What the recommendation is worth: less outdoor air than the assumed existing operation, and today's saving.
+  const less = rec.airflow.baselineLps - rec.airflow.recommendedLps;
+  const kwh = rec.energy?.savedTodayKwhElectric;
+  const value = [
+    less >= 1 ? t("aiValueLess", { d: Math.round(less) }) : "",
+    kwh >= 0.01 ? t("aiValueSaved", { kwh: formatNumber(kwh, kwh < 1 ? 2 : 1), kg: formatNumber(kwh * SITE.carbonKgPerKwh, 2) }) : "",
+  ].filter(Boolean).join(" · ");
+  valueLine.hidden = !value;
+  valueLine.textContent = value;
   // Interrupted updates keep the last recommendation, greyed, with its time (never a dash).
   card.classList.toggle("is-stale", stale);
   note.hidden = !stale && !rec.airflow.atMax;

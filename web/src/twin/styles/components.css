@@ -178,6 +178,10 @@ body[data-view]:not([data-view="home"]) .tw-capsule .tw-capsule-label { display:
 .tw-ai-value { margin-top: 6px; font-size: var(--fs-hero); font-weight: 300; letter-spacing: -0.02em; line-height: 1.05; }
 .tw-socket-state { display: inline-flex; align-items: center; gap: 5px; justify-self: end; font-size: 12px; font-weight: 500; color: var(--text-2); white-space: nowrap; }
 .tw-socket-state[data-on="false"] { color: var(--text-3); }
+.tw-ai-value-line { margin: 6px 0 0; font-size: 13px; font-weight: 600; color: var(--text); }
+body[data-view="home"] .tw-sentence { padding: 7px 16px; border-radius: 999px; font-size: 16px; text-shadow: none;
+  background: var(--glass-thin-bg, rgba(255, 255, 255, 0.55)); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4); box-shadow: var(--card-inset-rim); }
+body[data-view="home"] .tw-sentence:empty { display: none; }
 .tw-ai-value.tw-ai-off { font-size: 26px; font-weight: 400; color: var(--text-2); }
 .tw-ai-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 13px; color: var(--text-2); }
 .tw-ai-reason { margin: 10px 0 0; font-size: 13px; line-height: 1.5; color: var(--text); }
@@ -213,10 +217,43 @@ body:not([data-view="home"]) .tw-dock > [data-home], body[data-replay] .tw-dock-
 }
 body:not([data-view="home"]) .tw-dock-left > [data-home] { transform: translateX(-12px); }
 body:not([data-view="home"]) .tw-dock-right > [data-home], body[data-replay] .tw-dock-right > [data-home], body[data-sheet] .tw-dock-right > [data-home] { transform: translateX(12px); }
-/* Overview: the cards replace the capsules, the alarm capsule and the outdoor line (no repeated numbers). */
-:root:not([data-tier="narrow"]) body[data-view="home"] .tw-capsules,
+/* Overview (section B1): four capsules, the AI card and today's summary. "Show details" brings the
+   indoor, outdoor and socket cards back, and then they replace the capsules and the outdoor line. */
 :root:not([data-tier="narrow"]) body[data-view="home"] .tw-alarm-capsule,
-:root:not([data-tier="narrow"]) body[data-view="home"] #outdoor-line { display: none; }
+:root:not([data-tier="narrow"]) body[data-view="home"][data-home-details] .tw-capsules,
+:root:not([data-tier="narrow"]) body[data-view="home"][data-home-details] #outdoor-line { display: none; }
+body:not([data-home-details]) #indoor-card, body:not([data-home-details]) #outdoor-card, body:not([data-home-details]) #socket-card { display: none; }
+.tw-details-toggle {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 14px; border-radius: 999px;
+  font: inherit; font-size: 13px; font-weight: 500; color: var(--text-2); cursor: pointer; transition: opacity 280ms ease;
+}
+.tw-details-toggle:hover { color: var(--text); }
+body:not([data-view="home"]) .tw-details-toggle, body[data-replay] .tw-details-toggle { opacity: 0; visibility: hidden; pointer-events: none; }
+:root[data-tier="narrow"] .tw-details-toggle { display: none; }
+
+/* Today's summary card */
+.tw-today { display: grid; gap: 10px; margin-top: 10px; }
+.tw-iaq-badge { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px; background: var(--good-soft); }
+.tw-iaq-badge > i { font-size: 22px; color: var(--good); }
+.tw-iaq-badge[data-class="good"] { background: var(--card-inset); }
+.tw-iaq-badge[data-class="below"] { background: var(--caution-soft, var(--card-inset)); }
+.tw-iaq-badge[data-class="below"] > i { color: var(--caution); }
+.tw-iaq-badge span { display: grid; }
+.tw-iaq-badge strong { font-size: 14px; font-weight: 600; color: var(--text); }
+.tw-iaq-badge small { font-size: var(--fs-caption); color: var(--text-2); }
+.tw-today-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.tw-today-grid > div { display: grid; gap: 2px; padding: 8px 10px; border-radius: 12px; background: var(--card-inset); box-shadow: var(--card-inset-rim); }
+.tw-today-grid small { font-size: var(--fs-caption); color: var(--text-2); line-height: 1.3; }
+.tw-today-grid strong { font-size: 18px; font-weight: 500; color: var(--text); }
+.tw-events { display: grid; gap: 4px; }
+.tw-events > small { font-size: var(--fs-caption); color: var(--text-2); }
+.tw-event-row { display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 8px; padding: 6px 10px; border: 0; border-radius: 10px; background: var(--poor-soft); color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.tw-event-row > i { color: var(--poor); }
+.tw-event-row small { justify-self: end; font-size: var(--fs-caption); color: var(--text-2); }
+.tw-alarm-open { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.tw-alarm-open > i { font-size: 18px; color: var(--caution); }
+.tw-alarm-row.is-critical .tw-alarm-open > i { color: var(--poor); }
+.tw-alarm-open span { display: grid; min-width: 0; }
 
 .tw-card { position: relative; padding: 14px 16px 15px; border-radius: var(--r-panel); }
 .tw-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 20px; font-size: var(--fs-caption); color: var(--text-2); font-weight: 500; }
@@ -277,8 +314,8 @@ body:not([data-view="home"]) .tw-dock-right > [data-home], body[data-replay] .tw
 .tw-card-ok strong { font-size: 15px; font-weight: 600; color: var(--text); }
 .tw-card-ok small { font-size: var(--fs-caption); color: var(--text-2); }
 .tw-alarm-row {
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-top: 8px;
-  padding: 8px 8px 8px 10px; border-radius: 12px; background: var(--caution-soft); cursor: pointer;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-top: 8px;
+  padding: 8px 8px 8px 10px; border-radius: 12px; background: var(--caution-soft);
 }
 .tw-alarm-row.is-critical { background: var(--poor-soft); }
 .tw-alarm-row > i { font-size: 18px; color: var(--caution); }
@@ -533,7 +570,9 @@ table.tw-table tr:hover td { background: var(--surface-sunken); }
 .tw-menu-row > span { color: var(--text-2); }
 .tw-menu-row small { display: block; color: var(--text-3); font-size: var(--fs-caption); }
 .tw-menu-row input[type="range"] { width: 150px; accent-color: var(--demo); }
-.tw-alarm-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px; border-radius: var(--r-inner); background: var(--surface-sunken); margin-top: 8px; cursor: pointer; }
+.tw-alarm-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px; border-radius: var(--r-inner); background: var(--surface-sunken); margin-top: 8px; }
+#alarm-popover .tw-today { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+#alarm-popover .tw-today h3 { margin: 0; font-size: 13px; font-weight: 600; }
 .tw-alarm-item i { font-size: 18px; color: var(--caution); }
 .tw-alarm-item.is-critical i { color: var(--poor); }
 .tw-alarm-item.is-acknowledged { opacity: 0.6; }

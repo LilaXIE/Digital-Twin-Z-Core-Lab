@@ -37,7 +37,10 @@ function evaluate(t) {
   const room = {};
   for (const key of ["co2", "temperature", "humidity"]) {
     const values = SITE.envSensors.map((id) => sensors[id]?.[key]).filter(Number.isFinite);
-    room[key] = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+    // Median, as for live values (data/derived.js roomMetric).
+    const sorted = values.sort((a, b) => a - b);
+    const middle = Math.floor(sorted.length / 2);
+    room[key] = sorted.length ? (sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2) : null;
   }
   const events = (history.events || []).filter((event) => event.t <= t && event.t > t - stepMs);
   return { sensors, room, solar: sampleAt(history.solar, t, stepMs * 3), events };
@@ -67,7 +70,8 @@ export function seek(t, notify = true) {
   if (notify) emit("replay", { kind: "seek" });
 }
 
-export async function startReplay() {
+// at (ms): start half an hour before that moment, e.g. an over-limit event from the today summary.
+export async function startReplay({ at = null } = {}) {
   if (ui.replay || starting) return true;
   starting = true;
   emit("replay", { kind: "loading" });
@@ -78,8 +82,9 @@ export async function startReplay() {
     starting = false;
   }
   if (!cache) { emit("replay", { kind: "failed" }); return false; }
-  ui.replay = { start: cache.start, stop: cache.stop, t: cache.start, playing: true, speed: 1, events: [] };
-  seek(cache.start, false);
+  const from = Number.isFinite(at) ? Math.max(cache.start, Math.min(cache.stop, at - 30 * 60000)) : cache.start;
+  ui.replay = { start: cache.start, stop: cache.stop, t: from, playing: true, speed: 1, events: [] };
+  seek(from, false);
   emit("replay", { kind: "start" });
   play();
   return true;
