@@ -103,7 +103,7 @@ const zh = {
   bridgeDown: "暂时无法连接数据服务，正在重试…", bridgeRetryIn: "{s} 秒后重试",
 
   introLoading: "正在载入 BIM 模型", introSkip: "点击或按任意键跳过", loadFailed: "模型加载失败",
-  loadRetryHint: "请通过 npm run dev 启动项目，并确认 Fragments 模型文件存在。", reload: "重新加载",
+  loadRetryHint: "模型文件没有加载成功，请检查网络后重新加载。", reload: "重新加载",
   rotate: "请将设备横向放置", viewerAria: "ZB202 三维数字孪生",
 
   aiPageEyebrow: "ZB202 · 预测型新风控制", recommended: "推荐新风量", currentCo2: "当前 CO₂", peak60: "未来 60 分钟 CO₂ 峰值",
@@ -131,6 +131,7 @@ const zh = {
   showDetails: "展开详情", hideDetails: "收起详情", lineAi: "AI 建议新风 {lps} L/s", lineAhuOff: "AHU 已停机", lineSaved: "今日已省 {kwh} kWh（{kg} kg CO₂e）", aiValueLess: "比假设现状少送 {d} L/s 新风", aiValueSaved: "今日省 {kwh} kWh · {kg} kg CO₂e", todayTitle: "今日小结", todayWaiting: "正在读取今日数据", todayCompliance: "工作时间 CO₂ 达标", todayNoWorkingData: "未开始", todayExceed: "超标次数", todayCompleteness: "数据完整率", todayEvents: "CO₂ 超过 {limit} ppm（点击回放）", eventPeak: "最高 {v} ppm · {m} 分钟", iaqExcellent: "室内空气质素 · 卓越级", iaqGood: "室内空气质素 · 良好级", iaqBelow: "未达良好级", iaqBasis: "8 小时平均 CO₂ {v} ppm · 香港环保署标准",
   expand: "全屏查看", collapse: "退出全屏", airflowSubHours: "过去 {h} 小时；悬停可查看对应风阀开度",
   haloLegend: "地面光圈", haloOutside: "范围外", locationMap: "传感器在房间中的位置", locationMapCaption: "位置（上为北，门在下方）",
+  rotateFor3d: "横过手机即可查看 3D 模型",
   basisItems: (r) => [
     `控制目标：预测时域内任一时刻 CO₂ ≤ <b>${r.co2.target} ppm</b>，比 ${r.co2.limit} ppm 限值留 ${r.co2.limit - r.co2.target} ppm 余量（传感器与预测误差）。`,
     `最小新风量 = 2.5 L/s·人 × 人数 + 0.3 L/s·m² × 46.6 m²，当前为 <b>${r.airflow.minLps} L/s</b>。`,
@@ -202,7 +203,7 @@ const zhHant = {
   replayPlay: "播放", replayPause: "暫停", replaySpeed: "速度", backToLive: "回到即時", replayLoading: "正在載入過去 24 小時的數據…", replayFailed: "回放數據載入失敗", replayAria: "回放時間",
   snapshotSaved: "截圖已儲存", bridgeDown: "暫時無法連接數據服務，正在重試…", bridgeRetryIn: "{s} 秒後重試",
   introLoading: "正在載入 BIM 模型", introSkip: "點擊或按任意鍵跳過", loadFailed: "模型載入失敗",
-  loadRetryHint: "請透過 npm run dev 啟動專案，並確認 Fragments 模型檔案存在。", reload: "重新載入", rotate: "請將裝置橫向放置", viewerAria: "ZB202 三維數碼孿生",
+  loadRetryHint: "模型檔案未能載入，請檢查網絡後重新載入。", reload: "重新載入", rotate: "請將裝置橫向放置", viewerAria: "ZB202 三維數碼孿生",
   aiPageEyebrow: "ZB202 · 預測型新風控制", recommended: "推薦新風量", currentCo2: "當前 CO₂", peak60: "未來 60 分鐘 CO₂ 峰值",
   co2Chart: "CO₂ 預測：按推薦運行 vs 按假設現狀運行", occupancyChart: "人數時間線", occupancySub: "過去 6 小時估計 + 未來預測；灰色區域為日程中的會議",
   airflowChart: "推薦新風量變化", airflowSub: "過去 24 小時；懸停可查看對應風閥開度", tableView: "數據表", energySaved: "節能估算（相對假設的現狀運行）", week: "本週",
@@ -229,6 +230,7 @@ const zhHant = {
   showDetails: "展開詳情", hideDetails: "收起詳情", lineAi: "AI 建議新風 {lps} L/s", lineAhuOff: "AHU 已停機", lineSaved: "今日已省 {kwh} kWh（{kg} kg CO₂e）", aiValueLess: "比假設現狀少送 {d} L/s 新風", aiValueSaved: "今日省 {kwh} kWh · {kg} kg CO₂e", todayTitle: "今日小結", todayWaiting: "正在讀取今日數據", todayCompliance: "工作時間 CO₂ 達標", todayNoWorkingData: "未開始", todayExceed: "超標次數", todayCompleteness: "數據完整率", todayEvents: "CO₂ 超過 {limit} ppm（點擊回放）", eventPeak: "最高 {v} ppm · {m} 分鐘", iaqExcellent: "室內空氣質素 · 卓越級", iaqGood: "室內空氣質素 · 良好級", iaqBelow: "未達良好級", iaqBasis: "8 小時平均 CO₂ {v} ppm · 香港環保署標準",
   expand: "全螢幕查看", collapse: "退出全螢幕", airflowSubHours: "過去 {h} 小時；懸停可查看對應風閥開度",
   haloLegend: "地面光圈", haloOutside: "範圍外", locationMap: "感測器在房間中的位置", locationMapCaption: "位置（上為北，門在下方）",
+  rotateFor3d: "橫放手機即可查看 3D 模型",
   basisItems: (r) => [
     `控制目標：預測時域內任一時刻 CO₂ ≤ <b>${r.co2.target} ppm</b>，比 ${r.co2.limit} ppm 限值留 ${r.co2.limit - r.co2.target} ppm 餘量（感測器與預測誤差）。`,
     `最小新風量 = 2.5 L/s·人 × 人數 + 0.3 L/s·m² × 46.6 m²，當前為 <b>${r.airflow.minLps} L/s</b>。`,
@@ -307,7 +309,7 @@ const en = {
   replayPlay: "Play", replayPause: "Pause", replaySpeed: "Speed", backToLive: "Back to live", replayLoading: "Loading the last 24 hours…", replayFailed: "Replay data could not be loaded", replayAria: "Replay time",
   snapshotSaved: "Snapshot saved", snapshotFooter: "ZB202 Digital Twin", bridgeDown: "Can't reach the data service; retrying…", bridgeRetryIn: "retry in {s} s",
   introLoading: "Loading the BIM model", introSkip: "Click or press any key to skip", loadFailed: "Model loading failed",
-  loadRetryHint: "Start the project with npm run dev and confirm the Fragments model files exist.", reload: "Reload", rotate: "Please rotate your device", viewerAria: "ZB202 3D digital twin",
+  loadRetryHint: "The 3D model did not load. Check the connection and reload.", reload: "Reload", rotate: "Please rotate your device", viewerAria: "ZB202 3D digital twin",
   aiPageEyebrow: "ZB202 · Predictive outdoor-air control", recommended: "Recommended outdoor air", currentCo2: "Current CO₂", peak60: "CO₂ peak, next 60 min",
   co2Chart: "CO₂ forecast: recommended vs assumed existing operation", occupancyChart: "Occupancy timeline", occupancySub: "Past 6 hours estimated + forecast; grey bands are scheduled meetings",
   airflowChart: "Recommended outdoor air", airflowSub: "Past 24 hours; hover for damper position", tableView: "Table view",
@@ -334,6 +336,7 @@ const en = {
   showDetails: "Show details", hideDetails: "Hide details", lineAi: "AI suggests {lps} L/s outdoor air", lineAhuOff: "AHU off", lineSaved: "{kwh} kWh ({kg} kg CO₂e) saved today", aiValueLess: "{d} L/s less outdoor air than assumed now", aiValueSaved: "{kwh} kWh · {kg} kg CO₂e saved today", todayTitle: "Today", todayWaiting: "Loading today's data", todayCompliance: "CO₂ within limit (working hours)", todayNoWorkingData: "Not yet", todayExceed: "Times over limit", todayCompleteness: "Data completeness", todayEvents: "CO₂ above {limit} ppm (tap to replay)", eventPeak: "peak {v} ppm · {m} min", iaqExcellent: "Indoor air quality · Excellent class", iaqGood: "Indoor air quality · Good class", iaqBelow: "Below the Good class", iaqBasis: "8-hour average CO₂ {v} ppm · HK EPD scheme",
   expand: "Expand", collapse: "Collapse", airflowSubHours: "Past {h} hours; hover for damper position",
   haloLegend: "Floor rings", haloOutside: "outside", locationMap: "Where the sensor is in the room", locationMapCaption: "Location (north up, door at the bottom)",
+  rotateFor3d: "Turn your phone sideways for the 3D model",
   basisItems: (r) => [
     `Target: CO₂ at or below <b>${r.co2.target} ppm</b> at every point of the horizon, ${r.co2.limit - r.co2.target} ppm below the ${r.co2.limit} ppm limit to cover sensor and forecast error.`,
     `Minimum outdoor air = 2.5 L/s per person + 0.3 L/s·m² × 46.6 m², currently <b>${r.airflow.minLps} L/s</b>.`,

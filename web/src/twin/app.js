@@ -28,6 +28,7 @@ import { initReplayBar } from "./ui/replay-bar.js";
 import { initPointer } from "./ui/pointer.js";
 import { initGlossary } from "./ui/glossary.js";
 import { initInternal } from "./ui/internal.js";
+import { initMobile, phoneQuery } from "./ui/mobile.js";
 import { $, $$, toast, closePopover, popoverOpen } from "./ui/dom.js";
 
 const root = document.documentElement;
@@ -205,6 +206,7 @@ async function boot() {
   initReplayBar();
   initKiosk();
   initInternal();
+  initMobile();
 
   on("setting:lang", (lang) => applyLanguage(lang, true));
   on("setting:theme", () => applyTheme());
@@ -236,6 +238,16 @@ async function boot() {
   window.setInterval(() => requestHistory(true), 10 * 60000);
   window.setInterval(() => updateDaylight(), 10 * 60000);
 
+  // Portrait phones get the 2D page and never download the model; turning sideways loads it.
+  if (phoneQuery.matches) {
+    const later = () => { if (!phoneQuery.matches) { phoneQuery.removeEventListener("change", later); void startScene(); } };
+    phoneQuery.addEventListener("change", later);
+    return;
+  }
+  await startScene();
+}
+
+async function startScene() {
   const percent = $("#intro-percent");
   try {
     await initScene({ canvas: $("#twin-canvas"), markerLayer: $("#marker-layer"), onProgress: (value) => { percent.textContent = `${Math.round(value * 100)}%`; } });

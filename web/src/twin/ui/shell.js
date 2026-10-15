@@ -10,6 +10,7 @@ import { $, $$, escapeHtml, rollNumber, term } from "./dom.js";
 import { sparkline } from "./charts/timeline.js";
 import { daylightState } from "../scene/daylight.js";
 import { startReplay } from "../data/replay.js";
+import { renderMobile } from "./mobile.js";
 
 const CAPSULES = [
   { key: "co2", unit: "ppm", digits: 0, glossary: "co2" },
@@ -274,6 +275,7 @@ export function renderShell() {
     renderAlarmCapsule();
     renderTabs();
     renderLang();
+    renderMobile(); // the phone page reuses the status line computed above
   });
 }
 

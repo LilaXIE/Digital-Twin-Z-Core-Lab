@@ -291,7 +291,8 @@ body:not([data-view="home"]) .tw-details-toggle, body[data-replay] .tw-details-t
 .tw-spark-cursor { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--replay); }
 .tw-card-spark:empty { display: none; }
 .tw-card-spark svg { display: block; width: 100%; height: 40px; overflow: visible; }
-.tw-card-spark .tw-spark-line { fill: none; stroke: var(--series-1); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.tw-card-spark .tw-spark-line, .tw-m-card .tw-spark-line { fill: none; stroke: var(--series-1); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.tw-m-card .tw-spark-limit,
 .tw-card-spark .tw-spark-limit { stroke: var(--poor); stroke-dasharray: 3 3; stroke-width: 1; opacity: 0.6; vector-effect: non-scaling-stroke; }
 .tw-card-caption { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0 0; font-size: var(--fs-caption); color: var(--text-3); min-height: 18px; }
 .tw-card-caption > span:empty { display: none; }
@@ -726,12 +727,34 @@ body.ui-entering .tw-dock-right { transform: translateX(14px); opacity: 0; }
 .tw-hud { position: fixed; z-index: 80; left: var(--edge); bottom: var(--edge); padding: 6px 10px; border-radius: 10px; background: rgba(12, 16, 22, 0.72); color: #d6e4ff; font: 11px/1.5 var(--font-mono); pointer-events: none; white-space: pre; }
 .tw-coordinate { position: fixed; z-index: 60; left: 50%; top: calc(var(--edge) + 120px); transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 14px; border-radius: 999px; font: 12px var(--font-mono); }
 
-.tw-landscape-required { display: none; }
-@media (orientation: portrait) and (max-width: 760px) {
-  .tw-landscape-required { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; background: var(--surface); text-align: center; }
-  .tw-landscape-required div { display: grid; gap: 10px; justify-items: center; }
-  .tw-landscape-required i { font-size: 40px; transform: rotate(90deg); color: var(--accent); }
+/* ---------- Portrait phones: the 2D page (section B7) ---------- */
+.tw-mobile { display: none; }
+body[data-mobile] > :not(.tw-mobile):not(.tw-sky):not(script):not(.tw-popover):not(.tw-toast) { display: none !important; }
+body[data-mobile] .tw-mobile {
+  display: grid; gap: 12px; align-content: start; position: fixed; inset: 0; z-index: 5; overflow-y: auto;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
 }
+.tw-m-head { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 2px 10px; }
+.tw-m-head h1 { margin: 0; font-size: 24px; font-weight: 600; }
+.tw-m-head span { font-size: 13px; color: var(--text-2); }
+.tw-m-head small { grid-column: 1 / -1; font-size: var(--fs-caption); color: var(--text-2); }
+.tw-m-sentence { margin: 0; padding: 10px 14px; border-radius: 16px; background: var(--glass-thick-bg); font-size: 16px; font-weight: 500; line-height: 1.4; }
+.tw-m-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tw-m-tile { display: grid; gap: 2px; padding: 12px 14px; border-radius: 18px; background: var(--glass-thick-bg); box-shadow: var(--card-inset-rim); }
+.tw-m-tile > i { font-size: 18px; color: var(--accent); }
+.tw-m-tile small { font-size: 13px; color: var(--text-2); }
+.tw-m-tile strong { font-size: 30px; font-weight: 300; letter-spacing: -0.02em; }
+.tw-m-tile .tw-unit { margin-left: 3px; font-size: 14px; color: var(--text-2); }
+.tw-m-tile.is-stale strong { color: var(--text-3); }
+.tw-m-status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); }
+.tw-m-card { display: grid; gap: 8px; padding: 14px 16px; border-radius: 20px; background: var(--glass-thick-bg); box-shadow: var(--card-inset-rim); }
+.tw-m-card h2 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 14px; font-weight: 600; color: var(--text-2); }
+.tw-m-card p { margin: 0; font-size: 14px; line-height: 1.45; }
+.tw-m-card small { font-size: 13px; color: var(--text-2); }
+.tw-m-card svg { width: 100%; height: auto; }
+.tw-m-ai-value { font-size: 30px; font-weight: 300; }
+.tw-m-rotate { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 4px 0 0; font-size: 13px; color: var(--text-2); }
+.tw-m-rotate i { font-size: 20px; color: var(--accent); }
 
 /* ---------- Narrow screens: bottom sheets, collapsed AI card, scrolling capsules ---------- */
 :root[data-tier="narrow"] .tw-top { grid-template-columns: minmax(0, 1fr) auto; }
