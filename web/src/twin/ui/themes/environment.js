@@ -78,7 +78,7 @@ export function unmount() { body = null; }
 function renderSwitch() {
   const host = body.querySelector('[data-part="switch"]');
   const metrics = available();
-  const html = `<div class="tw-seg tw-metric-switch" role="group" aria-label="${escapeHtml(t("metricSwitch"))}">${metrics.map((metric) => `<button type="button" data-metric="${metric.key}" aria-pressed="${ui.focusMetric === metric.key}">${escapeHtml(t(metric.key))}</button>`).join("")}</div>`;
+  const html = `<div class="tw-seg tw-metric-switch" role="group" aria-label="${escapeHtml(t("metricSwitch"))}">${metrics.map((metric) => `<button type="button" data-metric="${metric.key}" aria-pressed="${ui.focusMetric === metric.key}">${escapeHtml(t(metric.key === "temperature" ? "tempShort" : metric.key))}</button>`).join("")}</div>`;
   if (host.dataset.html !== html) {
     host.dataset.html = html;
     host.innerHTML = html;

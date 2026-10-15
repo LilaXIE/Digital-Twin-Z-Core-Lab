@@ -1,7 +1,7 @@
 // Pointer details (section 13.12) and all scene pointer rules in one place (section 13.4):
 // click (< 250 ms, < 5 px) on empty space → ripple; hold (> 400 ms) → lens; drag → orbit.
 // Markers are magnetic (28 px, 44 px on touch). Glass sheen follows the pointer; buttons press in.
-import { coarsePointer, ui, select, settings } from "../state.js";
+import { coarsePointer, ui, select, settings, reducedMotion } from "../state.js";
 import { getControls } from "../scene/viewer.js";
 import { nearestMarker, setHovered, hoveredMarker } from "../scene/markers.js";
 import { ripple, lensStart, lensMove, lensEnd } from "../scene/digital-layer.js";
@@ -18,6 +18,41 @@ export function setCoordinatePick(callback) {
 }
 
 function markerRadius() { return coarsePointer() ? 44 : 28; }
+
+// Liquid-glass cards: a soft ripple where the pointer enters, a stronger one where it presses.
+// The rings sit under the card's content and fade within a second, so the data stays readable.
+const LIQUID_GLASS = ".tw-dock > .glass-thick, .tw-identity.glass-thin";
+function glassRipple(glass, x, y, strong) {
+  if (reducedMotion() || settings.transparency === "reduced") return;
+  const rect = glass.getBoundingClientRect();
+  const size = Math.hypot(rect.width, rect.height) * (strong ? 1.5 : 1.15);
+  const ring = document.createElement("span");
+  ring.className = "tw-glass-ripple";
+  ring.setAttribute("aria-hidden", "true");
+  ring.style.cssText = `left:${x - rect.left}px;top:${y - rect.top}px;width:${size}px;height:${size}px`;
+  glass.appendChild(ring);
+  // The ring keeps its brightness while it spreads, then fades as it reaches the edges.
+  const peak = strong ? 1 : 0.75;
+  ring.animate([
+    { transform: "translate(-50%, -50%) scale(0.04)", opacity: peak, easing: "cubic-bezier(0.25, 0.6, 0.4, 1)" },
+    { transform: "translate(-50%, -50%) scale(0.5)", opacity: peak * 0.85, offset: 0.4, easing: "cubic-bezier(0.3, 0.4, 0.5, 1)" },
+    { transform: "translate(-50%, -50%) scale(1)", opacity: 0 },
+  ], { duration: strong ? 1100 : 1500 }).finished.catch(() => {}).finally(() => ring.remove());
+}
+
+function bindGlassRipples() {
+  const lastEnter = new WeakMap();
+  for (const glass of document.querySelectorAll(LIQUID_GLASS)) {
+    glass.addEventListener("pointerenter", (event) => {
+      if (event.pointerType === "touch") return;
+      const now = performance.now();
+      if (now - (lastEnter.get(glass) || 0) < 900) return; // no ripple storm when skimming along an edge
+      lastEnter.set(glass, now);
+      glassRipple(glass, event.clientX, event.clientY, false);
+    });
+    glass.addEventListener("pointerdown", (event) => glassRipple(glass, event.clientX, event.clientY, true));
+  }
+}
 
 export function initPointer() {
   const canvas = document.getElementById("twin-canvas");
@@ -76,6 +111,8 @@ export function initPointer() {
   canvas.addEventListener("pointercancel", release);
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
+  bindGlassRipples();
+
   // Glass sheen and button press feedback.
   let sheenFrame = 0;
   document.addEventListener("pointermove", (event) => {
@@ -119,7 +156,7 @@ function handleClick(clientX, clientY, rect, pointerType) {
   }
   // A marker within the magnetic radius wins; clicking it never triggers the digital layer.
   const marker = sceneState.sensorMode === "all" ? (pointerType === "touch" ? nearestMarker(clientX - rect.left, clientY - rect.top, markerRadius()) : hoveredMarker() || nearestMarker(clientX - rect.left, clientY - rect.top, markerRadius())) : null;
-  if (marker && marker.kind === "sensor") {
+  if (marker && (marker.kind === "sensor" || marker.kind === "seat")) {
     marker.el.classList.remove("is-flashing");
     void marker.el.offsetWidth;
     marker.el.classList.add("is-flashing");

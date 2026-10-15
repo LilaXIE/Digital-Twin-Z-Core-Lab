@@ -87,7 +87,9 @@ function updateSceneBindings() {
   for (const device of registry.devices) {
     if (!sceneState.anchors.has(device.id)) continue;
     if (device.model === "VS341") {
-      updateSeat(device.id, ["home", "environment"].includes(ui.view) && !ui.replay ? seatOccupancy(device.id) : null);
+      const occupied = seatOccupancy(device.id);
+      const seatState = occupied === true ? "occupied" : occupied === false ? "vacant" : "unknown";
+      updateSeat(device.id, ui.view !== "energy" && !ui.replay ? seatState : null, { selected: ui.selection?.kind === "sensor" && ui.selection.id === device.id });
       continue;
     }
     const status = deviceStatus(device.id);

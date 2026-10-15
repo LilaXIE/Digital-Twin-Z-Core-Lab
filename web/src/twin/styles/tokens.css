@@ -52,6 +52,10 @@
   --glass-card-rim: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.55) 10%, rgba(255, 255, 255, 0.1) 32%, rgba(255, 255, 255, 0.05) 68%, rgba(255, 255, 255, 0.5) 90%, #fff 100%);
   --glass-card-glow: inset 0 1px 1px rgba(255, 255, 255, 0.45), inset 0 0 14px rgba(255, 255, 255, 0.1);
   --glass-card-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --glass-card-shadow-lit: 0 14px 40px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.25);
+  --glass-card-hover: rgba(255, 255, 255, 0.5);
+  --glass-ripple: rgba(255, 255, 255, 0.45);
+  --glass-ripple-strong: rgba(255, 255, 255, 0.85);
   --card-inset: rgba(255, 255, 255, 0.22);
   --card-inset-hover: rgba(255, 255, 255, 0.4);
   --card-inset-rim: inset 0 0 0 0.5px rgba(255, 255, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5);
@@ -119,6 +123,10 @@
   --glass-card-rim: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.22) 10%, rgba(255, 255, 255, 0.05) 32%, rgba(255, 255, 255, 0.03) 68%, rgba(255, 255, 255, 0.2) 90%, rgba(255, 255, 255, 0.5) 100%);
   --glass-card-glow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.18), inset 0 0 18px rgba(255, 255, 255, 0.05);
   --glass-card-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  --glass-card-shadow-lit: 0 14px 40px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --glass-card-hover: rgba(255, 255, 255, 0.13);
+  --glass-ripple: rgba(255, 255, 255, 0.12);
+  --glass-ripple-strong: rgba(255, 255, 255, 0.26);
   --card-inset: rgba(255, 255, 255, 0.06);
   --card-inset-hover: rgba(255, 255, 255, 0.11);
   --card-inset-rim: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.08);
