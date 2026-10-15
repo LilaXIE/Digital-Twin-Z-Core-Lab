@@ -48,6 +48,7 @@ export async function showTheme(view, previous) {
 // Keep the room clear of whichever panel is open (right side, or bottom sheet on narrow screens).
 export function updateViewInset() {
   const open = [$("#theme-panel"), $("#sensor-sheet")].filter((element) => !element.hidden);
+  document.body.toggleAttribute("data-sheet", !$("#sensor-sheet").hidden); // the right-hand Overview cards make way
   if (!open.length) { setViewInset({}); return; }
   const narrow = document.documentElement.dataset.tier === "narrow";
   const width = Math.max(...open.map((element) => element.offsetWidth));

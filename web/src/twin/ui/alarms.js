@@ -71,8 +71,9 @@ function showBanner(alarm) {
   pulseMarker(alarm.deviceId);
   window.clearTimeout(bannerTimer);
   bannerTimer = window.setTimeout(() => {
-    // The banner retracts into the alarm capsule.
-    const capsule = document.getElementById("alarm-capsule").getBoundingClientRect();
+    // The banner retracts into the alarm capsule (or the Overview alarm card, which replaces it there).
+    const capsuleElement = document.getElementById("alarm-capsule");
+    const capsule = (capsuleElement.offsetParent ? capsuleElement : document.getElementById("alarm-card")).getBoundingClientRect();
     const box = banner.getBoundingClientRect();
     const dx = capsule.left + capsule.width / 2 - (box.left + box.width / 2);
     const dy = capsule.top + capsule.height / 2 - (box.top + box.height / 2);
@@ -89,14 +90,17 @@ function detectNew() {
   if (fresh.length) showBanner(fresh[0]);
 }
 
+// Opens the alarm list from the capsule, or from "View all" on the Overview alarm card.
+export function toggleAlarmPopover(trigger) {
+  const popover = document.getElementById("alarm-popover");
+  if (!popover.hidden) { closePopover(); return; }
+  renderPopover();
+  openAsPopover(popover, trigger, { align: "end" });
+}
+
 export function initAlarms() {
   const capsule = document.getElementById("alarm-capsule");
-  capsule.addEventListener("click", () => {
-    const popover = document.getElementById("alarm-popover");
-    if (!popover.hidden) { closePopover(); return; }
-    renderPopover();
-    openAsPopover(popover, capsule, { align: "end" });
-  });
+  capsule.addEventListener("click", () => toggleAlarmPopover(capsule));
   on("data", (event) => {
     if (event?.kind === "telemetry" || event?.kind === "fault" || event?.kind === "alarms" || event?.kind === "dataset") {
       if (event.kind === "dataset") { seen.clear(); primed = false; }

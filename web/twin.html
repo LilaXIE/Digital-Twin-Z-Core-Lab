@@ -74,7 +74,16 @@
     </section>
   </header>
 
-  <article class="tw-ai-card glass-thick" id="ai-card" tabindex="0" role="button" aria-label="AI"></article>
+  <aside class="tw-dock tw-dock-left" id="dock-left">
+    <article class="tw-ai-card glass-thick" id="ai-card" tabindex="0" role="button" aria-label="AI"></article>
+    <section class="tw-card glass-thick" id="indoor-card" aria-labelledby="indoor-card-title" data-home></section>
+    <section class="tw-card glass-thick" id="outdoor-card" aria-labelledby="outdoor-card-title" data-home hidden></section>
+  </aside>
+  <aside class="tw-dock tw-dock-right" id="dock-right">
+    <section class="tw-card glass-thick" id="alarm-card" aria-labelledby="alarm-card-title" data-home></section>
+    <section class="tw-card glass-thick" id="socket-card" aria-labelledby="socket-card-title" data-home hidden></section>
+    <section class="tw-card glass-thick" id="ahu-card" aria-labelledby="ahu-card-title" data-home></section>
+  </aside>
 
   <aside class="tw-panel glass-thick" id="theme-panel" aria-labelledby="panel-title" hidden>
     <header class="tw-panel-head">

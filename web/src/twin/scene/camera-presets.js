@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { camera, getControls, flyTo, onCameraStep, startAnimation, stopAnimation } from "./viewer.js";
 
 let presets = {};
+const HOME_DISTANCE = 1.3;
 let room = null;
 
 // The door is on the south wall (+Z). Positions are derived from the model so they follow model changes.
@@ -14,7 +15,8 @@ export function initPresets({ box, floorY, tableCenter, socketCenter }) {
   const table = tableCenter || new THREE.Vector3(c.x, floorY + 0.75, c.z);
   const sockets = socketCenter || new THREE.Vector3(c.x, floorY + 0.4, c.z);
   presets = {
-    home: { target: new THREE.Vector3(c.x, floorY + 1.4, c.z), position: new THREE.Vector3(c.x - s.x * 1.05, floorY + s.y * 1.25, c.z + s.z * 1.05) },
+    // Pulled back far enough for the room to sit between the two Overview docks.
+    home: { target: new THREE.Vector3(c.x, floorY + 1.4, c.z), position: new THREE.Vector3(c.x - s.x * 1.05, floorY + s.y * 1.25, c.z + s.z * 1.05).sub(new THREE.Vector3(c.x, floorY + 1.4, c.z)).multiplyScalar(HOME_DISTANCE).add(new THREE.Vector3(c.x, floorY + 1.4, c.z)) },
     // From the door (south), below the 4 m grating, looking down across the meeting table.
     environment: { target: table.clone().setY(table.y - 0.2), position: new THREE.Vector3(table.x - 0.9, floorY + 3.1, room.box.max.z + 4.4) },
     // From the east, looking at the west and south walls where the sockets are.
