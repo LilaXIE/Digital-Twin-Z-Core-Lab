@@ -26,7 +26,9 @@ export function controlUnlocked() {
 export const switchesInteractive = () => controlAvailability().ok && controlUnlocked();
 
 export async function unlockControl() {
-  if (await provider().login?.()) emit("data", { kind: "control" });
+  const ok = await provider().login?.();
+  if (ok) emit("data", { kind: "control" });
+  return Boolean(ok);
 }
 
 // Read-only socket state in place of a switch: a dot and "On" / "Off".

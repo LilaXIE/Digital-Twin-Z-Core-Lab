@@ -10,6 +10,9 @@ import { sceneState, focusDevice, focusItem, selectOutline, detailsFor, itemByKe
 import { markerFor } from "../scene/markers.js";
 import { planOutline } from "../scene/intro.js";
 import { shareUrl, showQr } from "./export.js";
+import assets from "../config/assets.json";
+import { camera, getControls, flyTo } from "../scene/viewer.js";
+import { controlUnlocked, unlockControl } from "./sockets.js";
 import { lineChart, cssVar } from "./charts/timeline.js";
 import { escapeHtml, icon, term, growFrom, shrinkTo } from "./dom.js";
 import { valueHtml, metricLabel } from "./format.js";
@@ -86,6 +89,57 @@ function locationMap(deviceId) {
     <figcaption>${escapeHtml(t("locationMapCaption"))}</figcaption></figure>`;
 }
 
+// Asset card (section D4): model facts plus what FMO records per unit (config/assets.json).
+function assetSection(device) {
+  const model = assets.models[device.model];
+  if (!model) return "";
+  const unit = assets.devices[device.id] || {};
+  const health = data().deviceHealth?.devices?.[device.id];
+  const pending = `<span class="tw-unit">${escapeHtml(t("toBeAdded"))}</span>`;
+  const row = (label, value) => `<div><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`;
+  return `<details class="tw-collapse"><summary>${escapeHtml(t("assetTitle"))}</summary><div><dl class="tw-props">
+    ${row(t("assetModel"), escapeHtml(`${model.manufacturer} ${device.model} (${model.family})`))}
+    ${row(t("assetRadio"), escapeHtml(`${model.radio} · ${t(model.power === "mains" ? "powerMains" : "powerBattery")}`))}
+    ${health?.intervalMinutes ? row(t("assetInterval"), escapeHtml(t("gapMinutes", { n: health.intervalMinutes }))) : ""}
+    ${device.devEui ? row("DevEUI", escapeHtml(device.devEui)) : ""}
+    ${row(t("assetInstalled"), unit.installed ? escapeHtml(unit.installed) : pending)}
+    ${row(t("assetService"), unit.lastService ? escapeHtml(unit.lastService) : pending)}
+    ${unit.location ? row(t("assetLocation"), escapeHtml(unit.location)) : ""}
+    ${row(t("assetDatasheet"), model.datasheet ? `<a href="${escapeHtml(model.datasheet)}" target="_blank" rel="noopener">${escapeHtml(t("open"))}</a>` : pending)}
+  </dl></div></details>`;
+}
+
+// Notes pinned to this device (section D4), with the view they were written from. Members only.
+function notesSection(target) {
+  const dataset = data();
+  if (dataset.kind === "live" && dataset.control.writeProtected && !dataset.member) return "";
+  const notes = (dataset.notes || []).filter((note) => note.target === target);
+  return `<section class="tw-section"><h3>${escapeHtml(t("notesTitle"))}<small>${escapeHtml(t("notesMembers"))}</small></h3>
+    ${notes.map((note) => `<div class="tw-note"><p>${escapeHtml(note.text)}</p><small>${escapeHtml(`${note.member} · ${ago(Date.parse(note.t))}`)}</small>
+      <span class="tw-h3-actions">${note.camera ? `<button type="button" class="tw-link" data-note-view="${escapeHtml(note.id)}">${icon("ph-eye")}${escapeHtml(t("noteView"))}</button>` : ""}<button type="button" class="tw-link" data-note-delete="${escapeHtml(note.id)}">${icon("ph-trash")}</button></span></div>`).join("")}
+    <form class="tw-note-form"><textarea name="text" rows="2" maxlength="500" placeholder="${escapeHtml(t("notePlaceholder"))}"></textarea><button type="submit" class="tw-button tw-button-small">${escapeHtml(t("noteAdd"))}</button></form>
+    <p class="tw-caption">${escapeHtml(t("noteHint"))}</p></section>`;
+}
+
+function bindNotes(body, target) {
+  const form = body.querySelector(".tw-note-form");
+  if (!form) return;
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const text = form.text.value.trim();
+    if (!text) return;
+    if (!controlUnlocked() && !(await unlockControl())) return;
+    const view = { position: camera.position.toArray(), target: getControls().target.toArray() };
+    const result = await provider().writeRequest({ type: "note-add", target, text, camera: view });
+    if (result?.ok) form.text.value = "";
+  });
+  body.querySelectorAll("[data-note-delete]").forEach((button) => button.addEventListener("click", () => void provider().writeRequest({ type: "note-delete", id: button.dataset.noteDelete })));
+  body.querySelectorAll("[data-note-view]").forEach((button) => button.addEventListener("click", () => {
+    const note = data().notes.find((item) => item.id === button.dataset.noteView);
+    if (note?.camera) void flyTo({ x: note.camera.position[0], y: note.camera.position[1], z: note.camera.position[2] }, { x: note.camera.target[0], y: note.camera.target[1], z: note.camera.target[2] }, 900);
+  }));
+}
+
 // CO₂ sensors: raw reading, calibration offset and the health check's verdict.
 function qualitySection(device, snapshot) {
   const calibration = data().calibration;
@@ -144,6 +198,8 @@ function render() {
       ${trendMetrics.map((metric) => `<div class="tw-chart-head" style="margin-top:12px"><span class="tw-caption" style="margin:0">${escapeHtml(metricLabel(metric))}</span></div><div class="tw-chart is-small" data-trend="${metric.key}"></div>`).join("") || (loading ? '<div class="tw-skeleton" style="height:120px;margin-top:12px"></div>' : `<div class="tw-empty">${icon("ph-chart-line")}<span>${escapeHtml(t("noRecords"))}</span></div>`)}
     </section>
     ${data().kind === "live" ? qualitySection(device, snapshot) : ""}
+    ${notesSection(device.id)}
+    ${assetSection(device)}
     ${bimSection()}
     ${settings.demo ? `<button type="button" class="tw-button ${data().faults?.has(device.id) ? "" : "tw-button-danger"}" data-action="fault" style="margin-top:14px;width:100%">${icon("ph-warning")}${escapeHtml(t(data().faults?.has(device.id) ? "restoreNormal" : "simulateFault"))}</button>` : ""}`;
   const now = Date.now();
@@ -168,6 +224,7 @@ function render() {
     provider().requestSensorHistory(device.id, range.hours);
     render();
   });
+  bindNotes(body, device.id);
   body.querySelector('[data-action="qr"]').addEventListener("click", (event) => showQr(event.currentTarget, { title: pick(device.name), url: shareUrl(`#sensor=${device.id}`), printable: true }));
   body.querySelector('[data-action="fault"]')?.addEventListener("click", () => {
     const faults = data().faults;
@@ -187,7 +244,7 @@ export function initSensorSheet() {
   on("data", (event) => {
     if (!current || sheet().hidden) return;
     if (document.activeElement?.closest?.("#sheet-body input")) return;
-    if (["sensor-history", "fault", "dataset", "sensor-health", "calibration"].includes(event?.kind) || (event?.kind === "telemetry" && (event.deviceId === current.id || event.demo))) render();
+    if (["sensor-history", "fault", "dataset", "sensor-health", "calibration", "notes", "control", "device-health"].includes(event?.kind) || (event?.kind === "telemetry" && (event.deviceId === current.id || event.demo))) render();
   });
   on("settings", () => { if (current) render(); });
 }

@@ -674,6 +674,11 @@ table.tw-energy th:first-child { text-align: left; color: var(--text-2); font-we
   .tw-print-label p { margin: 0; font-size: 9pt; }
   .tw-print-url { word-break: break-all; color: #555; }
 }
+.tw-note { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; padding: 8px 10px; margin-bottom: 6px; border-radius: 12px; background: var(--card-inset); }
+.tw-note p { grid-column: 1 / -1; margin: 0; font-size: 13px; white-space: pre-wrap; }
+.tw-note small { font-size: var(--fs-caption); color: var(--text-2); }
+.tw-note-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.tw-note-form textarea { min-height: 52px; padding: 8px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; resize: vertical; }
 .tw-health-summary { margin: 0 4px 8px; font-size: 13px; color: var(--text); }
 .tw-table tr.is-issue td { background: var(--caution-soft); }
 .tw-table td small { color: var(--text-3); }
