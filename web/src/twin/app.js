@@ -66,6 +66,8 @@ function applyTier() {
   // Large-screen sizing from 1920 px (or 1600 px with ?kiosk=1); smaller screens keep the standard scale.
   const kiosk = window.innerWidth >= 1920 || (settings.kioskTier && window.innerWidth >= 1600);
   root.dataset.tier = kiosk ? "kiosk" : window.innerWidth < 1280 ? "narrow" : "standard";
+  // Large laptops (14-, 16-inch) between the standard and kiosk sizes: see tokens.css.
+  root.toggleAttribute("data-roomy", !kiosk && window.innerWidth >= 1500);
   root.dataset.touch = String(coarsePointer());
   renderHomeDock();
 }

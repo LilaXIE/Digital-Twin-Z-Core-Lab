@@ -317,7 +317,8 @@ body:not([data-view="home"]) .tw-details-toggle, body[data-replay] .tw-details-t
 .tw-stat:hover { background: var(--card-inset-hover); }
 .tw-stat, .tw-socket-tile { box-shadow: var(--card-inset-rim); }
 .tw-stat > .tw-stat-label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tw-stat > .tw-stat-label .tw-dot { width: 6px; height: 6px; }
+.tw-stat > .tw-stat-label .tw-dot, .tw-stat > .tw-stat-value .tw-dot { width: 6px; height: 6px; }
+.tw-stat > .tw-stat-value .tw-dot { display: inline-block; margin-right: 5px; vertical-align: 0.2em; }
 .tw-stat > .tw-stat-value { font-weight: 500; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tw-stat > .tw-stat-sub { font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tw-stat.is-stale > .tw-stat-value { color: var(--text-3); }
@@ -876,3 +877,34 @@ body[data-mobile] .tw-mobile {
 :root[data-tier="kiosk"] .tw-card-caption, :root[data-tier="kiosk"] .tw-hero-side small, :root[data-tier="kiosk"] .tw-ahu-status, :root[data-tier="kiosk"] .tw-dist-legend, :root[data-tier="kiosk"] .tw-health-head { font-size: 13px; }
 :root[data-tier="kiosk"] .tw-stat > .tw-stat-label, :root[data-tier="kiosk"] .tw-socket-name { font-size: 12px; }
 :root[data-tier="kiosk"] .tw-stat > .tw-stat-value, :root[data-tier="kiosk"] .tw-socket-power { font-size: 18px; }
+
+/* ---------- Large laptops (data-roomy, 1500–1919 px): taller, more readable side cards ---------- */
+:root[data-roomy] .tw-dock { gap: 12px; }
+:root[data-roomy] .tw-dock > .tw-card, :root[data-roomy] .tw-ai-card { padding: 16px 18px 18px; }
+:root[data-roomy] .tw-room { font-size: 25px; }
+:root[data-roomy] .tw-identity { max-width: 400px; padding: 12px 18px 13px; }
+:root[data-roomy] .tw-card-head, :root[data-roomy] .tw-ai-card header { font-size: 14px; }
+:root[data-roomy] .tw-card-head h2 i, :root[data-roomy] .tw-ai-card header i { font-size: 17px; }
+:root[data-roomy] .tw-card-hero { margin-top: 4px; }
+:root[data-roomy] .tw-card-caption { margin-top: 8px; }
+:root[data-roomy] .tw-card-stats, :root[data-roomy] .tw-socket-grid, :root[data-roomy] .tw-today-grid { gap: 8px; margin-top: 12px; }
+:root[data-roomy] .tw-stat { gap: 3px; padding: 9px 10px 10px; border-radius: 14px; }
+:root[data-roomy] .tw-socket-tile { padding: 9px 10px 9px 12px; border-radius: 14px; }
+:root[data-roomy] .tw-stat > .tw-stat-label, :root[data-roomy] .tw-stat > .tw-stat-sub, :root[data-roomy] .tw-socket-name,
+:root[data-roomy] .tw-alarm-row small, :root[data-roomy] .tw-socket-state, :root[data-roomy] .tw-feedback-buttons button { font-size: 13px; }
+:root[data-roomy] .tw-stat > .tw-stat-value, :root[data-roomy] .tw-socket-power, :root[data-roomy] .tw-health-head strong { font-size: 17px; }
+:root[data-roomy] .tw-stat > .tw-stat-label { gap: 4px; letter-spacing: -0.01em; }
+:root[data-roomy] .tw-stat > .tw-stat-label i { font-size: 13px; }
+:root[data-roomy] .tw-card-ok { padding: 12px 14px; }
+:root[data-roomy] .tw-card-ok strong, :root[data-roomy] .tw-iaq-badge strong, :root[data-roomy] .tw-alarm-row strong { font-size: 15px; }
+:root[data-roomy] .tw-iaq-badge { padding: 11px 14px; }
+:root[data-roomy] .tw-today-grid > div { padding: 10px 12px; }
+:root[data-roomy] .tw-today-grid strong { font-size: 18px; white-space: nowrap; }
+:root[data-roomy] .tw-today-grid small { font-size: 12px; }
+:root[data-roomy] .tw-feedback-buttons button { padding: 9px 4px; }
+:root[data-roomy] .tw-feedback-buttons button i { font-size: 20px; }
+:root[data-roomy] .tw-ai-meta, :root[data-roomy] .tw-ai-reason, :root[data-roomy] .tw-ai-value-line { font-size: 14px; }
+:root[data-roomy] .tw-ai-value.tw-ai-off { font-size: 30px; }
+:root[data-roomy] .tw-tab { min-width: 96px; font-size: 15px; }
+:root[data-roomy] body[data-view="home"] .tw-sentence { font-size: 17px; padding: 8px 18px; }
+:root[data-roomy] .tw-details-toggle { font-size: 14px; min-height: 38px; }

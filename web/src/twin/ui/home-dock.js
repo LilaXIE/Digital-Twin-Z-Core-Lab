@@ -38,8 +38,8 @@ const needsBuild = (card) => card.dataset.lang !== getLang() && (card.dataset.la
 
 function stat({ key, label, html, level = null, sub = "", stale = false, title = "", iconName = "" }) {
   return `<button type="button" class="tw-stat${stale ? " is-stale" : ""}" ${key ? `data-metric="${key}"` : 'data-open="environment"'}${title ? ` title="${escapeHtml(title)}"` : ""}>
-    <span class="tw-stat-label">${iconName ? icon(iconName) : ""}${escapeHtml(label)}${level ? `<i class="tw-dot" data-level="${level}"></i>` : ""}</span>
-    <span class="tw-stat-value">${html}</span>${sub ? `<span class="tw-stat-sub">${escapeHtml(sub)}</span>` : ""}</button>`;
+    <span class="tw-stat-label">${iconName ? icon(iconName) : ""}${escapeHtml(label)}</span>
+    <span class="tw-stat-value">${level ? `<i class="tw-dot" data-level="${level}"></i>` : ""}${html}</span>${sub ? `<span class="tw-stat-sub">${escapeHtml(sub)}</span>` : ""}</button>`;
 }
 
 // ---- Indoor: CO₂ leads (the metric the AI and the alarms act on), the rest as tiles ----
@@ -92,7 +92,7 @@ function renderIndoor() {
       sub: metric.stale ? t("stale") : "", stale: metric.stale, iconName: spec.icon }));
     if (spec.key === "humidity") {
       const occupancy = occupancyInfo();
-      if (occupancy) tiles.push(stat({ label: t(occupancy.measured ? "peopleShort" : "peopleEstimatedShort"), html: valueHtml(occupancy.count, 0, ""), iconName: "ph-users-three" }));
+      if (occupancy) tiles.push(stat({ label: t(occupancy.measured ? "peopleShort" : "peopleEstimatedShort"), html: valueHtml(occupancy.count, 0, ""), iconName: "ph-users-three", title: occupancy.measured ? "" : t("occupancyEstimated") }));
     }
   }
   setHtml(card.querySelector('[data-part="stats"]'), tiles.join(""));

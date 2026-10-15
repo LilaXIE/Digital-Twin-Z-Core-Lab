@@ -137,6 +137,18 @@
   --opaque-bg: #16181c;
 }
 
+/* Large laptops (1500–1919 px wide, e.g. 14- and 16-inch): the fixed pixel sizes made the side
+   cards look small and flat on these wider screens, so text, tiles and padding step up a little. */
+:root[data-roomy] {
+  --tap: 44px;
+  --panel-width: 430px;
+  --dock-width: 344px;
+  --fs-hero: 40px;
+  --fs-capsule: 19px;
+  --fs-body: 15px;
+  --fs-caption: 13px;
+}
+
 /* Large screens (lab touch display): scale the whole interface. */
 :root[data-tier="kiosk"] {
   font-size: clamp(16px, 0.62vw + 6px, 24px);
