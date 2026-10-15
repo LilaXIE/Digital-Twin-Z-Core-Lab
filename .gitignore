@@ -10,3 +10,5 @@ env.example
 data/strategy/shadow-log.jsonl
 data/strategy/backtest-latest.json
 data/strategy/*.tmp
+
+.vercel

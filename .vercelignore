@@ -1,0 +1,13 @@
+/.env
+/.env.local
+/env
+/node_modules
+/dist
+/.claude
+/models
+/data
+/docs
+/tests
+*.log
+*.bat
+*.command
