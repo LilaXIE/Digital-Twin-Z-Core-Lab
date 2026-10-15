@@ -645,18 +645,20 @@ table.tw-energy th:first-child { text-align: left; color: var(--text-2); font-we
   border: 2px solid var(--accent); animation: tw-ring var(--dur-flash) var(--ease-out) 1;
 }
 .tw-marker.is-pulsing .tw-marker-dot::after { border-color: var(--poor); animation-duration: 1.2s; }
-/* Occupancy seats: a small glass chip with a person; filled blue when occupied, clickable like any sensor. */
+/* Occupancy seats: just a person, grey when the seat is free, blue and glowing when it is taken. Clickable like any sensor. */
 .tw-seat {
-  position: absolute; left: -11px; top: -11px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
-  font-size: 13px; color: var(--text-3); background: rgba(255, 255, 255, 0.72); border: 1px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.28); transition: transform 150ms var(--ease-out), background 200ms ease, color 200ms ease;
+  position: absolute; left: -10px; top: -10px; width: 20px; height: 20px; display: grid; place-items: center;
+  font-size: 19px; color: rgba(110, 118, 130, 0.9); filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.9)) drop-shadow(0 1px 1px rgba(15, 23, 42, 0.25));
+  transition: transform 150ms var(--ease-out), color 250ms ease, filter 250ms ease;
 }
-.tw-marker-seat[data-state="occupied"] .tw-seat { color: #fff; background: var(--accent); border-color: rgba(255, 255, 255, 0.85); box-shadow: 0 0 0 3px var(--accent-soft), 0 1px 4px rgba(15, 23, 42, 0.3); }
-.tw-marker-seat[data-state="unknown"] .tw-seat { opacity: 0.55; }
-.tw-marker-seat.is-hovered .tw-seat, .tw-marker-seat.is-selected .tw-seat { transform: scale(1.25); }
-.tw-marker-seat.is-selected .tw-seat { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1px var(--accent), 0 1px 4px rgba(15, 23, 42, 0.3); }
+.tw-marker-seat[data-state="occupied"] .tw-seat {
+  color: #2f8cff; filter: drop-shadow(0 0 3px rgba(47, 140, 255, 0.95)) drop-shadow(0 0 9px rgba(47, 140, 255, 0.6));
+}
+.tw-marker-seat[data-state="unknown"] .tw-seat { opacity: 0.5; }
+.tw-marker-seat.is-hovered .tw-seat, .tw-marker-seat.is-selected .tw-seat { transform: scale(1.3); }
+.tw-marker-seat.is-selected:not([data-state="occupied"]) .tw-seat { color: var(--accent); }
 .tw-marker-seat.is-flashing .tw-seat { animation: tw-seat-tap 420ms var(--ease-out) 1; }
-@keyframes tw-seat-tap { 50% { transform: scale(1.4); } }
+@keyframes tw-seat-tap { 50% { transform: scale(1.5); } }
 .tw-marker-node .tw-marker-dot { display: none; }
 .tw-marker-node .tw-marker-label { display: block; bottom: 6px; color: var(--accent-strong); }
 .tw-digital-label {
