@@ -6,6 +6,7 @@ import { SITE } from "../config/site.js";
 let cache = null;
 let frame = 0;
 let lastFrameAt = 0;
+let starting = false;
 
 const HOUR = 3600000;
 const SPEED_HOURS_PER_SECOND = 1;
@@ -67,10 +68,15 @@ export function seek(t, notify = true) {
 }
 
 export async function startReplay() {
-  if (ui.replay) return true;
+  if (ui.replay || starting) return true;
+  starting = true;
   emit("replay", { kind: "loading" });
   // The response is cached; a second replay starts immediately.
-  if (!cache || Date.now() - cache.stop > 15 * 60000) cache = await provider().requestRoomHistory(24, 10);
+  try {
+    if (!cache || Date.now() - cache.stop > 15 * 60000) cache = await provider().requestRoomHistory(24, 10);
+  } finally {
+    starting = false;
+  }
   if (!cache) { emit("replay", { kind: "failed" }); return false; }
   ui.replay = { start: cache.start, stop: cache.stop, t: cache.start, playing: true, speed: 1, events: [] };
   seek(cache.start, false);

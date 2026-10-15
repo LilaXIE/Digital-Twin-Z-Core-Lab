@@ -129,7 +129,10 @@ body[data-view]:not([data-view="home"]) .tw-capsule .tw-capsule-label { display:
   transform: translate(-50%, -6px) scale(0.97); opacity: 0; pointer-events: none;
   transition: transform var(--dur-pop) var(--ease-panel), opacity var(--dur-pop) ease;
 }
-.tw-capsule-wrap.is-open .tw-capsule-detail { transform: translate(-50%, 0) scale(1); opacity: 1; }
+.tw-capsule-wrap.is-open .tw-capsule-detail { transform: translate(-50%, 0) scale(1); opacity: 1; pointer-events: auto; }
+/* Bridges the gap under the capsule so the pointer can reach the replay button. */
+.tw-capsule-detail::before { content: ""; position: absolute; left: 0; right: 0; top: -10px; height: 10px; }
+.tw-capsule-detail [data-action="replay"] { margin-top: 8px; }
 .tw-capsule-detail header { display: flex; justify-content: space-between; font-size: var(--fs-caption); color: var(--text-2); }
 .tw-capsule-detail svg { display: block; width: 100%; height: 56px; margin-top: 6px; overflow: visible; }
 .tw-capsule-detail .tw-spark-line { fill: none; stroke: var(--series-1); stroke-width: 1.6; }

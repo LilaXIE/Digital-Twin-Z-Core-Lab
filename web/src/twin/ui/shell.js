@@ -9,6 +9,7 @@ import { roomState, sentenceText } from "./room-state.js";
 import { $, $$, escapeHtml, rollNumber, term } from "./dom.js";
 import { sparkline } from "./charts/timeline.js";
 import { daylightState } from "../scene/daylight.js";
+import { startReplay } from "../data/replay.js";
 
 const CAPSULES = [
   { key: "co2", unit: "ppm", digits: 0, glossary: "co2" },
@@ -41,7 +42,10 @@ function renderCapsules() {
           <span class="tw-capsule-value"><span class="tw-num" data-role="value"></span><span class="tw-unit">${spec.unit}</span></span>
           <span class="tw-capsule-label" data-role="label"></span>
         </button>
-        <div class="tw-capsule-detail glass-thin" id="capsule-detail-${spec.key}" role="tooltip"></div>
+        <div class="tw-capsule-detail glass-thin">
+          <div id="capsule-detail-${spec.key}" role="tooltip" data-role="detail"></div>
+          ${spec.key === "co2" ? `<button type="button" class="tw-button tw-button-small" data-action="replay"><i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i><span data-i18n="replay24h">${escapeHtml(t("replay24h"))}</span></button>` : ""}
+        </div>
       </div>`).join("");
     for (const wrap of $$(".tw-capsule-wrap", host)) bindCapsule(wrap);
   }
@@ -59,7 +63,9 @@ function renderCapsules() {
     // The word beside the dot is the status; the unit tells the metrics apart (occupancy has its icon).
     button.querySelector('[data-role="label"]').textContent = spec.key === "occupancy" ? (info.measured ? "" : t("estimatedShort")) : statusWord;
     button.setAttribute("aria-label", `${info.label} ${formatNumber(info.value, spec.digits)} ${spec.unit} ${statusWord} · ${t("capsuleHint")}`);
-    renderCapsuleDetail(wrap.querySelector(".tw-capsule-detail"), spec, info);
+    renderCapsuleDetail(wrap.querySelector('[data-role="detail"]'), spec, info);
+    const replayButton = wrap.querySelector('[data-action="replay"]');
+    if (replayButton) replayButton.hidden = Boolean(ui.replay);
   }
 }
 
@@ -82,7 +88,9 @@ function bindCapsule(wrap) {
   wrap.addEventListener("pointerenter", open);
   wrap.addEventListener("pointerleave", close);
   button.addEventListener("focus", open);
-  button.addEventListener("blur", close);
+  // Focus may move from the capsule to the replay button inside the detail without closing it.
+  wrap.addEventListener("focusout", (event) => { if (!wrap.contains(event.relatedTarget)) close(); });
+  wrap.querySelector('[data-action="replay"]')?.addEventListener("click", () => { close(); void startReplay(); });
   button.addEventListener("click", () => {
     close();
     const key = wrap.dataset.key;
