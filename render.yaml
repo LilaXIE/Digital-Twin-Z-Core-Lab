@@ -1,5 +1,6 @@
-# Public read-only data bridge for the Vercel frontend.
-# Create it in Render with New > Blueprint, then enter ZB202_INFLUX_TOKEN when prompted.
+# Public data bridge for the Vercel frontend.
+# Create it in Render with New > Blueprint, then enter the secrets marked sync: false when prompted.
+# Control commands (sockets, meetings, mode) need ZB202_BRIDGE_WRITE_KEY; set ZB202_BRIDGE_READ_ONLY=true to refuse them all.
 services:
   - type: web
     name: zb202-bridge
@@ -13,6 +14,8 @@ services:
       - key: NODE_VERSION
         value: "24"
       - key: ZB202_BRIDGE_READ_ONLY
+        value: "false"
+      - key: ZB202_BRIDGE_REQUIRE_KEY
         value: "true"
       - key: ZB202_BRIDGE_ALLOWED_ORIGINS
         value: https://zb202-digital-twin.vercel.app
@@ -24,5 +27,13 @@ services:
         value: zb202_iot
       - key: ZB202_INFLUX_DEVICE_COLUMN
         value: devEui
+      - key: ZB202_MQTT_URL
+        value: mqtt://itf.beeerise.com:1889
       - key: ZB202_INFLUX_TOKEN
+        sync: false
+      - key: ZB202_BRIDGE_WRITE_KEY
+        sync: false
+      - key: ZB202_MQTT_USERNAME
+        sync: false
+      - key: ZB202_MQTT_PASSWORD
         sync: false

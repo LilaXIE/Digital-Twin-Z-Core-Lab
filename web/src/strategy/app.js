@@ -1,5 +1,6 @@
 import "@phosphor-icons/web/regular";
 import { bridgeUrl } from "../shared/bridge-url.js";
+import { bridgeKey, forgetBridgeKey } from "../shared/bridge-key.js";
 
 const THEME_STORAGE_KEY = "zb202-theme";
 const HISTORY_HOURS = 24;
@@ -22,7 +23,7 @@ const I18N = {
     occupancyHistory: "估计人数", occupancyForecast: "预测人数", recommendedLps: "推荐新风量", baselineLps: "现状新风量",
     co2Sub: (h) => `预测时域 ${h} 分钟；虚线为 800 ppm 限值和 750 ppm 控制目标`, noData: "暂无数据", time: "时间",
     energySub: (o, cop) => `室外条件：${o}；冷站 COP ${cop}`, outdoorSource: { "hko-kings-park": "天文台京士柏", "weather-station": "气象站", assumed: "假设值" },
-    noMeetings: "暂无会议", deleteMeeting: "删除会议", saved: "已保存", invalidTime: "结束时间须晚于开始时间",
+    noMeetings: "暂无会议", deleteMeeting: "删除会议", saved: "已保存", invalidTime: "结束时间须晚于开始时间", accessKeyPrompt: "输入访问密钥后即可在此页面编辑会议和切换模式。",
     modes: { L0: "仅推荐显示", L1: "影子模式", L2: "自动控制" },
     stats: { commandPct: "影子风阀指令", shadowPpm: "影子 CO₂", shadowExceedances: "影子超标次数", steps: "影子运行步数", guardActivations: "保护触发次数", rmse30: "30 分钟预测误差 RMSE", rmse60: "60 分钟预测误差 RMSE", occupancySource: "人数来源", calibratedAt: "最近标定" },
     sources: { co2: "CO₂ 反推", vs341: "VS341 工位" },
@@ -52,7 +53,7 @@ const I18N = {
     occupancyHistory: "Estimated occupants", occupancyForecast: "Forecast", recommendedLps: "Recommended", baselineLps: "Existing operation",
     co2Sub: (h) => `${h}-minute horizon; dashed lines mark the 800 ppm limit and 750 ppm target`, noData: "No data yet", time: "Time",
     energySub: (o, cop) => `Outdoor conditions: ${o}; plant COP ${cop}`, outdoorSource: { "hko-kings-park": "HKO King's Park", "weather-station": "weather station", assumed: "assumed" },
-    noMeetings: "No meetings scheduled", deleteMeeting: "Delete meeting", saved: "Saved", invalidTime: "End time must be after the start time",
+    noMeetings: "No meetings scheduled", deleteMeeting: "Delete meeting", saved: "Saved", invalidTime: "End time must be after the start time", accessKeyPrompt: "Enter the access key to edit meetings and switch modes from this page.",
     modes: { L0: "Recommendation only", L1: "Shadow mode", L2: "Automatic control" },
     stats: { commandPct: "Shadow damper command", shadowPpm: "Shadow CO₂", shadowExceedances: "Shadow exceedances", steps: "Shadow steps", guardActivations: "Guard activations", rmse30: "30-min forecast RMSE", rmse60: "60-min forecast RMSE", occupancySource: "Occupancy source", calibratedAt: "Last calibration" },
     sources: { co2: "CO₂-implied", vs341: "VS341 seats" },
@@ -74,7 +75,7 @@ I18N["zh-Hant"] = {
   savedAir: "節省新風量", savedCooling: "節省冷量", savedElectric: "節省電量", calendar: "會議日程", calendarSub: "錄入會議後，推薦會提前加大新風", meetingTitle: "名稱",
   meetingPlaceholder: "組會", date: "日期", people: "預計人數", basis: "推薦依據", internal: "內部：影子模式與控制級別", controlLevel: "控制級別", exitAuto: "退出自動控制",
   l2Note: "L2（BACnet 寫入新風閥）需 FMO 授權並配置寫入點位後才能啟用。", connecting: "連接中", connected: "已連接", disconnected: "數據橋接未連接",
-  noMeetings: "暫無會議", deleteMeeting: "刪除會議", saved: "已保存", invalidTime: "結束時間須晚於開始時間", noData: "暫無數據",
+  noMeetings: "暫無會議", deleteMeeting: "刪除會議", saved: "已保存", invalidTime: "結束時間須晚於開始時間", accessKeyPrompt: "輸入訪問密鑰後即可在此頁面編輯會議和切換模式。", noData: "暫無數據",
 };
 
 const query = (id) => document.getElementById(id);
@@ -82,7 +83,7 @@ let lang = (() => {
   try { const value = localStorage.getItem("lang"); return I18N[value] ? value : "zh"; } catch { return "zh"; }
 })();
 const t = (key) => I18N[lang][key] ?? I18N.en[key];
-const state = { recommendation: null, history: [], room: [], meetings: [], socket: null, connection: "connecting", retry: 0, pending: new Map() };
+const state = { recommendation: null, history: [], room: [], meetings: [], socket: null, connection: "connecting", retry: 0, pending: new Map(), writeProtected: false };
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
@@ -442,7 +443,15 @@ function renderInternal() {
 }
 
 // ---------- Bridge ----------
-function request(message, statusElement) {
+// Commands that change meetings or the control mode need the access key on a protected bridge.
+const WRITE_TYPES = new Set(["calendar-update", "control-mode-request"]);
+
+async function request(message, statusElement) {
+  let key = "";
+  if (WRITE_TYPES.has(message.type)) {
+    key = await bridgeKey(state.writeProtected, t("accessKeyPrompt"));
+    if (key === null) return;
+  }
   const socket = state.socket;
   if (!socket || socket.readyState !== WebSocket.OPEN) {
     if (statusElement) { statusElement.textContent = t("disconnected"); statusElement.classList.add("is-error"); }
@@ -450,13 +459,14 @@ function request(message, statusElement) {
   }
   const requestId = `${message.type}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
   if (statusElement) state.pending.set(requestId, statusElement);
-  socket.send(JSON.stringify({ ...message, requestId }));
+  socket.send(JSON.stringify({ ...message, requestId, ...(key ? { key } : {}) }));
 }
 
 function settle(message) {
   const element = state.pending.get(message.requestId);
   if (!element) return;
   state.pending.delete(message.requestId);
+  if (message.keyRejected) forgetBridgeKey();
   element.textContent = message.ok ? t("saved") : message.error || "Error";
   element.classList.toggle("is-error", !message.ok);
 }
@@ -491,6 +501,8 @@ function connect() {
       renderMeetings();
       renderCo2Chart();
       renderOccupancyChart();
+    } else if (message.type === "control-status") {
+      state.writeProtected = Boolean(message.writeProtected);
     } else if (message.type === "calendar-result" || message.type === "control-mode-result") {
       settle(message);
     }

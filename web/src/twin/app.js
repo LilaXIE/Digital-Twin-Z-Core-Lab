@@ -5,6 +5,7 @@ import { CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
 import "@phosphor-icons/web/regular";
 import { demandAxis } from "../shared/demand-axis.js";
 import { bridgeUrl } from "../shared/bridge-url.js";
+import { bridgeKey, forgetBridgeKey } from "../shared/bridge-key.js";
 
 const THEME_STORAGE_KEY = "zb202-theme";
 const DEBUG_MOCK_STORAGE_KEY = "zb202-debug-mock-data";
@@ -563,6 +564,8 @@ const state = {
   influxSocket: null,
   influxDiagnostic: "",
   socketControlConnected: false,
+  socketWriteProtected: false,
+  outdoorWeather: null,
   pendingSocketControls: new Map(),
   lastLiveAt: new Map(),
   seenTelemetry: new Set(),
@@ -1887,7 +1890,9 @@ function renderSiteOverview() {
   if (!state.debugMockData) {
     const weatherDevice = DEVICES.find((device) => sensorGroupFor(device).key === "weather");
     const weatherSnapshot = weatherDevice ? state.snapshots.get(weatherDevice.id) : null;
-    const weatherValues = weatherSnapshot?.values || {};
+    const hko = state.outdoorWeather || {};
+    const weatherValues = { temperature: hko.temperature, humidity: hko.humidity, windSpeed: hko.windSpeed, windDirection: hko.windDirection,
+      ...Object.fromEntries(Object.entries(weatherSnapshot?.values || {}).filter(([, value]) => Number.isFinite(value))) };
     const windDirection = Number(weatherValues.windDirection);
     const hasWindDirection = Number.isFinite(weatherValues.windDirection);
     const windArrow = hasWindDirection
@@ -2500,6 +2505,11 @@ function connectInfluxBridge() {
       renderAiRecommendation();
       return;
     }
+    if (message.type === "outdoor-weather") {
+      state.outdoorWeather = message;
+      renderSiteOverview();
+      return;
+    }
     if (message.type === "solar-radiation") {
       state.radiation = message;
       renderSiteOverview();
@@ -2531,6 +2541,7 @@ function connectInfluxBridge() {
     }
     if (message.type === "control-status") {
       state.socketControlConnected = Boolean(message.connected);
+      state.socketWriteProtected = Boolean(message.writeProtected);
       const status = document.getElementById("socket-control-status");
       if (status && message.readOnly) {
         status.className = "dt-socket-control-status";
@@ -2553,6 +2564,7 @@ function connectInfluxBridge() {
       const status = document.getElementById("socket-control-status");
       if (!message.ok) {
         state.pendingSocketControls.delete(message.requestId);
+        if (message.keyRejected) forgetBridgeKey();
         if (status) {
           status.className = "dt-socket-control-status error";
           status.textContent = `${pending.deviceId} control failed: ${message.error || "Unknown error"}`;
@@ -2886,8 +2898,11 @@ function syncSocketMaster() {
   master.indeterminate = relevantSockets.some((input) => input.checked) && !master.checked;
 }
 
-function sendSocketControl(input, desired, previous = !desired) {
+async function sendSocketControl(input, desired, previous = !desired) {
   const deviceId = input.dataset.socketDevice;
+  input.checked = previous;
+  const key = await bridgeKey(state.socketWriteProtected, "Enter the access key to switch lab sockets from this page.");
+  if (key === null) { syncSocketMaster(); return; }
   const socket = state.influxSocket;
   if (!deviceId || !state.socketControlConnected || !socket || socket.readyState !== WebSocket.OPEN) {
     input.checked = previous;
@@ -2913,7 +2928,7 @@ function sendSocketControl(input, desired, previous = !desired) {
   input.disabled = true;
   input.classList.add("pending");
   input.setAttribute("aria-busy", "true");
-  socket.send(JSON.stringify({ type: "socket-control", requestId, deviceId, action: desired ? "on" : "off" }));
+  socket.send(JSON.stringify({ type: "socket-control", requestId, deviceId, action: desired ? "on" : "off", ...(key ? { key } : {}) }));
   syncSocketMaster();
 }
 

@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { InfluxDB, Point } from "@influxdata/influxdb-client";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import mqtt from "mqtt";
 import { buildSensorHistoryQuery } from "./sensor-history.mjs";
@@ -8,6 +9,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { loadConfig, strategyDataDir } from "./strategy/config.mjs";
 import { StrategyService } from "./strategy/service.mjs";
 import { buildCo2HistoryQuery, co2RowsToSeries } from "./strategy/influx-history.mjs";
+import { fetchHkoOutdoor, fetchHkoWind } from "./strategy/weather.mjs";
 
 const url = process.env.ZB202_INFLUX_URL;
 const token = process.env.ZB202_INFLUX_TOKEN;
@@ -24,8 +26,15 @@ const weatherToken = process.env.ZB202_WEATHER_INFLUX_TOKEN || token;
 // Hosting platforms (e.g. Render) assign PORT and need the bridge on all interfaces.
 const websocketHost = process.env.ZB202_INFLUX_BRIDGE_HOST || (process.env.PORT ? "0.0.0.0" : "127.0.0.1");
 const websocketPort = Number(process.env.ZB202_INFLUX_BRIDGE_PORT || process.env.PORT || 8787);
-// Public deployments refuse socket control, meeting edits and mode changes.
+// Public deployments either refuse socket control, meeting edits and mode changes (read-only)
+// or require an access key with each of those commands.
 const readOnly = process.env.ZB202_BRIDGE_READ_ONLY === "true";
+const writeKeyDigest = process.env.ZB202_BRIDGE_WRITE_KEY ? createHash("sha256").update(process.env.ZB202_BRIDGE_WRITE_KEY).digest() : null;
+// With ZB202_BRIDGE_REQUIRE_KEY=true a bridge without a configured key refuses every control command.
+const requireWriteKey = process.env.ZB202_BRIDGE_REQUIRE_KEY === "true";
+const writeKeyMatches = (key) => writeKeyDigest
+  ? timingSafeEqual(createHash("sha256").update(String(key || "")).digest(), writeKeyDigest)
+  : !requireWriteKey;
 // Extra browser origins allowed to connect, e.g. https://zb202-digital-twin.vercel.app.
 const allowedOrigins = new Set((process.env.ZB202_BRIDGE_ALLOWED_ORIGINS || "").split(",").map((origin) => origin.trim().replace(/\/$/, "")).filter(Boolean));
 const bridgeStartedAt = new Date().toISOString();
@@ -58,32 +67,55 @@ const solarClient = new InfluxDB({ url, token: weatherToken, timeout: queryTimeo
 const solarWriteApi = solarClient.getWriteApi(org, solarBucket, "ms");
 const solarQueryApi = solarClient.getQueryApi(org);
 let latestSolar = null;
-let solarPolling = false;
+let latestOutdoor = null;
+let solarWritable = true;
+let outdoorPolling = false;
 async function pollSolar() {
-  if (solarPolling) return;
-  solarPolling = true;
+  const response = await fetch(SOLAR_URL, { signal: AbortSignal.timeout(15000) });
+  if (!response.ok) throw new Error(`HKO HTTP ${response.status}`);
+  const observation = parseSolarCsv(await response.text());
   try {
-    const response = await fetch(SOLAR_URL, { signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw new Error(`HKO HTTP ${response.status}`);
-    const observation = parseSolarCsv(await response.text());
+    if (!solarWritable) throw new Error("token has no write access");
     if (latestSolar?.receivedAt !== observation.receivedAt) {
       solarWriteApi.writePoint(solarPoint(observation));
       await solarWriteApi.flush();
     }
-    // Read back from InfluxDB; the browser only receives persisted observations.
+    // Read back from InfluxDB so the browser shows the persisted observation.
     const rows = await solarQueryApi.collectRows(`from(bucket: ${JSON.stringify(solarBucket)})
       |> range(start: -48h)
       |> filter(fn: (r) => r._measurement == "${SOLAR_MEASUREMENT}" and r._field == "solarRadiation" and r.station == "King's Park")
       |> last()`);
     const row = rows.sort((a, b) => Date.parse(b._time) - Date.parse(a._time))[0];
-    if (row) {
-      latestSolar = { ...observation, value: Number(row._value), receivedAt: row._time };
-      broadcast(latestSolar);
-      console.log(`[HKO] King's Park solar radiation ${latestSolar.value} W/m² persisted and read from InfluxDB`);
-    }
+    if (!row) throw new Error("no persisted observation");
+    latestSolar = { ...observation, value: Number(row._value), receivedAt: row._time };
+    console.log(`[HKO] King's Park solar radiation ${latestSolar.value} W/m² persisted and read from InfluxDB`);
   } catch (error) {
-    console.error(`[HKO] Solar ingestion failed: ${error.message}`);
-  } finally { solarPolling = false; }
+    // Without write access, show the HKO observation directly instead of nothing.
+    if (error.statusCode === 401 || error.statusCode === 403) solarWritable = false;
+    if (latestSolar?.source !== "hko") console.warn(`[HKO] Solar persistence unavailable (${error.message}); serving the HKO feed directly`);
+    latestSolar = { ...observation, source: "hko" };
+  }
+  broadcast(latestSolar);
+}
+
+// Outdoor temperature, humidity and wind from HKO King's Park; there is no weather station in InfluxDB.
+async function pollOutdoorWeather() {
+  const [air, wind] = await Promise.allSettled([fetchHkoOutdoor(), fetchHkoWind()]);
+  if (air.status === "rejected" && wind.status === "rejected") throw air.reason;
+  const times = [air.value?.t, wind.value?.t].filter(Number.isFinite);
+  latestOutdoor = { type: "outdoor-weather", station: "King's Park", source: "hko",
+    temperature: air.value?.temperatureC ?? null, humidity: air.value?.humidityPct ?? null,
+    windSpeed: wind.value?.windSpeedMs ?? null, windDirection: wind.value?.windDirectionDeg ?? null,
+    receivedAt: new Date(times.length ? Math.min(...times) : Date.now()).toISOString() };
+  broadcast(latestOutdoor);
+}
+
+async function pollOutdoor() {
+  if (outdoorPolling) return;
+  outdoorPolling = true;
+  const results = await Promise.allSettled([pollSolar(), pollOutdoorWeather()]);
+  for (const result of results) if (result.status === "rejected") console.error(`[HKO] Outdoor ingestion failed: ${result.reason.message}`);
+  outdoorPolling = false;
 }
 const strategyConfig = loadConfig();
 const strategyWriteApi = strategyEnabled && strategyWriteInflux ? new InfluxDB({ url, token, timeout: queryTimeoutMs }).getWriteApi(org, strategyBucket, "s") : null;
@@ -105,7 +137,7 @@ const weatherQueryApi = weatherBucket ? new InfluxDB({ url, token: weatherToken,
 const httpServer = createServer((req, res) => {
   const healthy = req.url === "/healthz";
   res.writeHead(healthy ? 200 : 426, { "content-type": "application/json" });
-  res.end(JSON.stringify(healthy ? { ...databaseStatus(), readOnly } : { error: "WebSocket upgrade required" }));
+  res.end(JSON.stringify(healthy ? { ...databaseStatus(), readOnly, writeProtected: Boolean(writeKeyDigest) || requireWriteKey } : { error: "WebSocket upgrade required" }));
 });
 const websocketServer = new WebSocketServer({ server: httpServer, maxPayload: 16 * 1024,
   verifyClient({ origin, req }) {
@@ -497,12 +529,14 @@ async function startStrategy() {
 
 websocketServer.on("connection", (socket) => {
   if (latestSolar) send(socket, latestSolar);
+  if (latestOutdoor) send(socket, latestOutdoor);
+  socket.failedKeys = 0;
   socket.isAlive = true;
   socket.on("pong", () => { socket.isAlive = true; });
   socket.on("error", (error) => console.warn(`[Bridge] Client error: ${error.message}`));
   send(socket, databaseStatus());
   const pendingHistory = new Set();
-  send(socket, { type: "control-status", connected: mqttConnected, readOnly, source: "mqtt", supportedDevices: [...socketDevices.keys()] });
+  send(socket, { type: "control-status", connected: mqttConnected, readOnly, writeProtected: Boolean(writeKeyDigest) || requireWriteKey, source: "mqtt", supportedDevices: [...socketDevices.keys()] });
   for (const history of historyByDevice.values()) for (const telemetry of history) send(socket, telemetry);
   if (strategy) {
     send(socket, { type: "calendar", meetings: strategy.calendar.meetings });
@@ -512,10 +546,13 @@ websocketServer.on("connection", (socket) => {
     let message;
     try { message = JSON.parse(data.toString()); } catch { return; }
     if (!message || typeof message !== "object") return;
-    if (readOnly && ["socket-control", "calendar-update", "control-mode-request"].includes(message.type)) {
-      const error = "This bridge is read-only; use the local bridge for control";
-      const resultType = { "socket-control": "control-result", "calendar-update": "calendar-result", "control-mode-request": "control-mode-result" }[message.type];
-      send(socket, { type: resultType, requestId: String(message.requestId || ""), deviceId: message.deviceId, action: message.action, ok: false, error });
+    const resultType = { "socket-control": "control-result", "calendar-update": "calendar-result", "control-mode-request": "control-mode-result" }[message.type];
+    if (resultType && (readOnly || !writeKeyMatches(message.key))) {
+      const keyRejected = !readOnly;
+      const error = keyRejected ? "Access key required or incorrect" : "This bridge is read-only; use the local bridge for control";
+      send(socket, { type: resultType, requestId: String(message.requestId || ""), deviceId: message.deviceId, action: message.action, ok: false, keyRejected, error });
+      // Limit key guessing on one connection.
+      if (keyRejected && message.key && ++socket.failedKeys >= 5) socket.close(1008, "Too many incorrect access keys");
       return;
     }
     if (message.type === "socket-control") enqueueSocketControl(socket, message);
@@ -551,8 +588,8 @@ const heartbeat = setInterval(() => {
   }
 }, 30000);
 websocketServer.on("close", () => clearInterval(heartbeat));
-void pollSolar();
-setInterval(pollSolar, 10 * 60 * 1000);
+void pollOutdoor();
+setInterval(pollOutdoor, 10 * 60 * 1000);
 async function pollLoop() {
   await poll();
   if (strategy && !strategyStarted && hasLoadedHistory) {

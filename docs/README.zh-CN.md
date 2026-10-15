@@ -74,7 +74,7 @@ ZB202_DT/
 
 开发桥接服务每 10 分钟采集香港天文台京士柏的 1 分钟平均总太阳辐射（W/m²），将原始香港时间转换为 UTC，写入 InfluxDB 后读回提供给前端。来源：https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_1min_solar.csv 。
 
-Measurement 为 `hko-solar-radiation`，field 为 `solarRadiation`，station tag 为 `King's Park`。默认使用天气 bucket，可通过 `ZB202_SOLAR_INFLUX_BUCKET` 指定；天气 token 需要读写权限。超过 30 分钟的观测显示为缺失。天气数据继续供室外环境使用，但不出现在 IoT 设备列表中。
+Measurement 为 `hko-solar-radiation`，field 为 `solarRadiation`，station tag 为 `King's Park`。默认使用天气 bucket，可通过 `ZB202_SOLAR_INFLUX_BUCKET` 指定；天气 token 需要读写权限。超过 30 分钟的观测显示为缺失。如果 token 没有写入权限，数据桥会直接显示 HKO 的观测值。室外温度、湿度和风速风向也取自 HKO 京士柏站，除非有气象站通过 InfluxDB 上报数据。天气数据继续供室外环境使用，但不出现在 IoT 设备列表中。
 
 ## 文件维护与运行方式
 
@@ -85,7 +85,7 @@ Measurement 为 `hko-solar-radiation`，field 为 `solarRadiation`，station tag
 1. 在 Render 中选择 New > Blueprint，选择本仓库，并在提示时填写 `ZB202_INFLUX_TOKEN`。
 2. 在 Vercel 项目中把 `VITE_ZB202_BRIDGE_URL` 设为 Render 地址（使用 `wss://`，例如 `wss://zb202-bridge.onrender.com`），然后运行 `vercel deploy --prod` 重新部署。
 
-公开数据桥设置了 `ZB202_BRIDGE_READ_ONLY=true`：可以查看实时数据，但会拒绝插座控制、会议编辑和模式切换，这些操作仍可在本地数据桥上使用。`ZB202_BRIDGE_ALLOWED_ORIGINS` 列出允许连接的前端来源。要临时连接其他数据桥，可在页面地址后加 `?bridge=wss://host`。Render 免费方案在 15 分钟无访问后休眠，唤醒约需 30 秒。
+公开网站上的插座控制、会议编辑和模式切换需要输入 `ZB202_BRIDGE_WRITE_KEY` 中设置的访问密钥，每个浏览器会话只需输入一次。插座控制还需要 `ZB202_MQTT_USERNAME` 和 `ZB202_MQTT_PASSWORD`。`ZB202_BRIDGE_REQUIRE_KEY=true` 会在未设置密钥时拒绝控制命令；`ZB202_BRIDGE_READ_ONLY=true` 则拒绝所有控制命令。在 Render 免费方案上，公开数据桥保存的会议会在服务重启后丢失。`ZB202_BRIDGE_ALLOWED_ORIGINS` 列出允许连接的前端来源。要临时连接其他数据桥，可在页面地址后加 `?bridge=wss://host`。Render 免费方案在 15 分钟无访问后休眠，唤醒约需 30 秒。
 
 - `web/` 保存前端源码和浏览器使用的静态模型；`models/` 保存可编辑的 Revit 与 IFC 源模型。
 - `scripts/` 保存开发服务、数据桥接与模型转换工具；`tests/` 保存验证脚本。
