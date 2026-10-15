@@ -44,11 +44,17 @@
   --glass-thin-bg: rgba(255, 255, 255, 0.42);
   --glass-thick-bg: rgba(250, 251, 253, 0.80);
   --glass-full-bg: rgba(250, 251, 253, 0.94);
-  /* Overview cards: clear frosted glass over the model (the room shows through, blurred). */
-  --glass-card-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.44), rgba(255, 255, 255, 0.22));
-  --glass-blur-card: 28px;
-  --card-inset: rgba(255, 255, 255, 0.36);
-  --card-inset-hover: rgba(255, 255, 255, 0.56);
+  /* Overview cards: liquid glass. Almost no tint, the scene shows through softened and brightened;
+     the material is carried by a thin specular rim (brightest top-left and bottom-right, faintly
+     iridescent) and a soft inner edge glow. */
+  --glass-card-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04) 55%, rgba(255, 255, 255, 0.08));
+  --glass-blur-card: 18px;
+  --glass-card-rim: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.55) 10%, rgba(255, 255, 255, 0.1) 32%, rgba(255, 255, 255, 0.05) 68%, rgba(255, 255, 255, 0.5) 90%, #fff 100%);
+  --glass-card-glow: inset 0 1px 1px rgba(255, 255, 255, 0.45), inset 0 0 14px rgba(255, 255, 255, 0.1);
+  --glass-card-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --card-inset: rgba(255, 255, 255, 0.22);
+  --card-inset-hover: rgba(255, 255, 255, 0.4);
+  --card-inset-rim: inset 0 0 0 0.5px rgba(255, 255, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5);
   --glass-blur-thin: 20px;
   --glass-blur-thick: 36px;
   --glass-highlight: rgba(255, 255, 255, 0.6);
@@ -109,9 +115,13 @@
   --glass-thin-bg: rgba(28, 30, 34, 0.45);
   --glass-thick-bg: rgba(22, 24, 28, 0.80);
   --glass-full-bg: rgba(22, 24, 28, 0.94);
-  --glass-card-bg: linear-gradient(160deg, rgba(40, 44, 52, 0.52), rgba(18, 20, 24, 0.38));
+  --glass-card-bg: linear-gradient(160deg, rgba(48, 52, 60, 0.34), rgba(16, 18, 22, 0.26) 55%, rgba(30, 33, 40, 0.32));
+  --glass-card-rim: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.22) 10%, rgba(255, 255, 255, 0.05) 32%, rgba(255, 255, 255, 0.03) 68%, rgba(255, 255, 255, 0.2) 90%, rgba(255, 255, 255, 0.5) 100%);
+  --glass-card-glow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.18), inset 0 0 18px rgba(255, 255, 255, 0.05);
+  --glass-card-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   --card-inset: rgba(255, 255, 255, 0.06);
   --card-inset-hover: rgba(255, 255, 255, 0.11);
+  --card-inset-rim: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --glass-highlight: rgba(255, 255, 255, 0.12);
   --glass-edge: rgba(255, 255, 255, 0.1);
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);

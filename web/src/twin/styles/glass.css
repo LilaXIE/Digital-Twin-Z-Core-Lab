@@ -19,11 +19,33 @@
   backdrop-filter: blur(var(--glass-blur-thick)) saturate(1.6);
 }
 
-/* Overview cards (and the AI card beside them): the clearest frost, so the model reads through. */
-.tw-dock > .glass-thick {
+/* Liquid glass: the Overview cards, the AI card beside them and the identity card. */
+.tw-dock > .glass-thick,
+.tw-identity.glass-thin {
   background: var(--glass-card-bg);
-  -webkit-backdrop-filter: blur(var(--glass-blur-card)) saturate(1.9) brightness(1.04);
-  backdrop-filter: blur(var(--glass-blur-card)) saturate(1.9) brightness(1.04);
+  border-color: transparent;
+  box-shadow: var(--glass-card-glow), var(--glass-card-shadow);
+  -webkit-backdrop-filter: blur(var(--glass-blur-card)) saturate(1.7) brightness(1.05);
+  backdrop-filter: blur(var(--glass-blur-card)) saturate(1.7) brightness(1.05);
+}
+/* The specular rim: a white gradient ring drawn with a mask on a pseudo-element (masking the card
+   itself would stop its backdrop blur). It adds light to what is behind it, so its colour comes from
+   the scene, as with real glass. */
+.tw-dock > .glass-thick::before,
+.tw-identity.glass-thin::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: var(--glass-card-rim);
+  mix-blend-mode: plus-lighter;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 /* Pointer-following sheen (positions set by ui/pointer.js through --px / --py). */
@@ -45,16 +67,19 @@
 .glass-thick.is-touch-lit::after { opacity: 1; transition: opacity 500ms ease; }
 
 /* Low quality tier halves the blur radius. */
-:root[data-quality="low"] { --glass-blur-thin: 10px; --glass-blur-thick: 18px; --glass-blur-card: 16px; }
+:root[data-quality="low"] { --glass-blur-thin: 10px; --glass-blur-thick: 18px; --glass-blur-card: 12px; }
 
 /* Reduced transparency (system or setting): opaque surfaces, no blur, no sheen. */
 :root[data-transparency="reduced"] .glass-thin,
 :root[data-transparency="reduced"] .glass-thick,
-:root[data-transparency="reduced"] .tw-dock > .glass-thick {
+:root[data-transparency="reduced"] .tw-dock > .glass-thick,
+:root[data-transparency="reduced"] .tw-identity.glass-thin {
   background: var(--opaque-bg);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+:root[data-transparency="reduced"] .tw-dock > .glass-thick::before,
+:root[data-transparency="reduced"] .tw-identity.glass-thin::before,
 :root[data-transparency="reduced"] .glass-thin::after,
 :root[data-transparency="reduced"] .glass-thick::after,
 :root[data-touch="true"] .glass-thin::after,
