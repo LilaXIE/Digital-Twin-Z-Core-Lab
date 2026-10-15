@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Opening ZB202 AI recommendation</title>
+  <script>
+    // The AI recommendation details now open inside the twin (the AI card expands into them).
+    const params = new URLSearchParams(window.location.search);
+    params.delete("sensor");
+    const query = params.toString();
+    window.location.replace(`twin.html${query ? `?${query}` : ""}#ai`);
+  </script>
+</head>
+<body><p>Opening <a href="twin.html#ai">ZB202 AI recommendation</a>…</p></body>
+</html>

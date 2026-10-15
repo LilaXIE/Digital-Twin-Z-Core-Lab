@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import net from "node:net";
 import { spawn } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { once } from "node:events";
 import WebSocket from "ws";
 import { buildSensorHistoryQuery } from "../scripts/sensor-history.mjs";
@@ -22,8 +25,9 @@ const portProbe = net.createServer().listen(0, "127.0.0.1");
 await once(portProbe, "listening");
 const bridgePort = portProbe.address().port;
 await new Promise((resolve) => portProbe.close(resolve));
+const strategyDir = await mkdtemp(path.join(os.tmpdir(), "zb202-strategy-"));
 const child = spawn(process.execPath, ["scripts/influxdb-bridge.mjs"], {
-  env: { ...process.env, ZB202_INFLUX_URL: `http://127.0.0.1:${mock.address().port}`, ZB202_INFLUX_TOKEN: "test", ZB202_INFLUX_ORG: "test", ZB202_INFLUX_BUCKET: "test", ZB202_INFLUX_MEASUREMENT: "", ZB202_WEATHER_INFLUX_BUCKET: "", ZB202_MQTT_USERNAME: "", ZB202_MQTT_PASSWORD: "", ZB202_INFLUX_BRIDGE_HOST: "127.0.0.1", ZB202_INFLUX_BRIDGE_PORT: String(bridgePort), ZB202_INFLUX_POLL_INTERVAL_MS: "2000", ZB202_INFLUX_QUERY_TIMEOUT_MS: "1000" },
+  env: { ...process.env, ZB202_INFLUX_URL: `http://127.0.0.1:${mock.address().port}`, ZB202_INFLUX_TOKEN: "test", ZB202_INFLUX_ORG: "test", ZB202_INFLUX_BUCKET: "test", ZB202_INFLUX_MEASUREMENT: "", ZB202_WEATHER_INFLUX_BUCKET: "", ZB202_MQTT_USERNAME: "", ZB202_MQTT_PASSWORD: "", ZB202_INFLUX_BRIDGE_HOST: "127.0.0.1", ZB202_INFLUX_BRIDGE_PORT: String(bridgePort), ZB202_INFLUX_POLL_INTERVAL_MS: "2000", ZB202_INFLUX_QUERY_TIMEOUT_MS: "1000", ZB202_STRATEGY_DATA_DIR: strategyDir, ZB202_STRATEGY_INFLUX_WRITE: "false" },
   stdio: ["ignore", "pipe", "pipe"],
 });
 let socket;
@@ -49,6 +53,15 @@ try {
   await once(socket, "open");
   await waitFor((m) => m.type === "bridge-status" && m.connected && m.lastSuccessAt);
   await waitFor((m) => m.type === "telemetry" && m.values.temperature === 23.5);
+  // The mock has no CO₂ data, so the strategy reports that it cannot recommend.
+  await waitFor((m) => m.type === "calendar" && Array.isArray(m.meetings));
+  await waitFor((m) => m.type === "recommendation" && m.status === "no-data");
+  socket.send(JSON.stringify({ type: "recommendation-history-request", requestId: "h1", hours: 24 }));
+  await waitFor((m) => m.type === "recommendation-history" && m.requestId === "h1" && Array.isArray(m.entries));
+  socket.send(JSON.stringify({ type: "calendar-update", requestId: "c1", action: "upsert", meeting: { start: "bad", end: "bad", people: 3 } }));
+  await waitFor((m) => m.type === "calendar-result" && m.requestId === "c1" && !m.ok);
+  socket.send(JSON.stringify({ type: "control-mode-request", requestId: "l2", mode: "L2" }));
+  await waitFor((m) => m.type === "control-mode-result" && m.requestId === "l2" && !m.ok && m.mode !== "L2");
   socket.send("null"); // Malformed but valid JSON must not crash the bridge.
   socket.send(JSON.stringify({ type: "sensor-history-request", requestId: "bad", deviceId: "invalid", hours: 1 }));
   await waitFor((m) => m.type === "sensor-history" && m.requestId === "bad" && m.error);
@@ -63,10 +76,11 @@ try {
   fail = false;
   const afterFailure = messages.length;
   await waitFor((m) => messages.indexOf(m) >= afterFailure && m.type === "bridge-status" && m.connected && m.consecutiveFailures === 0 && !m.error);
-  console.log("PASS: telemetry, query diagnostics, failure/recovery, invalid requests, origin protection, bounded history");
+  console.log("PASS: telemetry, query diagnostics, failure/recovery, invalid requests, origin protection, bounded history, strategy messages");
 } finally {
   clearTimeout(deadline);
   socket?.terminate();
   child.kill();
   await new Promise((resolve) => mock.close(resolve));
+  await rm(strategyDir, { recursive: true, force: true });
 }

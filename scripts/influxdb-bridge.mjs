@@ -1,9 +1,16 @@
 import "dotenv/config";
-import { InfluxDB } from "@influxdata/influxdb-client";
+import { InfluxDB, Point } from "@influxdata/influxdb-client";
+import { createHash, timingSafeEqual } from "node:crypto";
+import { createServer } from "node:http";
 import mqtt from "mqtt";
 import { buildSensorHistoryQuery } from "./sensor-history.mjs";
+import { buildRoomHistoryQueries, roomHistoryFromRows, roomHistoryWindow } from "./room-history.mjs";
 import { SOLAR_URL, SOLAR_MEASUREMENT, parseSolarCsv, solarPoint } from "./hko-solar.mjs";
 import { WebSocketServer, WebSocket } from "ws";
+import { loadConfig, strategyDataDir } from "./strategy/config.mjs";
+import { StrategyService } from "./strategy/service.mjs";
+import { buildCo2HistoryQuery, co2RowsToSeries } from "./strategy/influx-history.mjs";
+import { fetchHkoOutdoor, fetchHkoWind } from "./strategy/weather.mjs";
 
 const url = process.env.ZB202_INFLUX_URL;
 const token = process.env.ZB202_INFLUX_TOKEN;
@@ -17,8 +24,20 @@ const historyRange = process.env.ZB202_INFLUX_HISTORY_RANGE || "-24h";
 const weatherBucket = process.env.ZB202_WEATHER_INFLUX_BUCKET || "";
 const weatherMeasurement = process.env.ZB202_WEATHER_INFLUX_MEASUREMENT || "";
 const weatherToken = process.env.ZB202_WEATHER_INFLUX_TOKEN || token;
-const websocketHost = process.env.ZB202_INFLUX_BRIDGE_HOST || "127.0.0.1";
-const websocketPort = Number(process.env.ZB202_INFLUX_BRIDGE_PORT || 8787);
+// Hosting platforms (e.g. Render) assign PORT and need the bridge on all interfaces.
+const websocketHost = process.env.ZB202_INFLUX_BRIDGE_HOST || (process.env.PORT ? "0.0.0.0" : "127.0.0.1");
+const websocketPort = Number(process.env.ZB202_INFLUX_BRIDGE_PORT || process.env.PORT || 8787);
+// Public deployments either refuse socket control, meeting edits and mode changes (read-only)
+// or require an access key with each of those commands.
+const readOnly = process.env.ZB202_BRIDGE_READ_ONLY === "true";
+const writeKeyDigest = process.env.ZB202_BRIDGE_WRITE_KEY ? createHash("sha256").update(process.env.ZB202_BRIDGE_WRITE_KEY).digest() : null;
+// With ZB202_BRIDGE_REQUIRE_KEY=true a bridge without a configured key refuses every control command.
+const requireWriteKey = process.env.ZB202_BRIDGE_REQUIRE_KEY === "true";
+const writeKeyMatches = (key) => writeKeyDigest
+  ? timingSafeEqual(createHash("sha256").update(String(key || "")).digest(), writeKeyDigest)
+  : !requireWriteKey;
+// Extra browser origins allowed to connect, e.g. https://zb202-digital-twin.vercel.app.
+const allowedOrigins = new Set((process.env.ZB202_BRIDGE_ALLOWED_ORIGINS || "").split(",").map((origin) => origin.trim().replace(/\/$/, "")).filter(Boolean));
 const bridgeStartedAt = new Date().toISOString();
 const mqttBrokerUrl = process.env.ZB202_MQTT_URL || "mqtt://itf.beeerise.com:1889";
 const mqttUsername = process.env.ZB202_MQTT_USERNAME || "";
@@ -31,6 +50,9 @@ const socketDevices = new Map([
   ["WS523-04", "24E1241480609EE5"],
 ]);
 const socketCommands = { on: "080100ff", off: "080000ff" };
+const strategyEnabled = process.env.ZB202_STRATEGY_ENABLED !== "false";
+const strategyWriteInflux = process.env.ZB202_STRATEGY_INFLUX_WRITE === "true";
+const strategyBucket = process.env.ZB202_STRATEGY_INFLUX_BUCKET || bucket;
 
 const missing = [["ZB202_INFLUX_URL", url], ["ZB202_INFLUX_TOKEN", token], ["ZB202_INFLUX_ORG", org]]
   .filter(([, value]) => !value).map(([name]) => name);
@@ -46,37 +68,82 @@ const solarClient = new InfluxDB({ url, token: weatherToken, timeout: queryTimeo
 const solarWriteApi = solarClient.getWriteApi(org, solarBucket, "ms");
 const solarQueryApi = solarClient.getQueryApi(org);
 let latestSolar = null;
-let solarPolling = false;
+let latestOutdoor = null;
+let solarWritable = true;
+let outdoorPolling = false;
 async function pollSolar() {
-  if (solarPolling) return;
-  solarPolling = true;
+  const response = await fetch(SOLAR_URL, { signal: AbortSignal.timeout(15000) });
+  if (!response.ok) throw new Error(`HKO HTTP ${response.status}`);
+  const observation = parseSolarCsv(await response.text());
   try {
-    const response = await fetch(SOLAR_URL, { signal: AbortSignal.timeout(15000) });
-    if (!response.ok) throw new Error(`HKO HTTP ${response.status}`);
-    const observation = parseSolarCsv(await response.text());
+    if (!solarWritable) throw new Error("token has no write access");
     if (latestSolar?.receivedAt !== observation.receivedAt) {
       solarWriteApi.writePoint(solarPoint(observation));
       await solarWriteApi.flush();
     }
-    // Read back from InfluxDB; the browser only receives persisted observations.
+    // Read back from InfluxDB so the browser shows the persisted observation.
     const rows = await solarQueryApi.collectRows(`from(bucket: ${JSON.stringify(solarBucket)})
       |> range(start: -48h)
       |> filter(fn: (r) => r._measurement == "${SOLAR_MEASUREMENT}" and r._field == "solarRadiation" and r.station == "King's Park")
       |> last()`);
     const row = rows.sort((a, b) => Date.parse(b._time) - Date.parse(a._time))[0];
-    if (row) {
-      latestSolar = { ...observation, value: Number(row._value), receivedAt: row._time };
-      broadcast(latestSolar);
-      console.log(`[HKO] King's Park solar radiation ${latestSolar.value} W/m² persisted and read from InfluxDB`);
-    }
+    if (!row) throw new Error("no persisted observation");
+    latestSolar = { ...observation, value: Number(row._value), receivedAt: row._time };
+    console.log(`[HKO] King's Park solar radiation ${latestSolar.value} W/m² persisted and read from InfluxDB`);
   } catch (error) {
-    console.error(`[HKO] Solar ingestion failed: ${error.message}`);
-  } finally { solarPolling = false; }
+    // Without write access, show the HKO observation directly instead of nothing.
+    if (error.statusCode === 401 || error.statusCode === 403) solarWritable = false;
+    if (latestSolar?.source !== "hko") console.warn(`[HKO] Solar persistence unavailable (${error.message}); serving the HKO feed directly`);
+    latestSolar = { ...observation, source: "hko" };
+  }
+  broadcast(latestSolar);
 }
+
+// Outdoor temperature, humidity and wind from HKO King's Park; there is no weather station in InfluxDB.
+async function pollOutdoorWeather() {
+  const [air, wind] = await Promise.allSettled([fetchHkoOutdoor(), fetchHkoWind()]);
+  if (air.status === "rejected" && wind.status === "rejected") throw air.reason;
+  const times = [air.value?.t, wind.value?.t].filter(Number.isFinite);
+  latestOutdoor = { type: "outdoor-weather", station: "King's Park", source: "hko",
+    temperature: air.value?.temperatureC ?? null, humidity: air.value?.humidityPct ?? null,
+    windSpeed: wind.value?.windSpeedMs ?? null, windDirection: wind.value?.windDirectionDeg ?? null,
+    receivedAt: new Date(times.length ? Math.min(...times) : Date.now()).toISOString() };
+  broadcast(latestOutdoor);
+}
+
+async function pollOutdoor() {
+  if (outdoorPolling) return;
+  outdoorPolling = true;
+  const results = await Promise.allSettled([pollSolar(), pollOutdoorWeather()]);
+  for (const result of results) if (result.status === "rejected") console.error(`[HKO] Outdoor ingestion failed: ${result.reason.message}`);
+  outdoorPolling = false;
+}
+const strategyConfig = loadConfig();
+const strategyWriteApi = strategyEnabled && strategyWriteInflux ? new InfluxDB({ url, token, timeout: queryTimeoutMs }).getWriteApi(org, strategyBucket, "s") : null;
+const strategy = strategyEnabled ? new StrategyService({
+  config: strategyConfig,
+  dataDir: process.env.ZB202_STRATEGY_DATA_DIR || strategyDataDir,
+  // Optional write-back of each recommendation; off unless ZB202_STRATEGY_INFLUX_WRITE=true.
+  writePoint: strategyWriteApi ? async (entry) => {
+    strategyWriteApi.writePoint(new Point("zb202-ai-recommendation").tag("mode", entry.mode)
+      .floatField("recommended_lps", entry.lps).intField("damper_pct", entry.damperPct).floatField("baseline_lps", entry.baselineLps)
+      .intField("room_co2_ppm", entry.roomPpm).floatField("occupancy_estimate", entry.occupancy).intField("peak_ppm", entry.peak)
+      .timestamp(new Date(entry.t)));
+    await strategyWriteApi.flush();
+  } : null,
+}) : null;
+let strategyStarted = false;
 const weatherQueryApi = weatherBucket ? new InfluxDB({ url, token: weatherToken, timeout: queryTimeoutMs }).getQueryApi(org) : null;
-const websocketServer = new WebSocketServer({ host: websocketHost, port: websocketPort, maxPayload: 16 * 1024,
+// Plain HTTP answers health checks; WebSocket upgrades go to the bridge.
+const httpServer = createServer((req, res) => {
+  const healthy = req.url === "/healthz";
+  res.writeHead(healthy ? 200 : 426, { "content-type": "application/json" });
+  res.end(JSON.stringify(healthy ? { ...databaseStatus(), readOnly, writeProtected: Boolean(writeKeyDigest) || requireWriteKey } : { error: "WebSocket upgrade required" }));
+});
+const websocketServer = new WebSocketServer({ server: httpServer, maxPayload: 16 * 1024,
   verifyClient({ origin, req }) {
     if (!origin) return true; // Non-browser monitoring clients.
+    if (allowedOrigins.has(origin)) return true;
     try { return new URL(origin).hostname === new URL(`http://${req.headers.host}`).hostname; }
     catch { return false; }
   } });
@@ -93,7 +160,7 @@ let mqttConnected = false;
 let processingDownlink = false;
 const downlinkQueue = [];
 
-const mqttClient = mqttUsername && mqttPassword
+const mqttClient = !readOnly && mqttUsername && mqttPassword
   ? mqtt.connect(mqttBrokerUrl, {
       username: mqttUsername,
       password: mqttPassword,
@@ -116,6 +183,8 @@ if (mqttClient) {
     broadcast({ type: "control-status", connected: false, source: "mqtt" });
   });
   mqttClient.on("error", (error) => console.error(`[MQTT] ${error.message}`));
+} else if (readOnly) {
+  console.log("[Bridge] Read-only mode: socket control, meeting edits and mode changes are refused.");
 } else {
   console.warn("[MQTT] Socket control disabled: set ZB202_MQTT_USERNAME and ZB202_MQTT_PASSWORD.");
 }
@@ -198,6 +267,54 @@ async function sendDemandHistory(socket, requestedRange) {
   } catch (error) {
     send(socket, { type: "demand-history", range, samples: [], error: error.message });
   }
+}
+
+// One-day replay: room environment, socket power, solar radiation and alarm events in one response.
+// Results are cached per window so repeated replays and several viewers share one query.
+const roomHistoryCache = new Map();
+async function sendRoomHistory(socket, message) {
+  const window = roomHistoryWindow({ hours: message.hours, stepMinutes: message.stepMinutes });
+  const requestId = String(message.requestId || "");
+  const cacheKey = `${window.hours}:${window.stepMinutes}:${window.stop}`;
+  try {
+    if (!roomHistoryCache.has(cacheKey)) {
+      const queries = buildRoomHistoryQueries({ bucket, solarBucket, solarMeasurement: SOLAR_MEASUREMENT, ...window });
+      const task = (async () => {
+        const [env, power, solar, events] = await Promise.all([
+          queryApi.collectRows(queries.env),
+          queryApi.collectRows(queries.power),
+          solarQueryApi.collectRows(queries.solar).catch(() => []),
+          queryApi.collectRows(queries.events),
+        ]);
+        return roomHistoryFromRows({ env, power, solar, events });
+      })();
+      roomHistoryCache.set(cacheKey, task);
+      task.catch(() => roomHistoryCache.delete(cacheKey));
+      for (const key of roomHistoryCache.keys()) if (roomHistoryCache.size > 4 && key !== cacheKey) roomHistoryCache.delete(key);
+    }
+    const history = await roomHistoryCache.get(cacheKey);
+    send(socket, { type: "room-history", requestId, ...window, ...history });
+  } catch (error) {
+    send(socket, { type: "room-history", requestId, ...window, sensors: {}, sockets: {}, solar: [], events: [], error: error.message });
+  }
+}
+
+// "23 sensors · 1,2xx readings today": counted in InfluxDB (one reading = one stored field value).
+let latestReadingStats = null;
+async function pollReadingStats() {
+  const today = new Date(Date.now() + 8 * 3600000);
+  today.setUTCHours(0, 0, 0, 0);
+  const start = new Date(today.getTime() - 8 * 3600000).toISOString();
+  const rows = await queryApi.collectRows(`from(bucket: ${fluxString(bucket)})
+  |> range(start: time(v: ${fluxString(start)}))
+  |> filter(fn: (r) => r._measurement =~ /^(AM103|AM308|VS341|WS301|WS302|WS303|WS523)_\\d{2}$/)
+  |> count()
+  |> group(columns: ["_measurement"])
+  |> sum()`);
+  const sensors = new Set(rows.filter((row) => Number(row._value) > 0).map((row) => row._measurement));
+  const readings = rows.reduce((sum, row) => sum + (Number(row._value) || 0), 0);
+  latestReadingStats = { type: "reading-stats", sensorsReporting: sensors.size, readingsToday: readings, since: start, at: new Date().toISOString() };
+  broadcast(latestReadingStats);
 }
 
 function send(socket, message) {
@@ -285,6 +402,7 @@ function databaseStatus() {
 }
 function updateDatabaseStatus(connected) {
   databaseConnected = connected;
+  strategy?.setBridgeHealthy(connected);
   broadcast(databaseStatus());
 }
 
@@ -380,7 +498,10 @@ async function poll() {
       const telemetry = acceptRow(row);
       if (telemetry) changedTelemetry.add(telemetry);
     }
-    for (const telemetry of changedTelemetry) broadcast(telemetry);
+    for (const telemetry of changedTelemetry) {
+      strategy?.ingestTelemetry(telemetry);
+      broadcast(telemetry);
+    }
     if (!databaseConnected) console.log(`[InfluxDB] Connected to ${url}; loaded ${rows.length} rows from ${bucket}${weatherBucket ? ` + ${weatherBucket}` : ""}`);
     hasLoadedHistory = true;
     consecutiveFailures = 0;
@@ -397,38 +518,121 @@ async function poll() {
   }
 }
 
+async function handleStrategyMessage(socket, message) {
+  const requestId = String(message.requestId || "");
+  if (!strategy) {
+    send(socket, { type: "strategy-error", requestId, error: "AI ventilation strategy is disabled" });
+    return;
+  }
+  if (message.type === "recommendation-history-request") {
+    const hours = Math.min(192, Math.max(1, Number(message.hours) || 24));
+    send(socket, { type: "recommendation-history", requestId, hours, entries: strategy.recommendationHistory(hours), room: strategy.roomCo2History() });
+    return;
+  }
+  if (message.type === "calendar-update") {
+    try {
+      const meetings = await strategy.updateCalendar(message);
+      send(socket, { type: "calendar-result", requestId, ok: true });
+      broadcast({ type: "calendar", meetings });
+      if (strategyStarted) void runStrategyTick();
+    } catch (error) {
+      send(socket, { type: "calendar-result", requestId, ok: false, error: error.message });
+    }
+    return;
+  }
+  try {
+    const mode = await strategy.setControlMode(String(message.mode || ""));
+    send(socket, { type: "control-mode-result", requestId, ok: true, mode });
+    broadcast({ type: "control-mode", mode });
+    if (strategyStarted) void runStrategyTick();
+  } catch (error) {
+    send(socket, { type: "control-mode-result", requestId, ok: false, mode: strategy.controller.mode, error: error.message });
+  }
+}
+
+let strategyTicking = false;
+async function runStrategyTick() {
+  if (strategyTicking) return;
+  strategyTicking = true;
+  try { await strategy.tick(); }
+  catch (error) { console.error(`[Strategy] Recalculation failed: ${error.message}`); }
+  finally { strategyTicking = false; }
+}
+
+// Seeds the occupancy filter and 8-hour average from InfluxDB, then recalculates every 10 minutes.
+async function startStrategy() {
+  strategyStarted = true;
+  try {
+    const stop = Date.now();
+    const rows = await queryApi.collectRows(buildCo2HistoryQuery({ bucket, sensors: strategyConfig.co2.sensors, start: stop - 8 * 3600000, stop }));
+    strategy.warmUp(co2RowsToSeries(rows));
+  } catch (error) {
+    console.warn(`[Strategy] Warm-up history unavailable: ${error.message}`);
+  }
+  await runStrategyTick();
+  const stepMs = strategyConfig.horizon.stepMinutes * 60000;
+  const schedule = () => setTimeout(async () => { await runStrategyTick(); schedule(); }, stepMs - (Date.now() % stepMs) + 30000);
+  schedule();
+  console.log(`[Strategy] AI ventilation recommendations running in ${strategy.controller.mode} mode (${strategyConfig.optimizer.method}).`);
+}
+
 websocketServer.on("connection", (socket) => {
   if (latestSolar) send(socket, latestSolar);
+  if (latestOutdoor) send(socket, latestOutdoor);
+  if (latestReadingStats) send(socket, latestReadingStats);
+  socket.failedKeys = 0;
   socket.isAlive = true;
   socket.on("pong", () => { socket.isAlive = true; });
   socket.on("error", (error) => console.warn(`[Bridge] Client error: ${error.message}`));
   send(socket, databaseStatus());
   const pendingHistory = new Set();
-  send(socket, { type: "control-status", connected: mqttConnected, source: "mqtt", supportedDevices: [...socketDevices.keys()] });
+  send(socket, { type: "control-status", connected: mqttConnected, readOnly, writeProtected: Boolean(writeKeyDigest) || requireWriteKey, source: "mqtt", supportedDevices: [...socketDevices.keys()] });
   for (const history of historyByDevice.values()) for (const telemetry of history) send(socket, telemetry);
+  if (strategy) {
+    send(socket, { type: "calendar", meetings: strategy.calendar.meetings });
+    if (strategy.latest) send(socket, strategy.latest);
+  }
   socket.on("message", (data) => {
     let message;
     try { message = JSON.parse(data.toString()); } catch { return; }
     if (!message || typeof message !== "object") return;
+    const resultType = { "socket-control": "control-result", "calendar-update": "calendar-result", "control-mode-request": "control-mode-result" }[message.type];
+    if (resultType && (readOnly || !writeKeyMatches(message.key))) {
+      const keyRejected = !readOnly;
+      const error = keyRejected ? "Access key required or incorrect" : "This bridge is read-only; use the local bridge for control";
+      send(socket, { type: resultType, requestId: String(message.requestId || ""), deviceId: message.deviceId, action: message.action, ok: false, keyRejected, error });
+      // Limit key guessing on one connection.
+      if (keyRejected && message.key && ++socket.failedKeys >= 5) socket.close(1008, "Too many incorrect access keys");
+      return;
+    }
     if (message.type === "socket-control") enqueueSocketControl(socket, message);
-    if (["sensor-history-request", "demand-history-request"].includes(message.type)) {
+    if (["recommendation-history-request", "calendar-update", "control-mode-request"].includes(message.type)) void handleStrategyMessage(socket, message);
+    if (["sensor-history-request", "demand-history-request", "room-history-request"].includes(message.type)) {
       if (pendingHistory.has(message.type)) {
         send(socket, message.type === "sensor-history-request"
           ? { type: "sensor-history", requestId: message.requestId, deviceId: message.deviceId, hours: message.hours, trends: {}, error: "History query busy; retry shortly" }
-          : { type: "demand-history", range: message.range, samples: [], error: "History query busy; retry shortly" });
+          : message.type === "room-history-request"
+            ? { type: "room-history", requestId: String(message.requestId || ""), sensors: {}, sockets: {}, solar: [], events: [], error: "History query busy; retry shortly" }
+            : { type: "demand-history", range: message.range, samples: [], error: "History query busy; retry shortly" });
         return;
       }
       pendingHistory.add(message.type);
-      const task = message.type === "sensor-history-request" ? sendSensorHistory(socket, message) : sendDemandHistory(socket, message.range);
+      const task = message.type === "sensor-history-request" ? sendSensorHistory(socket, message)
+        : message.type === "room-history-request" ? sendRoomHistory(socket, message)
+          : sendDemandHistory(socket, message.range);
       void task.finally(() => pendingHistory.delete(message.type));
     }
   });
 });
 
 await new Promise((resolve, reject) => {
-  websocketServer.once("listening", resolve);
-  websocketServer.once("error", reject);
+  httpServer.once("error", reject);
+  httpServer.listen(websocketPort, websocketHost, resolve);
 });
+if (strategy) {
+  await strategy.init();
+  strategy.onRecommendation(broadcast);
+}
 console.log(`[Bridge] WebSocket ready at ws://${websocketHost}:${websocketPort}`);
 const heartbeat = setInterval(() => {
   for (const socket of websocketServer.clients) {
@@ -438,10 +642,16 @@ const heartbeat = setInterval(() => {
   }
 }, 30000);
 websocketServer.on("close", () => clearInterval(heartbeat));
-void pollSolar();
-setInterval(pollSolar, 10 * 60 * 1000);
+void pollOutdoor();
+setInterval(pollOutdoor, 10 * 60 * 1000);
+const refreshReadingStats = () => pollReadingStats().catch((error) => console.warn(`[InfluxDB] Reading count unavailable: ${error.message}`));
+setTimeout(refreshReadingStats, 5000);
+setInterval(refreshReadingStats, 10 * 60 * 1000);
 async function pollLoop() {
   await poll();
+  if (strategy && !strategyStarted && hasLoadedHistory) {
+    void startStrategy().catch((error) => console.error(`[Strategy] Start failed: ${error.message}`));
+  }
   setTimeout(pollLoop, Math.min(60000, pollIntervalMs * 2 ** Math.min(consecutiveFailures, 3)));
 }
 void pollLoop();
