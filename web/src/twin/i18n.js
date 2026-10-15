@@ -129,6 +129,7 @@ const zh = {
   socketOn: "开", socketOff: "关", controlViewOnly: "仅供查看，插座开关由实验室成员操作", controlLocked: "输入访问密钥后可开关插座", updatedAtShort: "更新于 {time}", aiAdviceOnly: "AI 目前只给出建议，是否采用由设施管理团队决定", calendarLocked: "输入访问密钥后可添加或删除会议",
   connectionRetrying: "暂时连不上数据服务，正在自动重试",
   showDetails: "展开详情", hideDetails: "收起详情", lineAi: "AI 建议新风 {lps} L/s", lineAhuOff: "AHU 已停机", lineSaved: "今日已省 {kwh} kWh（{kg} kg CO₂e）", aiValueLess: "比假设现状少送 {d} L/s 新风", aiValueSaved: "今日省 {kwh} kWh · {kg} kg CO₂e", todayTitle: "今日小结", todayWaiting: "正在读取今日数据", todayCompliance: "工作时间 CO₂ 达标", todayNoWorkingData: "未开始", todayExceed: "超标次数", todayCompleteness: "数据完整率", todayEvents: "CO₂ 超过 {limit} ppm（点击回放）", eventPeak: "最高 {v} ppm · {m} 分钟", iaqExcellent: "室内空气质素 · 卓越级", iaqGood: "室内空气质素 · 良好级", iaqBelow: "未达良好级", iaqBasis: "8 小时平均 CO₂ {v} ppm · 香港环保署标准",
+  expand: "全屏查看", collapse: "退出全屏", airflowSubHours: "过去 {h} 小时；悬停可查看对应风阀开度",
   basisItems: (r) => [
     `控制目标：预测时域内任一时刻 CO₂ ≤ <b>${r.co2.target} ppm</b>，比 ${r.co2.limit} ppm 限值留 ${r.co2.limit - r.co2.target} ppm 余量（传感器与预测误差）。`,
     `最小新风量 = 2.5 L/s·人 × 人数 + 0.3 L/s·m² × 46.6 m²，当前为 <b>${r.airflow.minLps} L/s</b>。`,
@@ -225,6 +226,7 @@ const zhHant = {
   forecastPoints: "30 分鐘 {a} ppm · 60 分鐘 {b} ppm", targetLine: "目標 {v}",
   connectionRetrying: "暫時連不上數據服務，正在自動重試",
   showDetails: "展開詳情", hideDetails: "收起詳情", lineAi: "AI 建議新風 {lps} L/s", lineAhuOff: "AHU 已停機", lineSaved: "今日已省 {kwh} kWh（{kg} kg CO₂e）", aiValueLess: "比假設現狀少送 {d} L/s 新風", aiValueSaved: "今日省 {kwh} kWh · {kg} kg CO₂e", todayTitle: "今日小結", todayWaiting: "正在讀取今日數據", todayCompliance: "工作時間 CO₂ 達標", todayNoWorkingData: "未開始", todayExceed: "超標次數", todayCompleteness: "數據完整率", todayEvents: "CO₂ 超過 {limit} ppm（點擊回放）", eventPeak: "最高 {v} ppm · {m} 分鐘", iaqExcellent: "室內空氣質素 · 卓越級", iaqGood: "室內空氣質素 · 良好級", iaqBelow: "未達良好級", iaqBasis: "8 小時平均 CO₂ {v} ppm · 香港環保署標準",
+  expand: "全螢幕查看", collapse: "退出全螢幕", airflowSubHours: "過去 {h} 小時；懸停可查看對應風閥開度",
   basisItems: (r) => [
     `控制目標：預測時域內任一時刻 CO₂ ≤ <b>${r.co2.target} ppm</b>，比 ${r.co2.limit} ppm 限值留 ${r.co2.limit - r.co2.target} ppm 餘量（感測器與預測誤差）。`,
     `最小新風量 = 2.5 L/s·人 × 人數 + 0.3 L/s·m² × 46.6 m²，當前為 <b>${r.airflow.minLps} L/s</b>。`,
@@ -328,6 +330,7 @@ const en = {
   replayEvent: "{device} {type}",
   connectionRetrying: "The data service is unreachable; retrying automatically",
   showDetails: "Show details", hideDetails: "Hide details", lineAi: "AI suggests {lps} L/s outdoor air", lineAhuOff: "AHU off", lineSaved: "{kwh} kWh ({kg} kg CO₂e) saved today", aiValueLess: "{d} L/s less outdoor air than assumed now", aiValueSaved: "{kwh} kWh · {kg} kg CO₂e saved today", todayTitle: "Today", todayWaiting: "Loading today's data", todayCompliance: "CO₂ within limit (working hours)", todayNoWorkingData: "Not yet", todayExceed: "Times over limit", todayCompleteness: "Data completeness", todayEvents: "CO₂ above {limit} ppm (tap to replay)", eventPeak: "peak {v} ppm · {m} min", iaqExcellent: "Indoor air quality · Excellent class", iaqGood: "Indoor air quality · Good class", iaqBelow: "Below the Good class", iaqBasis: "8-hour average CO₂ {v} ppm · HK EPD scheme",
+  expand: "Expand", collapse: "Collapse", airflowSubHours: "Past {h} hours; hover for damper position",
   basisItems: (r) => [
     `Target: CO₂ at or below <b>${r.co2.target} ppm</b> at every point of the horizon, ${r.co2.limit - r.co2.target} ppm below the ${r.co2.limit} ppm limit to cover sensor and forecast error.`,
     `Minimum outdoor air = 2.5 L/s per person + 0.3 L/s·m² × 46.6 m², currently <b>${r.airflow.minLps} L/s</b>.`,

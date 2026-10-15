@@ -580,14 +580,21 @@ table.tw-table tr:hover td { background: var(--surface-sunken); }
 .tw-alarm-item small { display: block; font-size: var(--fs-caption); color: var(--text-3); overflow-wrap: anywhere; }
 
 /* ---------- AI full page ---------- */
+/* AI details (section B3): a wide drawer on the right so the room stays in view; "Expand" fills the screen. */
 .tw-ai-page {
-  position: fixed; inset: 0; z-index: 30; overflow-y: auto; overscroll-behavior: contain;
+  position: fixed; z-index: 30; top: calc(var(--edge) + 60px); right: var(--edge); bottom: calc(var(--edge) + var(--tap) + 30px);
+  width: min(760px, calc(100vw - 2 * var(--edge) - 300px)); border-radius: var(--r-panel); overflow-y: auto; overscroll-behavior: contain;
   background: var(--glass-full-bg); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18), var(--card-inset-rim);
   view-transition-name: ai-surface; user-select: text; -webkit-user-select: text;
 }
+.tw-ai-page.is-full { top: 0; right: 0; bottom: 0; width: 100vw; border-radius: 0; z-index: 35; }
+.tw-ai-page:not(.is-full) .tw-ai-inner { padding: 0 20px 28px; }
+.tw-ai-page:not(.is-full) .tw-ai-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tw-ai-page:not(.is-full) .tw-grid-2 { grid-template-columns: 1fr; gap: 0; }
 :root[data-transparency="reduced"] .tw-ai-page { background: var(--opaque-bg); -webkit-backdrop-filter: none; backdrop-filter: none; }
 .tw-ai-inner { max-width: 1180px; margin: 0 auto; padding: 22px 28px 120px; }
-.tw-ai-top { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 10px 0 14px; background: var(--opaque-bg); box-shadow: 0 1px 0 var(--line), 0 -40px 0 var(--opaque-bg); }
+.tw-ai-top { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 14px 0 12px; background: var(--opaque-bg); box-shadow: 0 1px 0 var(--line), 0 -40px 0 var(--opaque-bg); }
 .tw-ai-top h1 { margin: 0; font-size: 22px; font-weight: 500; letter-spacing: -0.01em; }
 .tw-ai-top p { margin: 0; font-size: var(--fs-caption); color: var(--text-3); }
 .tw-ai-top .tw-ai-connection { margin-left: auto; }
@@ -737,6 +744,8 @@ body.ui-entering .tw-dock-right { transform: translateX(14px); opacity: 0; }
 :root[data-tier="narrow"] .tw-tab { min-width: 64px; padding: 0 10px; }
 :root[data-tier="narrow"] .tw-tab span { font-size: 12px; }
 :root[data-tier="narrow"] .tw-ai-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+:root[data-tier="narrow"] .tw-ai-page { top: 0; right: 0; bottom: 0; width: 100vw; border-radius: 0; }
+:root[data-tier="narrow"] .tw-ai-page [data-action="expand"] { display: none; }
 :root[data-tier="narrow"] .tw-grid-2 { grid-template-columns: 1fr; }
 :root[data-tier="narrow"] .tw-calendar-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 :root[data-tier="narrow"] body[data-view]:not([data-view="home"]) .tw-ai-card { display: none; }

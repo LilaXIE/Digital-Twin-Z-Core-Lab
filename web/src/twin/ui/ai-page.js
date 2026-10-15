@@ -22,24 +22,31 @@ function build() {
       <button type="button" class="tw-icon-button" data-action="close" aria-label="${escapeHtml(t("back"))}">${icon("ph-arrow-left")}</button>
       <div><p data-part="eyebrow"></p><h1 id="ai-page-title"></h1></div>
       <span class="tw-pill tw-ai-connection" data-part="connection"></span>
+      <button type="button" class="tw-icon-button" data-action="expand" aria-label="${escapeHtml(t("expand"))}" title="${escapeHtml(t("expand"))}">${icon("ph-arrows-out-simple")}</button>
       <button type="button" class="tw-icon-button" data-action="close" aria-label="${escapeHtml(t("close"))}">${icon("ph-x")}</button>
     </header>
     <section class="tw-ai-summary" aria-live="polite" data-part="summary"></section>
-    <section class="tw-card" data-part="control"></section>
+    <section class="tw-card" data-part="energy"></section>
     <section class="tw-card"><header><div><h2 data-part="co2-title"></h2><p data-part="co2-sub"></p></div><div data-part="co2-legend"></div></header>
       <div class="tw-chart" style="height:240px" data-part="co2-chart"></div><details class="tw-table-view"><summary data-part="table-label"></summary><div data-part="co2-table"></div></details></section>
     <div class="tw-grid-2">
       <section class="tw-card"><header><div><h2 data-part="occ-title"></h2><p data-part="occ-sub"></p></div><div data-part="occ-legend"></div></header><div class="tw-chart" data-part="occ-chart"></div><details class="tw-table-view"><summary data-part="table-label"></summary><div data-part="occ-table"></div></details></section>
       <section class="tw-card"><header><div><h2 data-part="air-title"></h2><p data-part="air-sub"></p></div><div data-part="air-legend"></div></header><div class="tw-chart" data-part="air-chart"></div><details class="tw-table-view"><summary data-part="table-label"></summary><div data-part="air-table"></div></details></section>
     </div>
-    <div class="tw-grid-2">
-      <section class="tw-card" data-part="energy"></section>
-      <section class="tw-card" data-part="calendar"></section>
-    </div>
     <section class="tw-card" data-part="basis"></section>
+    <section class="tw-card" data-part="control"></section>
+    <section class="tw-card" data-part="calendar"></section>
     <section class="tw-card" data-part="internal" hidden></section>
   </div>`;
   page().querySelectorAll('[data-action="close"]').forEach((button) => button.addEventListener("click", () => setView("home")));
+  page().querySelector('[data-action="expand"]').addEventListener("click", () => {
+    const full = page().classList.toggle("is-full");
+    const button = page().querySelector('[data-action="expand"]');
+    button.innerHTML = icon(full ? "ph-arrows-in-simple" : "ph-arrows-out-simple");
+    button.setAttribute("aria-label", t(full ? "collapse" : "expand"));
+    button.title = t(full ? "collapse" : "expand");
+    renderCharts();
+  });
   built = true;
 }
 
@@ -131,14 +138,15 @@ function renderCharts() {
   const history = dataset.recHistory.filter((entry) => Date.parse(entry.t) >= nowT - 6 * 3600000).map((entry) => ({ t: Date.parse(entry.t), v: entry.occupancy }));
   const forecast = rec?.occupancy?.forecast?.map((item) => ({ t: Date.parse(item.t), v: item.n })) || [];
   const occSeries = [
-    { label: t("occupancyEstimated"), color: cssVar("--series-1"), points: history, format: (p) => number(p.v, 1) },
-    { label: t("occupancyForecast"), color: cssVar("--series-1"), points: forecast, dashed: true, format: (p) => number(p.v, 1), directLabel: t("occupancyForecast") },
+    // People are counted in whole numbers everywhere; the curve itself keeps the estimate's shape.
+    { label: t("occupancyEstimated"), color: cssVar("--series-1"), points: history, format: (p) => number(p.v, 0) },
+    { label: t("occupancyForecast"), color: cssVar("--series-1"), points: forecast, dashed: true, format: (p) => number(p.v, 0), directLabel: t("occupancyForecast") },
   ];
   root.querySelector('[data-part="occ-title"]').textContent = t("occupancyChart");
   root.querySelector('[data-part="occ-sub"]').textContent = t("occupancySub");
   root.querySelector('[data-part="occ-legend"]').innerHTML = legend(occSeries);
   lineChart(root.querySelector('[data-part="occ-chart"]'), { label: t("occupancyChart"), series: occSeries, nowT, xMin: nowT - 6 * 3600000, xMax: forecast.length ? forecast.at(-1).t : nowT + 3600000, yMin: 0, yMax: Math.max(4, ...history.map((p) => p.v), ...forecast.map((p) => p.v)), bands: meetingBands(), emptyText: t("noData") });
-  table(root.querySelector('[data-part="occ-table"]'), [t("time"), t("occupancyEstimated")], [...history, ...forecast].map((p) => [dateTime(p.t), number(p.v, 1)]));
+  table(root.querySelector('[data-part="occ-table"]'), [t("time"), t("occupancyEstimated")], [...history, ...forecast].map((p) => [dateTime(p.t), number(p.v, 0)]));
   // Recommended airflow, past 24 hours (hover shows the damper position).
   const entries = dataset.recHistory;
   const airSeries = [
@@ -146,9 +154,13 @@ function renderCharts() {
     { label: t("baselineLps"), color: cssVar("--series-2"), points: entries.map((e) => ({ t: Date.parse(e.t), v: e.baselineLps })), dashed: true, format: (p) => `${number(p.v)} L/s`, directLabel: t("baselineLps") },
   ];
   root.querySelector('[data-part="air-title"]').textContent = t("airflowChart");
-  root.querySelector('[data-part="air-sub"]').textContent = t("airflowSub");
+  // The axis covers the hours that actually have recommendations, and the subtitle says how many.
+  const firstT = entries.length ? Date.parse(entries[0].t) : Date.now();
+  const airStart = Math.max(Date.now() - 24 * 3600000, firstT);
+  const airHours = Math.max(1, Math.round((Date.now() - airStart) / 3600000));
+  root.querySelector('[data-part="air-sub"]').textContent = t("airflowSubHours", { h: airHours });
   root.querySelector('[data-part="air-legend"]').innerHTML = legend(airSeries);
-  lineChart(root.querySelector('[data-part="air-chart"]'), { label: t("airflowChart"), unit: "L/s", series: airSeries, xMin: Date.now() - 24 * 3600000, xMax: Date.now(), yMin: 0, emptyText: t("noData") });
+  lineChart(root.querySelector('[data-part="air-chart"]'), { label: t("airflowChart"), unit: "L/s", series: airSeries, xMin: airStart, xMax: Date.now(), yMin: 0, emptyText: t("noData") });
   table(root.querySelector('[data-part="air-table"]'), [t("time"), `${t("recommendedLps")} (L/s)`, "%", `${t("baselineLps")} (L/s)`], entries.map((e) => [dateTime(Date.parse(e.t)), e.recommendedLps, e.damperPct, e.baselineLps]));
 }
 
