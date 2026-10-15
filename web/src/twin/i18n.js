@@ -45,7 +45,7 @@ const zh = {
 
   allClear: "一切正常", alarmsCount: "{n} 项告警", estimatedShort: "估计",
   snapshot: "截图", settings: "设置", toolsAria: "工具", languageAria: "语言",
-  tabHome: "总览", tabEnvironment: "环境", tabEnergy: "能耗", tabDevices: "设备", tabAi: "AI", tabsAria: "主要功能",
+  tabHome: "总览", tabEnvironment: "环境", tabEnergy: "用电", tabDevices: "设备", tabAi: "AI", tabsAria: "主要功能",
   resetView: "回到默认视角", close: "关闭", back: "返回",
 
   aiTitle: "AI 新风推荐", aiDamper: "风阀 {pct}%", aiPeak: "60 分钟内 CO₂ 峰值", aiInterrupted: "推荐更新中断 · 最后更新 {time}",
@@ -59,7 +59,7 @@ const zh = {
   compass: ["北", "东北", "东", "东南", "南", "西南", "西", "西北"],
   occupiedSeats: "座位占用",
 
-  energyTitle: "能耗", totalPower: "总用电功率", sockets: "插座", allSockets: "全部",
+  energyTitle: "插座用电", totalPower: "总用电功率", sockets: "插座", allSockets: "全部",
   confirmOff: "关闭 {id}？", confirmOn: "打开 {id}？", confirmAllOff: "关闭全部插座？", confirmAllOn: "打开全部插座？", confirm: "确认", cancel: "取消",
   phaseConfirm: "等待确认", phaseQueued: "{id} 已排队", phaseSent: "{id} 已发送，等待设备回报", phaseApplied: "{id} 已{state}", phaseFailed: "{id} 控制失败：{reason}",
   phaseTimeout: "{id} 在 {s} 秒内没有回报", stateOn: "打开", stateOff: "关闭",
@@ -132,6 +132,7 @@ const zh = {
   expand: "全屏查看", collapse: "退出全屏", airflowSubHours: "过去 {h} 小时；悬停可查看对应风阀开度",
   haloLegend: "地面光圈", haloOutside: "范围外", locationMap: "传感器在房间中的位置", locationMapCaption: "位置（上为北，门在下方）",
   rotateFor3d: "横过手机即可查看 3D 模型",
+  doorOpen: "门已打开", doorClosed: "门已关闭", batteryShort: "电池 {v}%", colBattery: "电池", colLastSeen: "最后上报", kwhToday: "今日 {v} kWh", kwhYesterday: "昨日同期 {v} kWh（{d}）", demandUnit: "纵轴为 4 个插座的总功率，单位 kW；房间的空调和照明不在其中",
   basisItems: (r) => [
     `控制目标：预测时域内任一时刻 CO₂ ≤ <b>${r.co2.target} ppm</b>，比 ${r.co2.limit} ppm 限值留 ${r.co2.limit - r.co2.target} ppm 余量（传感器与预测误差）。`,
     `最小新风量 = 2.5 L/s·人 × 人数 + 0.3 L/s·m² × 46.6 m²，当前为 <b>${r.airflow.minLps} L/s</b>。`,
@@ -165,7 +166,7 @@ const zhHant = {
   sDoorClosed: "門已關閉", sDoorOpen: "有門未關", sNoLeak: "無漏水", sLeak: "偵測到漏水",
   sUnknownGood: "CO₂ {v} ppm，空氣良好", sUnknownCaution: "CO₂ {v} ppm，留意通風", sUnknownPoor: "CO₂ {v} ppm，通風不足", sNoData: "暫時沒有環境數據",
   allClear: "一切正常", alarmsCount: "{n} 項警報", estimatedShort: "估計", snapshot: "截圖", settings: "設定", toolsAria: "工具", languageAria: "語言",
-  tabHome: "總覽", tabEnvironment: "環境", tabEnergy: "能耗", tabDevices: "設備", tabsAria: "主要功能",
+  tabHome: "總覽", tabEnvironment: "環境", tabEnergy: "用電", tabDevices: "設備", tabsAria: "主要功能",
   resetView: "回到預設視角", close: "關閉", back: "返回",
   aiTitle: "AI 新風推薦", aiDamper: "風閥 {pct}%", aiPeak: "60 分鐘內 CO₂ 峰值", aiInterrupted: "推薦更新中斷 · 最後更新 {time}",
   aiWaiting: "等待第一條推薦", aiOpen: "查看 AI 推薦詳情", aiAtMax: "新風已達上限", aiReplayHidden: "回放期間不顯示推薦", aiNoData: "最近 20 分鐘沒有 CO₂ 數據，暫無推薦",
@@ -173,7 +174,7 @@ const zhHant = {
   replay: "回放", indoor: "室內環境", outdoor: "室外環境", outdoorSource: "香港天文台京士柏站", trends: "趨勢", dryBulb: "乾球溫度", relHumidity: "相對濕度",
   wind: "風", solar: "太陽輻射", windText: "{dir}風 {speed} m/s", custom: "自訂", hours: "小時", rangeAria: "歷史範圍", noRecords: "這個時段沒有記錄", loading: "正在載入…",
   compass: ["北", "東北", "東", "東南", "南", "西南", "西", "西北"], occupiedSeats: "座位佔用",
-  energyTitle: "能耗", totalPower: "總用電功率", sockets: "插座", allSockets: "全部",
+  energyTitle: "插座用電", totalPower: "總用電功率", sockets: "插座", allSockets: "全部",
   confirmOff: "關閉 {id}？", confirmOn: "打開 {id}？", confirmAllOff: "關閉全部插座？", confirmAllOn: "打開全部插座？", confirm: "確認", cancel: "取消",
   phaseConfirm: "等待確認", phaseQueued: "{id} 已排隊", phaseSent: "{id} 已發送，等待設備回報", phaseApplied: "{id} 已{state}", phaseFailed: "{id} 控制失敗：{reason}",
   phaseTimeout: "{id} 在 {s} 秒內沒有回報", stateOn: "打開", stateOff: "關閉",
@@ -231,6 +232,7 @@ const zhHant = {
   expand: "全螢幕查看", collapse: "退出全螢幕", airflowSubHours: "過去 {h} 小時；懸停可查看對應風閥開度",
   haloLegend: "地面光圈", haloOutside: "範圍外", locationMap: "感測器在房間中的位置", locationMapCaption: "位置（上為北，門在下方）",
   rotateFor3d: "橫放手機即可查看 3D 模型",
+  doorOpen: "門已打開", doorClosed: "門已關閉", batteryShort: "電池 {v}%", colBattery: "電池", colLastSeen: "最後上報", kwhToday: "今日 {v} kWh", kwhYesterday: "昨日同期 {v} kWh（{d}）", demandUnit: "縱軸為 4 個插座的總功率，單位 kW；房間的空調和照明不在其中",
   basisItems: (r) => [
     `控制目標：預測時域內任一時刻 CO₂ ≤ <b>${r.co2.target} ppm</b>，比 ${r.co2.limit} ppm 限值留 ${r.co2.limit - r.co2.target} ppm 餘量（感測器與預測誤差）。`,
     `最小新風量 = 2.5 L/s·人 × 人數 + 0.3 L/s·m² × 46.6 m²，當前為 <b>${r.airflow.minLps} L/s</b>。`,
@@ -267,7 +269,7 @@ const en = {
   sUnknownGood: "CO₂ {v} ppm · air is good", sUnknownCaution: "CO₂ {v} ppm · keep an eye on ventilation", sUnknownPoor: "CO₂ {v} ppm · ventilation is insufficient",
   sNoData: "No environment data yet",
   allClear: "All clear", alarmsCount: (v) => (Number(v.n) === 1 ? "1 alarm" : `${v.n} alarms`), estimatedShort: "est.", snapshot: "Snapshot", settings: "Settings", toolsAria: "Tools", languageAria: "Language",
-  tabHome: "Overview", tabEnvironment: "Environment", tabEnergy: "Energy", tabDevices: "Devices", tabAi: "AI", tabsAria: "Main navigation",
+  tabHome: "Overview", tabEnvironment: "Environment", tabEnergy: "Power", tabDevices: "Devices", tabAi: "AI", tabsAria: "Main navigation",
   resetView: "Back to default view", close: "Close", back: "Back",
   aiTitle: "AI outdoor air", aiDamper: "Damper {pct}%", aiPeak: "CO₂ peak, next 60 min", aiInterrupted: "Updates interrupted · last at {time}",
   aiWaiting: "Waiting for the first recommendation", aiOpen: "Open AI recommendation details", aiAtMax: "Outdoor air at maximum", aiReplayHidden: "Hidden during replay",
@@ -277,7 +279,7 @@ const en = {
   dryBulb: "Dry-bulb temperature", relHumidity: "Relative humidity", wind: "Wind", solar: "Solar radiation", windText: "{dir} {speed} m/s",
   custom: "Custom", hours: "h", rangeAria: "History range", noRecords: "No records for this period", loading: "Loading…",
   compass: ["N", "NE", "E", "SE", "S", "SW", "W", "NW"], occupiedSeats: "Seat occupancy",
-  energyTitle: "Energy", totalPower: "Total electrical demand", sockets: "Sockets", allSockets: "All",
+  energyTitle: "Socket power", totalPower: "Total electrical demand", sockets: "Sockets", allSockets: "All",
   confirmOff: "Switch off {id}?", confirmOn: "Switch on {id}?", confirmAllOff: "Switch off all sockets?", confirmAllOn: "Switch on all sockets?", confirm: "Confirm", cancel: "Cancel",
   phaseConfirm: "Awaiting confirmation", phaseQueued: "{id} queued", phaseSent: "{id} sent · waiting for the device", phaseApplied: "{id} switched {state}", phaseFailed: "{id} failed: {reason}",
   phaseTimeout: "{id} did not confirm within {s} s", stateOn: "on", stateOff: "off",
@@ -337,6 +339,7 @@ const en = {
   expand: "Expand", collapse: "Collapse", airflowSubHours: "Past {h} hours; hover for damper position",
   haloLegend: "Floor rings", haloOutside: "outside", locationMap: "Where the sensor is in the room", locationMapCaption: "Location (north up, door at the bottom)",
   rotateFor3d: "Turn your phone sideways for the 3D model",
+  doorOpen: "Door open", doorClosed: "Door closed", batteryShort: "Battery {v}%", colBattery: "Battery", colLastSeen: "Last report", kwhToday: "Today {v} kWh", kwhYesterday: "same time yesterday {v} kWh ({d})", demandUnit: "Vertical axis: total power of the 4 sockets in kW; the room's air conditioning and lighting are not included",
   basisItems: (r) => [
     `Target: CO₂ at or below <b>${r.co2.target} ppm</b> at every point of the horizon, ${r.co2.limit - r.co2.target} ppm below the ${r.co2.limit} ppm limit to cover sensor and forecast error.`,
     `Minimum outdoor air = 2.5 L/s per person + 0.3 L/s·m² × 46.6 m², currently <b>${r.airflow.minLps} L/s</b>.`,

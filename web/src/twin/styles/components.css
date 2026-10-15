@@ -628,6 +628,15 @@ table.tw-energy th:first-child { text-align: left; color: var(--text-2); font-we
 .tw-calendar-form { display: grid; grid-template-columns: repeat(6, minmax(0, auto)); gap: 8px; align-items: end; }
 .tw-calendar-form label { display: grid; gap: 4px; font-size: var(--fs-caption); color: var(--text-2); }
 .tw-calendar-form input { min-height: 34px; padding: 0 8px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface); min-width: 0; }
+.tw-calendar-form input[type="date"] { min-width: 150px; }
+.tw-calendar-form input[type="time"] { min-width: 104px; }
+.tw-ai-page:not(.is-full) .tw-calendar-form { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tw-device-meta { color: var(--text-3); }
+.tw-energy-total { margin: 10px 4px 0; font-size: 14px; font-weight: 500; color: var(--text); }
+.tw-device-meta.is-caution { color: var(--caution); }
+.tw-device-meta.is-poor { color: var(--poor); }
+.tw-intro-bar { width: 180px; height: 3px; margin: 8px auto 0; border-radius: 2px; background: var(--line); overflow: hidden; }
+.tw-intro-bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--accent); transition: width 300ms ease; }
 .tw-meetings { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
 .tw-meetings li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-radius: 10px; background: var(--surface-sunken); font-size: 13px; }
 .tw-meetings li.is-past { opacity: 0.55; }

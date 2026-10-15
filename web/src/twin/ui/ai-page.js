@@ -298,7 +298,7 @@ export function openAiPage() {
     page().querySelector('[data-action="close"]')?.focus({ preventScroll: true });
   };
   provider().requestRecommendationHistory(24);
-  if (document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) document.startViewTransition(show);
+  if (document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) document.startViewTransition(show).ready.catch(() => {}); // a quick second tap skips the transition
   else show();
 }
 
@@ -311,7 +311,7 @@ export function closeAiPage() {
     page().style.viewTransitionName = "none";
     card.style.viewTransitionName = "";
   };
-  if (document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches && !card.hidden) document.startViewTransition(hide);
+  if (document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches && !card.hidden) document.startViewTransition(hide).ready.catch(() => {});
   else hide();
 }
 

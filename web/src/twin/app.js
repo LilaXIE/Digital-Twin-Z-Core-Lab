@@ -49,7 +49,7 @@ function applyLanguage(lang, animate = false) {
     renderHomeDock();
   };
   // 150 ms cross-fade, no full-page flash.
-  if (animate && document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) document.startViewTransition(apply);
+  if (animate && document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) document.startViewTransition(apply).ready.catch(() => {});
   else apply();
 }
 
@@ -250,7 +250,7 @@ async function boot() {
 async function startScene() {
   const percent = $("#intro-percent");
   try {
-    await initScene({ canvas: $("#twin-canvas"), markerLayer: $("#marker-layer"), onProgress: (value) => { percent.textContent = `${Math.round(value * 100)}%`; } });
+    await initScene({ canvas: $("#twin-canvas"), markerLayer: $("#marker-layer"), onProgress: (value) => { percent.textContent = `${Math.round(value * 100)}%`; $("#intro-bar").style.width = `${Math.round(value * 100)}%`; } });
   } catch (error) {
     console.error("Model loading failed", error);
     $("#intro-error").hidden = false;

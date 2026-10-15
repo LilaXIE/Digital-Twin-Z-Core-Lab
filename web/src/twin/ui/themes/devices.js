@@ -62,6 +62,17 @@ export function summaryHtml() {
 
 const normalized = (value) => String(value || "").normalize("NFKD").toLowerCase();
 
+// "Battery 78% · 3 min ago" under each device (section B8).
+function deviceMeta(device) {
+  const snapshot = data().snapshots.get(device.id);
+  const battery = snapshot?.values.battery;
+  return [Number.isFinite(battery) ? t("batteryShort", { v: Math.round(battery) }) : "", snapshot?.updatedAt ? ago(snapshot.updatedAt) : ""].filter(Boolean).join(" · ");
+}
+const batteryLevel = (device) => {
+  const battery = data().snapshots.get(device.id)?.values.battery;
+  return !Number.isFinite(battery) ? "" : battery < 20 ? "poor" : battery < 50 ? "caution" : "";
+};
+
 function latestSummary(device) {
   const metric = device.metrics.find((m) => !["battery", "tamperStatus"].includes(m.key) && sensorReading(device.id, m.key).value !== null);
   if (!metric) return "";
@@ -105,8 +116,8 @@ function renderList() {
     && (!q || normalized(`${device.id} ${pick(device.name)} ${device.devEui}`).includes(q))).sort((a, b) => a.id.localeCompare(b.id));
   if (!visible.length) { list.innerHTML = emptyResult(); return; }
   if (listMode === "table") {
-    list.innerHTML = `<div class="tw-table-wrap"><table class="tw-table"><thead><tr><th>${escapeHtml(t("colName"))}</th><th>${escapeHtml(t("colId"))}</th><th>${escapeHtml(t("colStatus"))}</th><th>${escapeHtml(t("colLatest"))}</th></tr></thead><tbody>
-      ${visible.map((device) => `<tr data-device="${device.id}" tabindex="0"><td>${escapeHtml(pick(device.type))}</td><td>${escapeHtml(device.id)}</td><td><span class="tw-dot" data-level="${statusLevel(device.id)}"></span> ${escapeHtml(statusText(device.id))}</td><td>${latestSummary(device)}</td></tr>`).join("")}
+    list.innerHTML = `<div class="tw-table-wrap"><table class="tw-table"><thead><tr><th>${escapeHtml(t("colName"))}</th><th>${escapeHtml(t("colId"))}</th><th>${escapeHtml(t("colStatus"))}</th><th>${escapeHtml(t("colLatest"))}</th><th>${escapeHtml(t("colBattery"))}</th><th>${escapeHtml(t("colLastSeen"))}</th></tr></thead><tbody>
+      ${visible.map((device) => { const snapshot = data().snapshots.get(device.id); const battery = snapshot?.values.battery; return `<tr data-device="${device.id}" tabindex="0"><td>${escapeHtml(pick(device.type))}</td><td>${escapeHtml(device.id)}</td><td><span class="tw-dot" data-level="${statusLevel(device.id)}"></span> ${escapeHtml(statusText(device.id))}</td><td>${latestSummary(device)}</td><td>${Number.isFinite(battery) ? `${Math.round(battery)}%` : ""}</td><td>${snapshot?.updatedAt ? escapeHtml(ago(snapshot.updatedAt)) : ""}</td></tr>`; }).join("")}
     </tbody></table></div>`;
   } else {
     list.innerHTML = groups.filter((group) => visible.some((device) => sensorGroupFor(device).key === group.key)).map((group) => `
@@ -114,7 +125,7 @@ function renderList() {
         ${visible.filter((device) => sensorGroupFor(device).key === group.key).map((device) => `
           <button type="button" class="tw-device${ui.selection?.kind === "sensor" && ui.selection.id === device.id ? " is-selected" : ""}" data-device="${device.id}">
             <span class="tw-dot" data-level="${statusLevel(device.id)}" aria-label="${escapeHtml(statusText(device.id))}"></span>
-            <span><strong>${escapeHtml(device.id)}</strong><small>${escapeHtml(pick(device.type))}</small></span>
+            <span><strong>${escapeHtml(device.id)}</strong><small>${escapeHtml(pick(device.type))}</small><small class="tw-device-meta${batteryLevel(device) ? ` is-${batteryLevel(device)}` : ""}">${escapeHtml(deviceMeta(device))}</small></span>
             <span class="tw-device-value">${latestSummary(device)}</span>
           </button>`).join("")}
       </div>`).join("");
