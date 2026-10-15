@@ -1,0 +1,7 @@
+{
+  "_note": "Provisional thresholds (plan section 4.5), pending confirmation. Edit here; no code change needed.",
+  "co2": { "unit": "ppm", "goodBelow": 800, "poorAbove": 1000, "basis": "HK IAQ Certification Scheme: Excellent 800 ppm, Good 1000 ppm (8-hour average)" },
+  "temperature": { "unit": "°C", "comfort": [22, 26], "caution": [20, 28], "basis": "Common office comfort range; HKSAR advice 24–26 °C in summer" },
+  "humidity": { "unit": "%", "comfort": [40, 65], "caution": [30, 70], "basis": "ASHRAE 62.1 (≤ 65 %); 40–60 % common health range" },
+  "pm25": { "unit": "µg/m³", "goodAtMost": 25, "poorAbove": 35, "basis": "HK IAQ Certification Scheme (2019), 8-hour; values to be checked" }
+}

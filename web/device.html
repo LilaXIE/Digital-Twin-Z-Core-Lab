@@ -7,8 +7,8 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const sensor = String(params.get("deviceId") || "AM103_07").replaceAll("_", "-");
-    const lang = params.get("lang") || "en";
-    window.location.replace(`twin.html?lang=${encodeURIComponent(lang)}&sensor=${encodeURIComponent(sensor)}`);
+    const lang = params.get("lang");
+    window.location.replace(`twin.html${lang ? `?lang=${encodeURIComponent(lang)}` : ""}#sensor=${encodeURIComponent(sensor)}`);
   </script>
 </head>
 <body></body>

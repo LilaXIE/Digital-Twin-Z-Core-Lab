@@ -4,6 +4,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import mqtt from "mqtt";
 import { buildSensorHistoryQuery } from "./sensor-history.mjs";
+import { buildRoomHistoryQueries, roomHistoryFromRows, roomHistoryWindow } from "./room-history.mjs";
 import { SOLAR_URL, SOLAR_MEASUREMENT, parseSolarCsv, solarPoint } from "./hko-solar.mjs";
 import { WebSocketServer, WebSocket } from "ws";
 import { loadConfig, strategyDataDir } from "./strategy/config.mjs";
@@ -268,6 +269,54 @@ async function sendDemandHistory(socket, requestedRange) {
   }
 }
 
+// One-day replay: room environment, socket power, solar radiation and alarm events in one response.
+// Results are cached per window so repeated replays and several viewers share one query.
+const roomHistoryCache = new Map();
+async function sendRoomHistory(socket, message) {
+  const window = roomHistoryWindow({ hours: message.hours, stepMinutes: message.stepMinutes });
+  const requestId = String(message.requestId || "");
+  const cacheKey = `${window.hours}:${window.stepMinutes}:${window.stop}`;
+  try {
+    if (!roomHistoryCache.has(cacheKey)) {
+      const queries = buildRoomHistoryQueries({ bucket, solarBucket, solarMeasurement: SOLAR_MEASUREMENT, ...window });
+      const task = (async () => {
+        const [env, power, solar, events] = await Promise.all([
+          queryApi.collectRows(queries.env),
+          queryApi.collectRows(queries.power),
+          solarQueryApi.collectRows(queries.solar).catch(() => []),
+          queryApi.collectRows(queries.events),
+        ]);
+        return roomHistoryFromRows({ env, power, solar, events });
+      })();
+      roomHistoryCache.set(cacheKey, task);
+      task.catch(() => roomHistoryCache.delete(cacheKey));
+      for (const key of roomHistoryCache.keys()) if (roomHistoryCache.size > 4 && key !== cacheKey) roomHistoryCache.delete(key);
+    }
+    const history = await roomHistoryCache.get(cacheKey);
+    send(socket, { type: "room-history", requestId, ...window, ...history });
+  } catch (error) {
+    send(socket, { type: "room-history", requestId, ...window, sensors: {}, sockets: {}, solar: [], events: [], error: error.message });
+  }
+}
+
+// "23 sensors · 1,2xx readings today": counted in InfluxDB (one reading = one stored field value).
+let latestReadingStats = null;
+async function pollReadingStats() {
+  const today = new Date(Date.now() + 8 * 3600000);
+  today.setUTCHours(0, 0, 0, 0);
+  const start = new Date(today.getTime() - 8 * 3600000).toISOString();
+  const rows = await queryApi.collectRows(`from(bucket: ${fluxString(bucket)})
+  |> range(start: time(v: ${fluxString(start)}))
+  |> filter(fn: (r) => r._measurement =~ /^(AM103|AM308|VS341|WS301|WS302|WS303|WS523)_\\d{2}$/)
+  |> count()
+  |> group(columns: ["_measurement"])
+  |> sum()`);
+  const sensors = new Set(rows.filter((row) => Number(row._value) > 0).map((row) => row._measurement));
+  const readings = rows.reduce((sum, row) => sum + (Number(row._value) || 0), 0);
+  latestReadingStats = { type: "reading-stats", sensorsReporting: sensors.size, readingsToday: readings, since: start, at: new Date().toISOString() };
+  broadcast(latestReadingStats);
+}
+
 function send(socket, message) {
   if (socket.readyState !== WebSocket.OPEN) return;
   if (socket.bufferedAmount > 1024 * 1024) { socket.close(1013, "Client is too slow"); return; }
@@ -530,6 +579,7 @@ async function startStrategy() {
 websocketServer.on("connection", (socket) => {
   if (latestSolar) send(socket, latestSolar);
   if (latestOutdoor) send(socket, latestOutdoor);
+  if (latestReadingStats) send(socket, latestReadingStats);
   socket.failedKeys = 0;
   socket.isAlive = true;
   socket.on("pong", () => { socket.isAlive = true; });
@@ -557,15 +607,19 @@ websocketServer.on("connection", (socket) => {
     }
     if (message.type === "socket-control") enqueueSocketControl(socket, message);
     if (["recommendation-history-request", "calendar-update", "control-mode-request"].includes(message.type)) void handleStrategyMessage(socket, message);
-    if (["sensor-history-request", "demand-history-request"].includes(message.type)) {
+    if (["sensor-history-request", "demand-history-request", "room-history-request"].includes(message.type)) {
       if (pendingHistory.has(message.type)) {
         send(socket, message.type === "sensor-history-request"
           ? { type: "sensor-history", requestId: message.requestId, deviceId: message.deviceId, hours: message.hours, trends: {}, error: "History query busy; retry shortly" }
-          : { type: "demand-history", range: message.range, samples: [], error: "History query busy; retry shortly" });
+          : message.type === "room-history-request"
+            ? { type: "room-history", requestId: String(message.requestId || ""), sensors: {}, sockets: {}, solar: [], events: [], error: "History query busy; retry shortly" }
+            : { type: "demand-history", range: message.range, samples: [], error: "History query busy; retry shortly" });
         return;
       }
       pendingHistory.add(message.type);
-      const task = message.type === "sensor-history-request" ? sendSensorHistory(socket, message) : sendDemandHistory(socket, message.range);
+      const task = message.type === "sensor-history-request" ? sendSensorHistory(socket, message)
+        : message.type === "room-history-request" ? sendRoomHistory(socket, message)
+          : sendDemandHistory(socket, message.range);
       void task.finally(() => pendingHistory.delete(message.type));
     }
   });
@@ -590,6 +644,9 @@ const heartbeat = setInterval(() => {
 websocketServer.on("close", () => clearInterval(heartbeat));
 void pollOutdoor();
 setInterval(pollOutdoor, 10 * 60 * 1000);
+const refreshReadingStats = () => pollReadingStats().catch((error) => console.warn(`[InfluxDB] Reading count unavailable: ${error.message}`));
+setTimeout(refreshReadingStats, 5000);
+setInterval(refreshReadingStats, 10 * 60 * 1000);
 async function pollLoop() {
   await poll();
   if (strategy && !strategyStarted && hasLoadedHistory) {

@@ -1,0 +1,125 @@
+/* Design tokens: colour, spacing, radius, type. Light is the default theme; dark is "night". */
+:root {
+  color-scheme: light;
+  --font-ui: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --leading: 1.6;
+
+  /* Neutrals */
+  --text: #12161d;
+  --text-2: #4a5361;
+  --text-3: #6b7482;
+  --line: rgba(17, 24, 39, 0.09);
+  --line-strong: rgba(17, 24, 39, 0.16);
+  --surface: #f6f7f9;
+  --surface-raised: #ffffff;
+  --surface-sunken: rgba(17, 24, 39, 0.045);
+  --scrim: rgba(12, 16, 22, 0.18);
+
+  /* Accent and states. Good / caution / poor differ in lightness as well as hue. */
+  --accent: #0a74e8;
+  --accent-strong: #005fcc;
+  --accent-soft: rgba(10, 116, 232, 0.12);
+  --on-accent: #ffffff;
+  --good: #1f9d55;
+  --good-soft: rgba(31, 157, 85, 0.14);
+  --caution: #c77700;
+  --caution-soft: rgba(230, 145, 20, 0.16);
+  --poor: #c8283a;
+  --poor-soft: rgba(200, 40, 58, 0.13);
+  --offline: #8a929e;
+  --offline-soft: rgba(138, 146, 158, 0.16);
+  --demo: #d9730d;
+  --demo-soft: rgba(217, 115, 13, 0.16);
+  --replay: #4f46e5;
+  --replay-soft: rgba(79, 70, 229, 0.14);
+
+  /* Chart series (validated pair on light: blue / amber, plus neutral history) */
+  --series-1: #0a74e8;
+  --series-2: #c77700;
+  --series-3: #4a5361;
+  --series-grid: rgba(17, 24, 39, 0.08);
+
+  /* Glass */
+  --glass-thin-bg: rgba(255, 255, 255, 0.42);
+  --glass-thick-bg: rgba(250, 251, 253, 0.80);
+  --glass-full-bg: rgba(250, 251, 253, 0.94);
+  --glass-blur-thin: 20px;
+  --glass-blur-thick: 36px;
+  --glass-highlight: rgba(255, 255, 255, 0.6);
+  --glass-edge: rgba(255, 255, 255, 0.55);
+  --glass-shadow: 0 8px 32px rgba(15, 23, 42, 0.12);
+  --glass-sheen: rgba(255, 255, 255, 0.18);
+  --opaque-bg: #f6f7f9;
+
+  /* Spacing (4 px base), radii (concentric), type scale */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s6: 24px; --s8: 32px;
+  --r-panel: 28px;
+  --r-inner: 16px; /* 28 − 12 px padding */
+  --r-small: 10px;
+  --fs-hero: 36px;
+  --fs-capsule: 17px;
+  --fs-body: 14px;
+  --fs-caption: 12px;
+  --tap: 40px;
+  --edge: 16px;
+  --panel-width: 400px;
+}
+
+:root:lang(zh-Hant) { --font-ui: "Inter", "Noto Sans HK", "PingFang HK", "Microsoft JhengHei", system-ui, sans-serif; }
+:root:lang(en) { --font-ui: "Inter", "Noto Sans SC", system-ui, sans-serif; --leading: 1.45; }
+
+/* "Follow system" is resolved in JS, so data-theme always holds light or dark. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --text: #eef1f5;
+  --text-2: #b4bcc8;
+  --text-3: #8d96a3;
+  --line: rgba(255, 255, 255, 0.09);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --surface: #16181c;
+  --surface-raised: #1f2228;
+  --surface-sunken: rgba(255, 255, 255, 0.05);
+  --scrim: rgba(0, 0, 0, 0.4);
+  --accent: #3c96ff;
+  --accent-strong: #64abff;
+  --accent-soft: rgba(60, 150, 255, 0.18);
+  --good: #3cc77a;
+  --good-soft: rgba(60, 199, 122, 0.16);
+  --caution: #f2a33a;
+  --caution-soft: rgba(242, 163, 58, 0.18);
+  --poor: #ff5d6c;
+  --poor-soft: rgba(255, 93, 108, 0.16);
+  --offline: #7f8794;
+  --offline-soft: rgba(127, 135, 148, 0.2);
+  --demo: #ff9a3d;
+  --demo-soft: rgba(255, 154, 61, 0.18);
+  --replay: #8b84ff;
+  --replay-soft: rgba(139, 132, 255, 0.18);
+  --series-1: #4aa3ff;
+  --series-2: #f2a33a;
+  --series-3: #b4bcc8;
+  --series-grid: rgba(255, 255, 255, 0.08);
+  --glass-thin-bg: rgba(28, 30, 34, 0.45);
+  --glass-thick-bg: rgba(22, 24, 28, 0.80);
+  --glass-full-bg: rgba(22, 24, 28, 0.94);
+  --glass-highlight: rgba(255, 255, 255, 0.12);
+  --glass-edge: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  --glass-sheen: rgba(255, 255, 255, 0.08);
+  --opaque-bg: #16181c;
+}
+
+/* Large screens (lab touch display): scale the whole interface. */
+:root[data-tier="kiosk"] {
+  font-size: clamp(16px, 0.62vw + 6px, 24px);
+  --tap: 56px;
+  --edge: 24px;
+  --panel-width: clamp(440px, 26vw, 600px);
+  --fs-hero: 48px;
+  --fs-capsule: 22px;
+  --fs-body: 17px;
+  --fs-caption: 14px;
+}
+:root[data-touch="true"] { --tap: 48px; }
+:root[data-touch="true"][data-tier="kiosk"] { --tap: 56px; }

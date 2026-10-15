@@ -1,0 +1,55 @@
+/* Motion tokens. DOM animation only touches transform and opacity. */
+:root {
+  --ease-panel: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --dur-panel: 450ms;
+  --dur-pop: 250ms;
+  --dur-tab: 350ms;
+  --dur-press: 80ms;
+  --dur-release: 200ms;
+  --dur-number: 600ms;
+  --dur-flash: 400ms;
+}
+
+@keyframes tw-ring {
+  from { transform: translate(-50%, -50%) scale(0.6); opacity: 0.9; }
+  to { transform: translate(-50%, -50%) scale(2.8); opacity: 0; }
+}
+@keyframes tw-sweep {
+  from { transform: translateX(-120%) skewX(-18deg); }
+  to { transform: translateX(260%) skewX(-18deg); }
+}
+@keyframes tw-skeleton {
+  from { background-position: 180% 0; }
+  to { background-position: -80% 0; }
+}
+@keyframes tw-pulse-once {
+  0% { box-shadow: 0 0 0 0 var(--pulse-color, var(--accent-soft)); }
+  100% { box-shadow: 0 0 0 14px transparent; }
+}
+@keyframes tw-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tw-rise-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 150ms; }
+::view-transition-group(ai-surface) { animation-duration: 500ms; animation-timing-function: var(--ease-panel); }
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-panel: 200ms;
+    --dur-pop: 150ms;
+    --dur-tab: 0ms;
+    --dur-number: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-group(ai-surface) { animation-duration: 200ms; }
+}

@@ -1,88 +1,15 @@
-﻿<!DOCTYPE html>
-<html lang="zh-HK">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ZB202 Digital Twin | Overview</title>
+  <title>Opening ZB202 Digital Twin</title>
   <script>
-    (() => {
-      const saved = localStorage.getItem("zb202-theme");
-      document.documentElement.dataset.theme = saved === "light" || saved === "dark"
-        ? saved
-        : "light";
-    })();
+    // The device overview now lives in the twin's Devices theme (list and table views).
+    const params = new URLSearchParams(window.location.search);
+    const lang = params.get("lang");
+    window.location.replace(`twin.html${lang ? `?lang=${encodeURIComponent(lang)}` : ""}#devices`);
   </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="src/shared/styles.css?v=20260908-1" />
-  <link rel="stylesheet" href="src/shared/theme.css?v=20260908-1" />
 </head>
-<body data-page="overview">
-  <div class="page-shell">
-    <header class="hero">
-      <div class="hero-topbar">
-        <p class="eyebrow" data-i18n="overview.eyebrow">ZB202 / 建筑数字孪生</p>
-        <div class="hero-actions">
-          <a class="btn" id="room-view-link" href="twin.html" aria-label="Room View" title="Room View">
-            <i class="ph ph-cube" aria-hidden="true"></i>
-            <span class="room-view-label" data-i18n="overview.roomView">房间视图</span>
-          </a>
-          <label class="language-control">
-            <i class="ph ph-translate" aria-hidden="true"></i>
-            <select id="lang-select" class="language-select" aria-label="语言 / Language">
-              <option value="zh">简体中文</option>
-              <option value="zh-Hant">繁體中文</option>
-              <option value="en">English</option>
-            </select>
-          </label>
-          <button id="theme-toggle" class="btn theme-toggle" type="button" aria-label="切换至夜间模式">
-            <i id="theme-icon" class="ph ph-moon-stars" aria-hidden="true"></i>
-            <span id="theme-toggle-label">夜间模式</span>
-          </button>
-        </div>
-      </div>
-
-      <h1 class="hero-title" data-i18n="overview.title">室内环境传感器</h1>
-
-      <div class="hero-meta">
-        <div>
-          <p class="kicker" data-i18n="common.room">房间</p>
-          <p class="hero-value">ZB202</p>
-        </div>
-        <div>
-          <p class="kicker" data-i18n="common.devices">传感器</p>
-          <p class="hero-value" id="device-count">0</p>
-        </div>
-      </div>
-      <div class="hero-view-switch">
-        <div class="segmented" role="tablist" aria-label="View Mode">
-          <button class="seg active" data-view="card" type="button" data-i18n="overview.viewCard">卡片</button>
-          <button class="seg" data-view="table" type="button" data-i18n="overview.viewTable">表格</button>
-        </div>
-      </div>
-    </header>
-
-    <main>
-      <section id="card-view" class="grid-view"></section>
-
-      <section id="table-view" class="table-wrap hidden">
-        <table>
-          <thead>
-            <tr>
-              <th data-i18n="common.name">设备名</th>
-              <th data-i18n="common.id">编号</th>
-              <th data-i18n="common.status">状态</th>
-              <th data-i18n="common.latestValues">最新数据</th>
-            </tr>
-          </thead>
-          <tbody id="device-table-body"></tbody>
-        </table>
-      </section>
-    </main>
-  </div>
-
-  <script type="module" src="src/dashboard/devices.js"></script>
-  <script type="module" src="src/dashboard/app.js"></script>
-</body>
+<body><p>Opening <a href="twin.html#devices">ZB202 Digital Twin · Devices</a>…</p></body>
 </html>

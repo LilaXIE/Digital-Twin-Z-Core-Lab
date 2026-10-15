@@ -1,0 +1,53 @@
+/* Two glass thicknesses. Glass is for navigation and controls; data panels use the thicker frost.
+   No refraction: blur, saturation and a lit top edge carry the material. Never glass on glass. */
+.glass-thin,
+.glass-thick {
+  position: relative;
+  isolation: isolate;
+  color: var(--text);
+  border: 1px solid var(--glass-edge);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+}
+.glass-thin {
+  background: var(--glass-thin-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-thin)) saturate(1.8);
+  backdrop-filter: blur(var(--glass-blur-thin)) saturate(1.8);
+}
+.glass-thick {
+  background: var(--glass-thick-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-thick)) saturate(1.6);
+  backdrop-filter: blur(var(--glass-blur-thick)) saturate(1.6);
+}
+
+/* Pointer-following sheen (positions set by ui/pointer.js through --px / --py). */
+.glass-thin::after,
+.glass-thick::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(120px circle at var(--px, 50%) var(--py, 50%), var(--glass-sheen), transparent 70%);
+  transition: opacity 240ms ease;
+}
+.glass-thin.is-lit::after,
+.glass-thick.is-lit::after { opacity: 1; }
+.glass-thin.is-touch-lit::after,
+.glass-thick.is-touch-lit::after { opacity: 1; transition: opacity 500ms ease; }
+
+/* Low quality tier halves the blur radius. */
+:root[data-quality="low"] { --glass-blur-thin: 10px; --glass-blur-thick: 18px; }
+
+/* Reduced transparency (system or setting): opaque surfaces, no blur, no sheen. */
+:root[data-transparency="reduced"] .glass-thin,
+:root[data-transparency="reduced"] .glass-thick {
+  background: var(--opaque-bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root[data-transparency="reduced"] .glass-thin::after,
+:root[data-transparency="reduced"] .glass-thick::after,
+:root[data-touch="true"] .glass-thin::after,
+:root[data-touch="true"] .glass-thick:not(.is-touch-lit)::after { display: none; }
