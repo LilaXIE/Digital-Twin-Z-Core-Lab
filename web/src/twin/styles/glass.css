@@ -19,6 +19,13 @@
   backdrop-filter: blur(var(--glass-blur-thick)) saturate(1.6);
 }
 
+/* Overview cards (and the AI card beside them): the clearest frost, so the model reads through. */
+.tw-dock > .glass-thick {
+  background: var(--glass-card-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur-card)) saturate(1.9) brightness(1.04);
+  backdrop-filter: blur(var(--glass-blur-card)) saturate(1.9) brightness(1.04);
+}
+
 /* Pointer-following sheen (positions set by ui/pointer.js through --px / --py). */
 .glass-thin::after,
 .glass-thick::after {
@@ -38,11 +45,12 @@
 .glass-thick.is-touch-lit::after { opacity: 1; transition: opacity 500ms ease; }
 
 /* Low quality tier halves the blur radius. */
-:root[data-quality="low"] { --glass-blur-thin: 10px; --glass-blur-thick: 18px; }
+:root[data-quality="low"] { --glass-blur-thin: 10px; --glass-blur-thick: 18px; --glass-blur-card: 16px; }
 
 /* Reduced transparency (system or setting): opaque surfaces, no blur, no sheen. */
 :root[data-transparency="reduced"] .glass-thin,
-:root[data-transparency="reduced"] .glass-thick {
+:root[data-transparency="reduced"] .glass-thick,
+:root[data-transparency="reduced"] .tw-dock > .glass-thick {
   background: var(--opaque-bg);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
