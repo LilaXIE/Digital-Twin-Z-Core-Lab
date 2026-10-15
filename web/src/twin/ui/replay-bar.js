@@ -3,6 +3,7 @@ import { t, getLang } from "../i18n.js";
 import { ui, on } from "../state.js";
 import { play, pause, seek, setSpeed, stopReplay, replayMarks } from "../data/replay.js";
 import { thresholds } from "../config/site.js";
+import { data } from "../data/store.js";
 import { escapeHtml, icon, toast } from "./dom.js";
 import { startAnimation, stopAnimation } from "../scene/viewer.js";
 
@@ -36,7 +37,8 @@ function marksHtml(replay) {
   const span = replay.stop - replay.start || 1;
   const pct = (time) => (((time - replay.start) / span) * 100).toFixed(2);
   const { over, events } = replayMarks(thresholds.co2.goodBelow);
-  return `<div class="tw-replay-marks" aria-hidden="true">${over.map((item) => `<i class="is-over" data-mark="${item.from}" style="left:${pct(item.from)}%;width:${Math.max(0.6, pct(item.to) - pct(item.from))}%" title="${escapeHtml(t("replayOver", { limit: thresholds.co2.goodBelow }))}"></i>`).join("")}${events.map((event) => `<i class="is-event" data-mark="${event.t}" style="left:${pct(event.t)}%" title="${escapeHtml(t({ door: "alarmDoor", leak: "alarmLeak", tamper: "alarmTamper" }[event.type] || "alarmTitle"))}"></i>`).join("")}</div>`;
+  const votes = (data().feedback || []).map((entry) => ({ t: Date.parse(entry.t), vote: entry.vote })).filter((entry) => entry.t >= replay.start && entry.t <= replay.stop);
+  return `<div class="tw-replay-marks" aria-hidden="true">${over.map((item) => `<i class="is-over" data-mark="${item.from}" style="left:${pct(item.from)}%;width:${Math.max(0.6, pct(item.to) - pct(item.from))}%" title="${escapeHtml(t("replayOver", { limit: thresholds.co2.goodBelow }))}"></i>`).join("")}${events.map((event) => `<i class="is-event" data-mark="${event.t}" style="left:${pct(event.t)}%" title="${escapeHtml(t({ door: "alarmDoor", leak: "alarmLeak", tamper: "alarmTamper" }[event.type] || "alarmTitle"))}"></i>`).join("")}${votes.map((vote) => `<i class="is-vote" data-mark="${vote.t}" style="left:${pct(vote.t)}%" title="${escapeHtml(t(`vote_${vote.vote}`))}"></i>`).join("")}</div>`;
 }
 
 function step(deltaMs) {

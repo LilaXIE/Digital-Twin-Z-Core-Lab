@@ -558,6 +558,14 @@ table.tw-table tr:hover td { background: var(--surface-sunken); }
 .tw-replay-marks i { position: absolute; top: 0; height: 6px; border-radius: 3px; pointer-events: auto; cursor: pointer; }
 .tw-replay-marks i.is-over { background: var(--poor); opacity: 0.75; }
 .tw-replay-marks i.is-event { width: 3px; margin-left: -1px; background: var(--caution); }
+.tw-replay-marks i.is-vote { width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--accent); }
+.tw-feedback { display: grid; gap: 6px; margin-top: 10px; }
+.tw-feedback > small { font-size: var(--fs-caption); color: var(--text-2); }
+.tw-feedback-buttons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.tw-feedback-buttons button { position: relative; display: grid; justify-items: center; gap: 2px; padding: 7px 4px; border: 0; border-radius: 12px; background: var(--card-inset); box-shadow: var(--card-inset-rim); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.tw-feedback-buttons button i { font-size: 18px; color: var(--accent); }
+.tw-feedback-buttons button:disabled { opacity: 0.5; }
+.tw-feedback-buttons b { position: absolute; top: 3px; right: 6px; font-size: 11px; font-weight: 600; color: var(--text-2); }
 .tw-chart polygon.area { opacity: 0.28; }
 
 /* ---------- Banner and popovers ---------- */

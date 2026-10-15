@@ -1,6 +1,33 @@
 // Today's summary (section B2), shared by the Overview card and the alarm popover on narrow screens.
 import { t, clockTime, formatNumber } from "../i18n.js";
-import { escapeHtml, icon } from "./dom.js";
+import { data, provider } from "../data/store.js";
+import { escapeHtml, icon, toast } from "./dom.js";
+
+// One-tap comfort feedback (section D2). Anyone may vote (the bridge limits how often); the room's
+// readings at that moment are stored with each vote, so complaints can be matched to CO₂ later.
+export const VOTES = [["stuffy", "ph-cloud-fog"], ["warm", "ph-thermometer-hot"], ["cold", "ph-snowflake"], ["ok", "ph-smiley"]];
+const hkDay = (ms) => new Date(ms + 8 * 3600000).toISOString().slice(0, 10);
+
+export function feedbackHtml() {
+  const today = (data().feedback || []).filter((entry) => hkDay(Date.parse(entry.t)) === hkDay(Date.now()));
+  const counts = Object.fromEntries(VOTES.map(([vote]) => [vote, today.filter((entry) => entry.vote === vote).length]));
+  return `<div class="tw-feedback"><small>${escapeHtml(t("feedbackAsk"))}</small>
+    <div class="tw-feedback-buttons">${VOTES.map(([vote, iconName]) => `<button type="button" data-vote="${vote}">${icon(iconName)}<span>${escapeHtml(t(`vote_${vote}`))}</span>${counts[vote] ? `<b>${counts[vote]}</b>` : ""}</button>`).join("")}</div></div>`;
+}
+
+let bound = false;
+export function initFeedback() {
+  if (bound) return;
+  bound = true;
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest?.("[data-vote]");
+    if (!button) return;
+    button.disabled = true;
+    const result = await provider().sendFeedback?.(button.dataset.vote);
+    button.disabled = false;
+    toast(t(result?.ok ? "feedbackThanks" : result?.limited ? "feedbackLimited" : "feedbackFailed"), { icon: result?.ok ? "ph-check-circle" : "ph-info" });
+  });
+}
 
 // HK EPD IAQ Certification: 8-hour average CO₂ below 800 ppm is "Excellent", below 1000 ppm "Good".
 const IAQ_BADGE = { excellent: ["ph-medal", "iaqExcellent"], good: ["ph-check-circle", "iaqGood"], below: ["ph-warning", "iaqBelow"] };

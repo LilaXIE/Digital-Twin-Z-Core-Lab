@@ -5,7 +5,7 @@ import { on, select, setView } from "../state.js";
 import { setAlarmState } from "../data/store.js";
 import { alarms, ALARM_TITLE, ALARM_ICON, todaySummary } from "../data/derived.js";
 import { startReplay } from "../data/replay.js";
-import { todayHtml } from "./today.js";
+import { feedbackHtml, todayHtml } from "./today.js";
 import { deviceById } from "../data/devices.js";
 import { pulseMarker } from "../scene/markers.js";
 import { summaryHtml } from "./themes/devices.js";
@@ -44,7 +44,7 @@ function renderPopover() {
     <div class="tw-dist">${summaryHtml()}</div>
     <div class="tw-toolbar"><div class="tw-seg" role="group">${[["active", "alarmActive"], ["acknowledged", "alarmAcknowledged"], ["all", "alarmAll"]].map(([key, label]) => `<button type="button" data-filter="${key}" aria-pressed="${filter === key}">${escapeHtml(t(label))}</button>`).join("")}</div></div>
     <div data-part="list">${listHtml()}</div>
-    <section class="tw-today" data-part="today"><h3>${escapeHtml(t("todayTitle"))}</h3>${todayHtml(todaySummary())}</section>`;
+    <section class="tw-today" data-part="today"><h3>${escapeHtml(t("todayTitle"))}</h3>${todayHtml(todaySummary())}${feedbackHtml()}</section>`;
   popover.querySelectorAll("[data-replay-at]").forEach((button) => button.addEventListener("click", () => { closePopover(); void startReplay({ at: Number(button.dataset.replayAt) }); }));
   popover.querySelector('[data-action="close"]').addEventListener("click", () => closePopover());
   popover.querySelectorAll("[data-filter]").forEach((button) => button.addEventListener("click", () => { filter = button.dataset.filter; renderPopover(); }));

@@ -18,7 +18,7 @@ import { compassText } from "./format.js";
 import { $, escapeHtml, icon, rollNumber } from "./dom.js";
 import { controlStatus, confirmSwitch, confirmOpen, pendingSocketIds, socketStateHtml, switchesInteractive } from "./sockets.js";
 import { toggleAlarmPopover } from "./alarms.js";
-import { todayHtml } from "./today.js";
+import { feedbackHtml, todayHtml } from "./today.js";
 
 // Each metric has its own icon so small labels are not the only way to tell them apart (section B6).
 const INDOOR_STATS = [
@@ -165,6 +165,7 @@ function renderAlarmCard() {
         <button type="button" class="tw-link" data-action="all" aria-haspopup="dialog">${escapeHtml(t("viewAll"))}${icon("ph-caret-right")}</button></header>
       <div data-part="alarms"></div>
       <div class="tw-today" data-part="today"></div>
+      <div data-part="feedback"></div>
       <div class="tw-health" data-part="health"></div>`;
     card.querySelector('[data-action="all"]').addEventListener("click", (event) => toggleAlarmPopover(event.currentTarget));
   }
@@ -184,6 +185,7 @@ function renderAlarmCard() {
     : `<div class="tw-card-ok">${icon("ph-check-circle")}<span><strong>${escapeHtml(t("allClear"))}</strong><small>${escapeHtml(t("noOpenAlarms"))}</small></span></div>`;
   setHtml(card.querySelector('[data-part="alarms"]'), list);
   setHtml(card.querySelector('[data-part="today"]'), todayHtml(todaySummary()));
+  setHtml(card.querySelector('[data-part="feedback"]'), feedbackHtml());
 
   const h = healthSummary();
   const total = h.online + h.offline + h.fault;

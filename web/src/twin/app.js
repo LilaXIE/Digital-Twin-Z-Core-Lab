@@ -29,6 +29,7 @@ import { initPointer } from "./ui/pointer.js";
 import { initGlossary } from "./ui/glossary.js";
 import { initInternal } from "./ui/internal.js";
 import { initMobile, phoneQuery } from "./ui/mobile.js";
+import { initFeedback } from "./ui/today.js";
 import { $, $$, toast, closePopover, popoverOpen } from "./ui/dom.js";
 
 const root = document.documentElement;
@@ -207,6 +208,7 @@ async function boot() {
   initKiosk();
   initInternal();
   initMobile();
+  initFeedback();
 
   on("setting:lang", (lang) => applyLanguage(lang, true));
   on("setting:theme", () => applyTheme());

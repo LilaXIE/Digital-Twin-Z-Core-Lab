@@ -8,7 +8,7 @@ import { roomMetric, metricStatus, occupancyInfo, recommendationState, roomSerie
 import { thresholds } from "../config/site.js";
 import { sparkline } from "./charts/timeline.js";
 import { ahuOff, dayTime, reasonText } from "./ai-text.js";
-import { todayHtml } from "./today.js";
+import { feedbackHtml, todayHtml } from "./today.js";
 import { escapeHtml, icon } from "./dom.js";
 
 export const phoneQuery = window.matchMedia("(orientation: portrait) and (max-width: 760px)");
@@ -56,6 +56,7 @@ export function renderMobile() {
     <section class="tw-m-grid">${VALUES.map(valueTile).join("")}</section>
     <section class="tw-m-card"><h2>${icon("ph-sparkle")}${escapeHtml(t("aiTitle"))}</h2>${aiHtml()}</section>
     ${points.length > 1 ? `<section class="tw-m-card"><h2>${icon("ph-chart-line")}CO₂ · ${escapeHtml(t("last24h"))}</h2>${sparkline(points, { width: 320, height: 72, limit: thresholds.co2.goodBelow })}</section>` : ""}
+    <section class="tw-m-card">${feedbackHtml()}</section>
     <section class="tw-m-card tw-today"><h2>${icon("ph-calendar-check")}${escapeHtml(t("todayTitle"))}</h2>${todayHtml(todaySummary())}</section>
     <p class="tw-m-rotate">${icon("ph-device-rotate")}${escapeHtml(t("rotateFor3d"))}</p>`;
 }
