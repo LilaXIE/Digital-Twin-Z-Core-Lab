@@ -84,9 +84,9 @@ export async function initScene({ canvas, markerLayer, onProgress }) {
     const anchor = sceneState.anchors.get(device.id);
     if (!anchor) continue;
     if (device.model === "VS341") {
-      // Occupancy: no marker, only a faint person above an occupied seat.
+      // Occupancy: a person just above the table at the seat (12 cm, so it stays on its seat as the view turns).
       const tableTop = table ? table.box.max.y : floorY + 0.75;
-      addMarker(device.id, new THREE.Vector3(anchor.x, tableTop + 0.32, anchor.z), { kind: "seat" });
+      addMarker(device.id, new THREE.Vector3(anchor.x, tableTop + 0.12, anchor.z), { kind: "seat" });
     } else {
       addMarker(device.id, anchor, { halo: ["AM103", "AM308"].includes(device.model) });
     }
