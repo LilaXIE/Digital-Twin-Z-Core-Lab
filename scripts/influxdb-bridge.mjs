@@ -10,6 +10,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { loadConfig, strategyDataDir } from "./strategy/config.mjs";
 import { StrategyService } from "./strategy/service.mjs";
 import { buildCo2HistoryQuery, co2RowsToSeries } from "./strategy/influx-history.mjs";
+import { hkWeekStart } from "./strategy/occupancy-forecast.mjs";
 import { fetchHkoOutdoor, fetchHkoWind } from "./strategy/weather.mjs";
 import { assessCo2Health, calibrationSummary, correctCo2Samples, correctTelemetry } from "./co2-quality.mjs";
 
@@ -585,13 +586,16 @@ async function runStrategyTick() {
   finally { strategyTicking = false; }
 }
 
-// Seeds the occupancy filter and 8-hour average from InfluxDB, then recalculates every 10 minutes.
+// Seeds the occupancy filter and 8-hour average from InfluxDB and rebuilds this week's recommendations
+// (and savings) that the shadow log lacks, then recalculates every 10 minutes.
 async function startStrategy() {
   strategyStarted = true;
   try {
     const stop = Date.now();
-    const rows = await queryApi.collectRows(buildCo2HistoryQuery({ bucket, sensors: strategyConfig.co2.sensors, start: stop - 8 * 3600000, stop }));
-    strategy.warmUp(co2RowsToSeries(rows));
+    const weekStart = hkWeekStart(stop);
+    const rows = await queryApi.collectRows(buildCo2HistoryQuery({ bucket, sensors: strategyConfig.co2.sensors, start: Math.min(stop - 8 * 3600000, weekStart), stop }));
+    const rebuilt = await strategy.warmUp(co2RowsToSeries(rows), { backfillSince: weekStart });
+    if (rebuilt) console.log(`[Strategy] Rebuilt ${rebuilt} recommendations since ${new Date(weekStart).toISOString()} from InfluxDB history.`);
   } catch (error) {
     console.warn(`[Strategy] Warm-up history unavailable: ${error.message}`);
   }

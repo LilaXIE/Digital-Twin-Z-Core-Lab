@@ -2,7 +2,7 @@
 // 10 minutes, keeps the shadow log and serves history and calendar messages.
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { baselineAirflowAt, damperToLps, strategyDataDir } from "./config.mjs";
+import { ahuRunning, baselineAirflowAt, damperToLps, strategyDataDir } from "./config.mjs";
 import { Calendar } from "./calendar.mjs";
 import { Controller } from "./controller.mjs";
 import { addSavings, intervalSavings } from "./energy.mjs";
@@ -91,16 +91,49 @@ export class StrategyService {
   setExcludedSensors(ids) { this.excludedSensors = new Set([...ids].map(sensorKey)); }
 
   // series: [{ t, readings: { sensorId: ppm } }] at 10-minute steps, oldest first.
-  warmUp(series) {
+  // backfillSince (ms): also rebuild recommendation entries (and their savings) for steps from then on
+  // that the shadow log does not cover, e.g. after a restart on a host without persistent disk.
+  async warmUp(series, { backfillSince = null } = {}) {
+    const covered = (t) => this.history.some((entry) => Math.abs(Date.parse(entry.t) - t) < 5 * 60000);
+    const added = [];
     for (const point of series) {
       if (this.lastTickMs && point.t <= this.lastTickMs) continue;
       const readings = Object.fromEntries(Object.entries(point.readings).map(([id, ppm]) => [id, { ppm, t: point.t }]));
       const room = roomCo2(readings, point.t, this.config);
       if (!room) continue;
       this.roomHistory.push({ t: point.t, ppm: room.ppm });
-      this.estimator.update({ t: point.t, roomPpm: room.ppm, lps: this.actualLps(point.t), priorPeople: scheduledPriorAt(point.t, this.config) });
+      const occupancy = this.estimator.update({ t: point.t, roomPpm: room.ppm, lps: this.actualLps(point.t), priorPeople: scheduledPriorAt(point.t, this.config) });
+      if (backfillSince === null || point.t < backfillSince || covered(point.t)) continue;
+      const recommendation = buildRecommendation({ nowMs: point.t, roomPpm: room.ppm, occupancy, config: this.config, outdoor: this.config.energy.fallbackOutdoor, indoor: this.config.energy.fallbackIndoor, forecastToAhuStart: false });
+      const previous = added.at(-1);
+      const entry = {
+        kind: "recommendation", t: recommendation.generatedAt, backfilled: true, roomPpm: Math.round(room.ppm), sensors: room.sensors,
+        occupancy: Math.round(occupancy.current * 100) / 100, occupancySource: occupancy.source,
+        lps: recommendation.exact.lps, damperPct: recommendation.airflow.recommendedDamperPct, minLps: recommendation.exact.minLps,
+        baselineLps: recommendation.exact.baselineLps, peak: Math.round(recommendation.exact.peak), atMax: recommendation.airflow.atMax,
+        ahuRunning: recommendation.ahu.running, mode: this.controller.mode, commandPct: null, shadowPpm: null,
+        savings: this.savingsSince(previous, point.t, this.config.energy.fallbackOutdoor, this.config.energy.fallbackIndoor),
+      };
+      if (entry.savings) entry.savingsFrom = previous.t;
+      added.push(entry);
+    }
+    if (added.length) {
+      this.history.push(...added);
+      this.history.sort((a, b) => Date.parse(a.t) - Date.parse(b.t));
+      this.trimHistory(this.now());
+      try { await appendFile(this.shadowLogFile, added.map((entry) => `${JSON.stringify(entry)}\n`).join("")); }
+      catch (error) { this.logger.warn?.(`[Strategy] Shadow log write failed: ${error.message}`); }
     }
     this.trimRoomHistory(this.now());
+    return added.length;
+  }
+
+  // Savings for the interval since `previous`, had its recommendation been followed. Nothing is saved
+  // while the AHU is off (it supplies no outdoor air to adjust) or across a gap in the data.
+  savingsSince(previous, nowMs, outdoor, indoor) {
+    if (!previous || nowMs - Date.parse(previous.t) > 20 * 60000) return null;
+    if (previous.ahuRunning === false || !ahuRunning(Date.parse(previous.t), this.config)) return null;
+    return intervalSavings({ baselineLps: previous.baselineLps, recommendedLps: previous.lps, seconds: (nowMs - Date.parse(previous.t)) / 1000, outdoor, indoor, config: this.config });
   }
 
   trimRoomHistory(nowMs) {
@@ -144,13 +177,18 @@ export class StrategyService {
     let week = null;
     for (const entry of this.history) {
       if (!entry.savings) continue;
+      // Entries logged before the AHU schedule existed may hold savings for hours when the AHU was off.
+      const from = entry.savingsFrom ? Date.parse(entry.savingsFrom) : Date.parse(entry.t) - 600000;
+      if (!ahuRunning(from, this.config)) continue;
       const t = Date.parse(entry.t);
       if (t >= weekStart) week = addSavings(week, entry.savings);
       if (t >= dayStart) today = addSavings(today, entry.savings);
     }
     const round = (value) => Math.round((value || 0) * 100) / 100;
     const shape = (total) => ({ airM3: Math.round(total?.airM3 || 0), coolingKwh: round(total?.coolingKwh), electricKwh: round(total?.electricKwh) });
-    return { today: shape(today), week: shape(week) };
+    // Earliest recommendation this week, so the page can say "this week (since Wed)" when history is short.
+    const first = this.history.find((entry) => Date.parse(entry.t) >= weekStart);
+    return { today: shape(today), week: shape(week), coveredSince: first ? first.t : null };
   }
 
   forecastAccuracy() {
@@ -182,7 +220,7 @@ export class StrategyService {
       await control.step({ damperPct: this.config.ventilation.baselineDamperPct, minLps: 0 }, { nowMs, measuredPpm: NaN, people: 0, lastDataMs: this.lastDataMs, bridgeHealthy: this.bridgeHealthy });
       this.latest = {
         type: "recommendation", status: "no-data", generatedAt: new Date(nowMs).toISOString(), controlMode: control.mode,
-        reason: "暂无最近 20 分钟内的 CO₂ 数据，无法生成推荐", reasonEn: "No CO₂ reading in the last 20 minutes; no recommendation",
+        reason: "暂无最近 20 分钟内的 CO₂ 数据，无法生成推荐", reasonEn: "No CO₂ reading in the last 20 minutes; no recommendation", reasonCode: { code: "no-data", params: {} },
         calendar: meetings,
       };
       this.emit(this.latest);
@@ -212,11 +250,8 @@ export class StrategyService {
     });
 
     // Savings for the interval since the previous recommendation, had that recommendation been followed.
-    let savings = null;
     const previous = this.history.at(-1);
-    if (previous && nowMs - Date.parse(previous.t) <= 20 * 60000) {
-      savings = intervalSavings({ baselineLps: previous.baselineLps, recommendedLps: previous.lps, seconds: (nowMs - Date.parse(previous.t)) / 1000, outdoor, indoor, config: this.config });
-    }
+    const savings = this.savingsSince(previous, nowMs, outdoor, indoor);
 
     const controlResult = await control.step(
       { damperPct: recommendation.airflow.recommendedDamperPct, minLps: recommendation.exact.minLps },
@@ -256,9 +291,11 @@ export class StrategyService {
       guards: controlResult.guards,
       shadowPpm: controlResult.shadowPpm === null ? null : Math.round(controlResult.shadowPpm),
       released: controlResult.released,
+      ahuRunning: recommendation.ahu.running,
       outdoor: { temperatureC: outdoor.temperatureC, humidityPct: outdoor.humidityPct, source: outdoor.source },
       indoor: { temperatureC: Math.round(indoor.temperatureC * 10) / 10, humidityPct: Math.round(indoor.humidityPct * 10) / 10, source: indoor.source },
       savings,
+      ...(savings ? { savingsFrom: previous.t } : {}),
     };
     this.history.push(entry);
     this.trimHistory(nowMs);
@@ -274,6 +311,7 @@ export class StrategyService {
         return {
           savedTodayM3: totals.today.airM3, savedTodayKwhCooling: totals.today.coolingKwh, savedTodayKwhElectric: totals.today.electricKwh,
           savedWeekM3: totals.week.airM3, savedWeekKwhCooling: totals.week.coolingKwh, savedWeekKwhElectric: totals.week.electricKwh,
+          weekStart: new Date(hkWeekStart(nowMs)).toISOString(), coveredSince: totals.coveredSince,
           outdoorSource: outdoor.source, indoorSource: indoor.source, plantCop: this.config.energy.plantCop,
         };
       })(),

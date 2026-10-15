@@ -1,7 +1,8 @@
 // Overview cards: two docks of glass cards beside the model (added at the user's request after
 // plan v0.4). Left: AI outdoor air (existing card), indoor, outdoor; the air story from what the
-// room needs to where the air comes from. Right: alarms and devices, sockets, AHU; what needs
-// attention first, then what can be switched, then the simulated AHU.
+// room needs to where the air comes from. Right: alarms and devices, then sockets; what needs
+// attention first, then what can be switched. The AHU has no data until the BMS is connected, so it
+// lives in the Devices theme instead of a simulated card here.
 // On Overview these cards replace the status capsules and the alarm capsule (same data, no repeats).
 // Narrow screens keep the capsules; every card also opens its full theme panel.
 import { t, formatNumber, clockTime, getLang } from "../i18n.js";
@@ -11,7 +12,6 @@ import { roomMetric, metricStatus, occupancyInfo, roomSeries, alarms, ALARM_TITL
 import { deviceById } from "../data/devices.js";
 import { SITE, thresholds } from "../config/site.js";
 import { startReplay } from "../data/replay.js";
-import { ahuState, setAhuSetpoint, SETPOINT_RANGE } from "../data/ahu-sim.js";
 import { daylightState } from "../scene/daylight.js";
 import { sparkline } from "./charts/timeline.js";
 import { compassText } from "./format.js";
@@ -38,12 +38,6 @@ function stat({ key, label, html, level = null, sub = "", stale = false, title =
   return `<button type="button" class="tw-stat${stale ? " is-stale" : ""}" ${key ? `data-metric="${key}"` : 'data-open="environment"'}${title ? ` title="${escapeHtml(title)}"` : ""}>
     <span class="tw-stat-label">${level ? `<i class="tw-dot" data-level="${level}"></i>` : ""}${escapeHtml(label)}</span>
     <span class="tw-stat-value">${html}</span>${sub ? `<span class="tw-stat-sub">${escapeHtml(sub)}</span>` : ""}</button>`;
-}
-
-function meter(label, value, max, text, note = "") {
-  const pct = Math.max(0, Math.min(100, (value / max) * 100));
-  return `<div class="tw-meter-row"${note ? ` title="${escapeHtml(note)}"` : ""}><span>${escapeHtml(label)}${note ? `${icon("ph-sparkle")}<span class="tw-visually-hidden">${escapeHtml(note)}</span>` : ""}</span><strong>${text}</strong>
-    <span class="tw-meter" aria-hidden="true"><i style="width:${pct.toFixed(1)}%"></i></span></div>`;
 }
 
 // ---- Indoor: CO₂ leads (the metric the AI and the alarms act on), the rest as tiles ----
@@ -251,49 +245,6 @@ function renderSocketCard() {
 
 const socketInfos = () => socketDevices().map((device) => ({ device, info: socketInfo(device.id) })).filter(({ info }) => info.hasData || settings.internal);
 
-// ---- AHU (simulated until the BMS is connected) ----
-function renderAhuCard() {
-  const card = $("#ahu-card");
-  if (needsBuild(card)) {
-    card.innerHTML = `
-      <header class="tw-card-head"><h2 id="ahu-card-title">${icon("ph-fan")}<span>${escapeHtml(t("ahuTitle"))}</span></h2>
-        <span class="tw-card-head-actions"><span class="tw-ahu-status" data-part="status"></span><span class="tw-sim-badge" title="${escapeHtml(t("ahuNote"))}">${escapeHtml(t("simulated"))}</span></span></header>
-      <div class="tw-ahu-temps">
-        <div><small>${escapeHtml(t("returnAir"))}</small><strong><span class="tw-num" data-part="return"></span><span class="tw-unit">°C</span></strong></div>
-        <div class="tw-ahu-path" aria-hidden="true"><i></i><span data-part="delta"></span></div>
-        <div><small>${escapeHtml(t("supplyAir"))}</small><strong><span class="tw-num" data-part="supply"></span><span class="tw-unit">°C</span></strong></div>
-      </div>
-      <div class="tw-setpoint">
-        <span>${escapeHtml(t("supplySetpoint"))}</span>
-        <div class="tw-stepper">
-          <button type="button" class="tw-icon-button" data-step="-1" aria-label="${escapeHtml(t("setpointDown"))}">${icon("ph-minus")}</button>
-          <output data-part="setpoint" aria-live="polite"></output>
-          <button type="button" class="tw-icon-button" data-step="1" aria-label="${escapeHtml(t("setpointUp"))}">${icon("ph-plus")}</button>
-        </div>
-      </div>
-      <div class="tw-meters" data-part="meters"></div>
-      <p class="tw-card-note">${escapeHtml(t("ahuNote"))}</p>`;
-    card.querySelectorAll("[data-step]").forEach((button) => button.addEventListener("click", () => {
-      setAhuSetpoint(ahuState().setpoint + Number(button.dataset.step) * SETPOINT_RANGE.step);
-      renderAhuCard();
-    }));
-  }
-  const s = ahuState();
-  card.classList.toggle("is-standby", !s.running);
-  card.querySelector('[data-part="status"]').innerHTML = `<i class="tw-dot" data-level="${s.running ? "good" : "offline"}"></i>${escapeHtml(s.running ? `${t("ahuRunning")} · ${t("ahuAuto")}` : `${t("ahuStandby")} · ${t("ahuAfterHours")}`)}`;
-  card.querySelector('[data-part="return"]').textContent = formatNumber(s.returnAir, 1);
-  card.querySelector('[data-part="supply"]').textContent = formatNumber(s.supply, 1);
-  card.querySelector('[data-part="delta"]').textContent = `${s.supply - s.returnAir < 0 ? "−" : "+"}${formatNumber(Math.abs(s.supply - s.returnAir), 1)}°`;
-  card.querySelector('[data-part="setpoint"]').textContent = `${formatNumber(s.setpoint, 1)}°C`;
-  card.querySelector('[data-step="-1"]').disabled = !s.running || s.setpoint <= SETPOINT_RANGE.min;
-  card.querySelector('[data-step="1"]').disabled = !s.running || s.setpoint >= SETPOINT_RANGE.max;
-  card.querySelector('[data-part="meters"]').innerHTML = [
-    meter(t("freshDamper"), s.damper, 100, `${Math.round(s.damper)}%`, s.followsAi ? t("followsAi") : ""),
-    meter(t("waterValve"), s.valve, 100, `${Math.round(s.valve)}%`),
-    meter(t("fanSpeed"), s.fanHz, 50, `${formatNumber(s.fanHz, 1)} Hz`),
-  ].join("");
-}
-
 export function renderHomeDock() {
   document.body.toggleAttribute("data-replay", Boolean(ui.replay));
   if (!visible()) return;
@@ -302,7 +253,6 @@ export function renderHomeDock() {
   if (ui.replay) return; // live-only cards are hidden during replay
   renderAlarmCard();
   renderSocketCard();
-  renderAhuCard();
 }
 
 // The docks start just below the identity card and the top-right actions, whatever their height.
@@ -353,7 +303,7 @@ export function initHomeDock() {
   on("replay-tick", () => { if (visible()) { renderIndoor(); renderOutdoor(); } });
   on("view", renderHomeDock);
   on("settings", renderHomeDock);
-  // AHU response, "x minutes ago" and working-hours changes.
-  window.setInterval(() => { if (visible() && !ui.replay && !document.hidden) { renderAhuCard(); renderAlarmCard(); } }, 3000);
+  // "x minutes ago" and working-hours changes.
+  window.setInterval(() => { if (visible() && !ui.replay && !document.hidden) renderAlarmCard(); }, 3000);
   renderHomeDock();
 }

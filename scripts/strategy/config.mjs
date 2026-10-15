@@ -33,7 +33,10 @@ export const DEFAULT_CONFIG = Object.freeze({
     baselineDamperPct: 30, // Current BMS command used as the "existing operation" baseline.
     // AHU operating hours (Hong Kong time). null = assume it always runs. Outside these hours the room
     // only receives infiltration/exhaust airflow (ahuOffLps, from evening decay calibration).
-    ahuSchedule: null, // e.g. { weekday: [["08:00", "18:00"]], weekend: [] }
+    // Inferred: every evening CO₂ decay starts at about 17:50, so the AHU stops at about 18:00;
+    // the start time is assumed. Replace with the BMS schedule once FMO confirms it.
+    ahuSchedule: { weekday: [["08:00", "18:00"]], weekend: [] },
+    ahuScheduleSource: "inferred", // "inferred" | "bms"
     ahuOffLps: 22,
     damperMinPct: 0,
     damperMaxPct: 100,
@@ -122,6 +125,27 @@ export function ahuRunning(tMs, config) {
   const minutes = local.getUTCHours() * 60 + local.getUTCMinutes();
   const windows = (day === 0 || day === 6 ? schedule.weekend : schedule.weekday) || [];
   return windows.some(([start, end]) => minutes >= clockMinutes(start) && minutes < clockMinutes(end));
+}
+
+// Current AHU state and the next scheduled start and stop (ms), looking up to 8 days ahead.
+export function ahuStatus(tMs, config) {
+  const schedule = config.ventilation.ahuSchedule;
+  if (!schedule) return { running: true, nextStart: null, nextStop: null, source: "assumed" };
+  const dayMs = 86400000;
+  const localMidnight = Math.floor((tMs + 8 * 3600000) / dayMs) * dayMs - 8 * 3600000;
+  let nextStart = null;
+  let nextStop = null;
+  for (let offset = -1; offset <= 8 && (nextStart === null || nextStop === null); offset += 1) {
+    const midnight = localMidnight + offset * dayMs;
+    const day = new Date(midnight + 8 * 3600000).getUTCDay();
+    for (const [start, end] of (day === 0 || day === 6 ? schedule.weekend : schedule.weekday) || []) {
+      const startMs = midnight + clockMinutes(start) * 60000;
+      const endMs = midnight + clockMinutes(end) * 60000;
+      if (startMs > tMs && (nextStart === null || startMs < nextStart)) nextStart = startMs;
+      if (endMs > tMs && (nextStop === null || endMs < nextStop)) nextStop = endMs;
+    }
+  }
+  return { running: ahuRunning(tMs, config), nextStart, nextStop, source: config.ventilation.ahuScheduleSource || "inferred" };
 }
 
 // Airflow the room actually receives under existing operation at time tMs.

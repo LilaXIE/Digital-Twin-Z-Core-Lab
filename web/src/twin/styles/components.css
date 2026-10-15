@@ -176,6 +176,7 @@ body[data-view]:not([data-view="home"]) .tw-capsule .tw-capsule-label { display:
 .tw-ai-card header i { font-size: 15px; color: var(--accent); }
 .tw-ai-card header > span { display: inline-flex; align-items: center; gap: 6px; }
 .tw-ai-value { margin-top: 6px; font-size: var(--fs-hero); font-weight: 300; letter-spacing: -0.02em; line-height: 1.05; }
+.tw-ai-value.tw-ai-off { font-size: 26px; font-weight: 400; color: var(--text-2); }
 .tw-ai-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 13px; color: var(--text-2); }
 .tw-ai-reason { margin: 10px 0 0; font-size: 13px; line-height: 1.5; color: var(--text); }
 .tw-ai-card.is-stale .tw-ai-value, .tw-ai-card.is-stale .tw-ai-meta, .tw-ai-card.is-stale .tw-ai-reason { color: var(--text-3); }
@@ -258,7 +259,7 @@ body:not([data-view="home"]) .tw-dock-right > [data-home], body[data-replay] .tw
   background: var(--card-inset); color: inherit; text-align: left; cursor: pointer; transition: background 160ms ease;
 }
 .tw-stat:hover { background: var(--card-inset-hover); }
-.tw-stat, .tw-socket-tile, .tw-setpoint, .tw-meter-row { box-shadow: var(--card-inset-rim); }
+.tw-stat, .tw-socket-tile { box-shadow: var(--card-inset-rim); }
 .tw-stat > .tw-stat-label { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tw-stat > .tw-stat-label .tw-dot { width: 6px; height: 6px; }
 .tw-stat > .tw-stat-value { font-weight: 500; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -303,31 +304,8 @@ body:not([data-view="home"]) .tw-dock-right > [data-home], body[data-replay] .tw
 .tw-socket-tile.is-off .tw-socket-name, .tw-socket-tile.is-off .tw-socket-power, .tw-socket-tile.is-stale .tw-socket-power { color: var(--text-3); }
 
 /* AHU (simulated) */
-.tw-sim-badge { padding: 2px 8px; border-radius: 999px; background: var(--demo-soft); color: var(--demo); font-size: 11px; font-weight: 600; white-space: nowrap; }
 .tw-ahu-status { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; color: var(--text-2); white-space: nowrap; }
 .tw-ahu-status .tw-dot { width: 6px; height: 6px; }
-.tw-ahu-temps { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; gap: 10px; margin-top: 8px; }
-.tw-ahu-temps > div:not(.tw-ahu-path) { display: grid; }
-.tw-ahu-temps > div:last-child { text-align: right; }
-.tw-ahu-temps small { font-size: 11px; color: var(--text-2); }
-.tw-ahu-temps strong { font-size: 24px; font-weight: 300; letter-spacing: -0.02em; line-height: 1.1; white-space: nowrap; }
-.tw-ahu-path { position: relative; display: grid; justify-items: center; padding-bottom: 8px; }
-.tw-ahu-path i { width: 100%; height: 4px; border-radius: 999px; background: linear-gradient(90deg, #e8833a, var(--series-1)); }
-.tw-ahu-path span { position: absolute; bottom: 14px; font-size: 11px; color: var(--text-3); }
-.tw-ahu-card.is-standby .tw-ahu-path i, #ahu-card.is-standby .tw-ahu-path i { background: var(--line-strong); }
-.tw-setpoint { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; padding: 4px 4px 4px 10px; border-radius: 12px; background: var(--card-inset); font-size: var(--fs-caption); color: var(--text-2); }
-.tw-stepper { display: inline-flex; align-items: center; gap: 2px; }
-.tw-stepper .tw-icon-button { width: 28px; height: 28px; font-size: 14px; background: var(--surface-raised); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12); }
-.tw-stepper .tw-icon-button:disabled { opacity: 0.4; box-shadow: none; }
-.tw-stepper output { min-width: 56px; text-align: center; font-size: 15px; font-weight: 500; color: var(--text); }
-.tw-meters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
-.tw-meter-row { display: grid; gap: 2px; min-width: 0; padding: 7px 9px 8px; border-radius: 12px; background: var(--card-inset); font-size: 11px; color: var(--text-2); }
-.tw-meter-row > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tw-meter-row > span:first-child i { margin-left: 3px; font-size: 11px; color: var(--accent); vertical-align: -1px; }
-.tw-meter-row strong { font-size: 15px; font-weight: 500; color: var(--text); white-space: nowrap; }
-.tw-meter { height: 3px; margin-top: 3px; border-radius: 999px; background: var(--line); overflow: hidden; }
-.tw-meter i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 600ms var(--ease-out); }
-#ahu-card.is-standby .tw-meter i { background: var(--offline); }
 
 /* Shorter screens (for example 1280 × 800): tighter cards; the docks scroll if still needed. */
 @media (max-height: 879px) {
@@ -336,8 +314,7 @@ body:not([data-view="home"]) .tw-dock-right > [data-home], body[data-replay] .tw
   .tw-card .tw-hero-value, .tw-ai-value { font-size: 30px; }
   .tw-card-spark, .tw-card-spark svg { height: 30px; }
   .tw-card-note { display: none; }
-  .tw-ahu-temps strong { font-size: 20px; }
-  .tw-card-stats, .tw-socket-grid, .tw-meters, .tw-health { margin-top: 8px; }
+  .tw-card-stats, .tw-socket-grid, .tw-health { margin-top: 8px; }
   .tw-card-ok { margin-top: 8px; padding: 8px 10px; }
   .tw-ai-reason { margin-top: 6px; }
 }
@@ -742,6 +719,5 @@ body.ui-entering .tw-dock-right { transform: translateX(14px); opacity: 0; }
 /* Lab display: the cards read from further away. */
 :root[data-tier="kiosk"] .tw-card-head, :root[data-tier="kiosk"] .tw-ai-card header { font-size: 14px; }
 :root[data-tier="kiosk"] .tw-card-caption, :root[data-tier="kiosk"] .tw-hero-side small, :root[data-tier="kiosk"] .tw-ahu-status, :root[data-tier="kiosk"] .tw-dist-legend, :root[data-tier="kiosk"] .tw-health-head { font-size: 13px; }
-:root[data-tier="kiosk"] .tw-stat > .tw-stat-label, :root[data-tier="kiosk"] .tw-meter-row, :root[data-tier="kiosk"] .tw-socket-name, :root[data-tier="kiosk"] .tw-ahu-temps small, :root[data-tier="kiosk"] .tw-card-note { font-size: 12px; }
-:root[data-tier="kiosk"] .tw-stat > .tw-stat-value, :root[data-tier="kiosk"] .tw-socket-power, :root[data-tier="kiosk"] .tw-meter-row strong { font-size: 18px; }
-:root[data-tier="kiosk"] .tw-ahu-temps strong { font-size: 28px; }
+:root[data-tier="kiosk"] .tw-stat > .tw-stat-label, :root[data-tier="kiosk"] .tw-socket-name { font-size: 12px; }
+:root[data-tier="kiosk"] .tw-stat > .tw-stat-value, :root[data-tier="kiosk"] .tw-socket-power { font-size: 18px; }

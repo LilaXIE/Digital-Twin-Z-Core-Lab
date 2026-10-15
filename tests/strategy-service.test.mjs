@@ -69,3 +69,42 @@ test("service produces, logs and restores recommendations", async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("no savings accrue while the AHU is off, and the week is rebuilt from history", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "zb202-strategy-"));
+  try {
+    // Friday 20:30 Hong Kong time: the AHU stopped at 18:00 and restarts on Monday 08:00.
+    let nowMs = Date.parse("2026-10-16T20:30:00+08:00");
+    const service = new StrategyService({ config: DEFAULT_CONFIG, dataDir: dir, now: () => nowMs, fetchImpl: fakeFetch, logger: { warn() {}, error() {} } });
+    await service.init();
+    // Monday 00:00 → now at 10-minute steps; a steady room at 520 ppm.
+    const weekStart = Date.parse("2026-10-12T00:00:00+08:00");
+    const series = [];
+    for (let t = weekStart; t <= nowMs - 600000; t += 600000) series.push({ t, readings: { AM103_05: 520, AM103_07: 520 } });
+    const rebuilt = await service.warmUp(series, { backfillSince: weekStart });
+    assert.ok(rebuilt > 600);
+    const totals = service.savingsTotals(nowMs);
+    assert.ok(totals.week.airM3 > totals.today.airM3, "the week holds more than today");
+    assert.equal(totals.coveredSince, new Date(weekStart).toISOString());
+
+    for (const deviceId of ["AM103_05", "AM103_07"]) service.ingestTelemetry({ deviceId, values: { co2: 520 }, receivedAt: new Date(nowMs - 60000).toISOString() });
+    const before = service.savingsTotals(nowMs).today.airM3;
+    const off = await service.tick();
+    assert.equal(off.status, "ahu-off");
+    assert.equal(off.reasonCode.code, "ahu-off");
+    assert.equal(off.ahu.running, false);
+    assert.equal(off.ahu.nextStart, new Date(Date.parse("2026-10-19T08:00:00+08:00")).toISOString());
+    assert.ok(Number.isFinite(off.ahu.ppmAtNextStart));
+    nowMs += 600000;
+    await service.tick();
+    assert.equal(service.savingsTotals(nowMs).today.airM3, before, "evening ticks add nothing");
+
+    // A restart reads the rebuilt entries back from the shadow log instead of recomputing them.
+    const restored = new StrategyService({ config: DEFAULT_CONFIG, dataDir: dir, now: () => nowMs, fetchImpl: fakeFetch });
+    await restored.init();
+    assert.equal(await restored.warmUp(series, { backfillSince: weekStart }), 0);
+    assert.equal(restored.savingsTotals(nowMs).week.airM3, service.savingsTotals(nowMs).week.airM3);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

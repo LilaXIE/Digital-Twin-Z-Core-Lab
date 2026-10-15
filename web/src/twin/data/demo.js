@@ -55,6 +55,7 @@ function demoRecommendation(dataset, t) {
       exceedAt: null, average8h: Math.round(room - 20), average8hCoverageHours: 8 },
     airflow: { recommendedLps: lps, recommendedDamperPct: damper, minLps: min, maxLps: 300, baselineLps: 90, baselineDamperPct: 30, atMax: lps >= 300, method: "bisection", plan: [] },
     meeting: { id: "demo", title: "Group meeting", start: iso(t + 35 * 60000), end: iso(t + 95 * 60000), people: 8 },
+    reasonCode: { code: "meeting-upcoming", params: { title: "", people: 8, at: iso(t + 35 * 60000), raised: true } },
     reason: `${clockTime(t + 35 * 60000)} 组会预计 8 人，提前加大新风`, reasonEn: `Group meeting at ${clockTime(t + 35 * 60000)} with 8 expected; increasing outdoor air in advance`,
     energy: { savedTodayM3: 386, savedTodayKwhCooling: 2.9, savedTodayKwhElectric: 0.64, savedWeekM3: 2240, savedWeekKwhCooling: 16.8, savedWeekKwhElectric: 3.73, outdoorSource: "hko-kings-park", plantCop: 4.5 },
     controlMode: dataset.demoControlMode || "L1", calendar: dataset.meetings,

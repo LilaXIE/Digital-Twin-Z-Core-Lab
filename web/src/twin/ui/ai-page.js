@@ -8,6 +8,7 @@ import { data, provider } from "../data/store.js";
 import { recommendationState } from "../data/derived.js";
 import { lineChart, legend, cssVar } from "./charts/timeline.js";
 import { escapeHtml, icon, term } from "./dom.js";
+import { ahuHours, ahuOff, dayTime, reasonText, weekdayName } from "./ai-text.js";
 
 const page = () => document.getElementById("ai-page");
 let built = false;
@@ -41,7 +42,7 @@ function build() {
   built = true;
 }
 
-const recText = (rec) => (getLang() === "en" ? rec.reasonEn : rec.reason);
+const recText = reasonText;
 const modeName = (mode) => t(`mode${mode}`) || mode;
 
 function renderSummary() {
@@ -60,10 +61,15 @@ function renderSummary() {
   }
   const tile = (label, value, unit, note, main = false) => `<article class="tw-tile${main ? " is-main" : ""}"><span>${label}</span><strong><span class="tw-num">${escapeHtml(value)}</span>${unit ? `<span class="tw-unit">${unit}</span>` : ""}</strong><small>${escapeHtml(note)}</small></article>`;
   const average = rec.co2.average8h === null || rec.co2.average8h === undefined ? "" : rec.co2.average8hCoverageHours < 7.5 ? t("average8hPartial", { v: rec.co2.average8h, h: rec.co2.average8hCoverageHours }) : t("average8h", { v: rec.co2.average8h });
+  const off = ahuOff(rec);
   host.innerHTML = [
-    tile(term("airflow", t("recommended")), rec.airflow.recommendedLps, "L/s", `${t("damperNow", { pct: rec.airflow.recommendedDamperPct, now: rec.airflow.baselineDamperPct })}${rec.airflow.atMax ? ` · ${t("aiAtMax")}` : ""}`, true),
+    off
+      ? tile(escapeHtml(t("ahuState")), t("ahuOffTitle"), "", rec.ahu.nextStart ? t("ahuNextStart", { when: dayTime(Date.parse(rec.ahu.nextStart)) }) : "", true)
+      : tile(term("airflow", t("recommended")), rec.airflow.recommendedLps, "L/s", `${t("damperNow", { pct: rec.airflow.recommendedDamperPct, now: rec.ahu?.assumedDamperPct ?? rec.airflow.baselineDamperPct })}${rec.airflow.atMax ? ` · ${t("aiAtMax")}` : ""}`, true),
     tile(rec.occupancy.measured ? escapeHtml(t("occupancy")) : term("estimated", t("occupancyEstimated")), rec.occupancy.current, "", rec.occupancy.measured ? t("occupancyMeasuredNote") : t("occupancyEstimatedNote")),
-    tile(escapeHtml(t("peak60")), rec.co2.peakRecommended, "ppm", t("forecastPoints", { a: rec.co2.at30.recommended, b: rec.co2.at60.recommended })),
+    off && Number.isFinite(rec.ahu.ppmAtNextStart)
+      ? tile(escapeHtml(t("ahuStartCo2Tile")), rec.ahu.ppmAtNextStart, "ppm", rec.ahu.nextStart ? dayTime(Date.parse(rec.ahu.nextStart)) : "")
+      : tile(escapeHtml(t("peak60")), rec.co2.peakRecommended, "ppm", t("forecastPoints", { a: rec.co2.at30.recommended, b: rec.co2.at60.recommended })),
     tile(term("co2", t("currentCo2")), rec.co2.current, "ppm", average),
   ].join("") + `<p class="tw-ai-reason-line${rec.status === "at-max" || stale ? " is-warning" : ""}">${escapeHtml(recText(rec))} · ${escapeHtml(t("updatedAt", { time: clockTime(Date.parse(rec.generatedAt)), mode: modeName(rec.controlMode) }))}${stale ? ` · ${escapeHtml(t("aiInterrupted", { time: clockTime(Date.parse(rec.generatedAt)) }))}` : ""}</p>`;
 }
@@ -82,7 +88,7 @@ function renderControl() {
       </div></header>
     <div class="tw-control-rec">
       <div><span>${escapeHtml(t("aiSupplySetpoint"))}</span>${demo ? `<strong><span class="tw-num">${demo.supplySetpoint.recommended.toFixed(1)}</span><span class="tw-unit">°C</span></strong><span>${escapeHtml(t("aiCurrentSetpoint", { v: `${demo.supplySetpoint.current.toFixed(1)}°C` }))}</span><br><em class="${demo.supplySetpoint.executed ? "" : "is-waiting"}">${escapeHtml(t(demo.supplySetpoint.executed ? "aiExecuted" : "aiAwaiting"))}</em>` : `<p class="tw-caption">${escapeHtml(t("aiSetpointUnavailable"))}</p>`}</div>
-      <div><span>${term("damper", t("aiDamperRec"))}</span>${Number.isFinite(recommendedDamper) ? `<strong><span class="tw-num">${recommendedDamper}</span><span class="tw-unit">%</span></strong><span>${escapeHtml(t("aiCurrentPosition", { v: `${rec.airflow.baselineDamperPct}%` }))}</span>` : `<p class="tw-caption">${escapeHtml(t("noData"))}</p>`}</div>
+      <div><span>${term("damper", t("aiDamperRec"))}</span>${ahuOff(rec) ? `<p class="tw-caption">${escapeHtml(t("ahuOffNoSavings"))}</p>` : Number.isFinite(recommendedDamper) ? `<strong><span class="tw-num">${recommendedDamper}</span><span class="tw-unit">%</span></strong><span>${escapeHtml(t("aiCurrentPosition", { v: `${rec.ahu?.assumedDamperPct ?? rec.airflow.baselineDamperPct}%` }))}</span>` : `<p class="tw-caption">${escapeHtml(t("noData"))}</p>`}</div>
     </div>`;
   if (demo) host.querySelectorAll(".tw-seg button").forEach((button, index) => button.addEventListener("click", () => { demo.autoMode = index === 0; renderControl(); }));
 }
@@ -147,8 +153,12 @@ function renderEnergy() {
   const host = page().querySelector('[data-part="energy"]');
   const cell = (value, unit, digits) => (energy && Number.isFinite(value) ? `<span class="tw-num">${number(value, digits)}</span> <span class="tw-unit">${unit}</span>` : `<span class="tw-unit">${escapeHtml(t("noData"))}</span>`);
   const source = energy ? ({ "hko-kings-park": t("sourceHko"), "weather-station": t("sourceStation"), assumed: t("sourceAssumed") }[energy.outdoorSource] || energy.outdoorSource) : "";
+  // A week that started before the bridge's history says from which day it counts.
+  const since = energy?.coveredSince ? Date.parse(energy.coveredSince) : NaN;
+  const partial = Number.isFinite(since) && energy.weekStart && since - Date.parse(energy.weekStart) > 12 * 3600000;
+  const weekLabel = partial ? t("weekSince", { day: weekdayName(since) }) : t("week");
   host.innerHTML = `<header><div><h2>${escapeHtml(t("energySaved"))}</h2><p>${energy ? escapeHtml(t("energySub", { source, cop: energy.plantCop })) : ""}</p></div></header>
-    <table class="tw-energy"><thead><tr><th></th><th>${escapeHtml(t("today"))}</th><th>${escapeHtml(t("week"))}</th></tr></thead><tbody>
+    <table class="tw-energy"><thead><tr><th></th><th>${escapeHtml(t("today"))}</th><th>${escapeHtml(weekLabel)}</th></tr></thead><tbody>
       <tr><th>${escapeHtml(t("savedAir"))}</th><td>${cell(energy?.savedTodayM3, "m³", 0)}</td><td>${cell(energy?.savedWeekM3, "m³", 0)}</td></tr>
       <tr><th>${escapeHtml(t("savedCooling"))}</th><td>${cell(energy?.savedTodayKwhCooling, "kWh", 1)}</td><td>${cell(energy?.savedWeekKwhCooling, "kWh", 1)}</td></tr>
       <tr><th>${term("power", t("savedElectric"))}</th><td>${cell(energy?.savedTodayKwhElectric, "kWh", 2)}</td><td>${cell(energy?.savedWeekKwhElectric, "kWh", 2)}</td></tr>
@@ -203,7 +213,9 @@ function renderBasis() {
   // The templates are local; bridge values are coerced to numbers before insertion.
   const n = Number;
   const safe = { horizonMinutes: n(rec.horizonMinutes), co2: { target: n(rec.co2.target), limit: n(rec.co2.limit), peakBaseline: n(rec.co2.peakBaseline) },
-    airflow: { minLps: n(rec.airflow.minLps), maxLps: n(rec.airflow.maxLps), recommendedLps: n(rec.airflow.recommendedLps), recommendedDamperPct: n(rec.airflow.recommendedDamperPct), baselineDamperPct: n(rec.airflow.baselineDamperPct), baselineLps: n(rec.airflow.baselineLps) } };
+    airflow: { minLps: n(rec.airflow.minLps), maxLps: n(rec.airflow.maxLps), recommendedLps: n(rec.airflow.recommendedLps), recommendedDamperPct: n(rec.airflow.recommendedDamperPct), baselineDamperPct: n(rec.airflow.baselineDamperPct), baselineLps: n(rec.airflow.baselineLps) },
+    ahu: { assumedDamperPct: n(rec.ahu?.assumedDamperPct ?? rec.airflow.baselineDamperPct), assumedLps: n(rec.ahu?.assumedLps ?? rec.airflow.baselineLps), offLps: n(rec.ahu?.offLps ?? 0),
+      hours: escapeHtml(ahuHours(rec.ahu?.schedule) || "—"), source: rec.ahu?.source === "bms" ? "bms" : "inferred" } };
   host.innerHTML = `<header><div><h2>${escapeHtml(t("basis"))}</h2></div></header><ul class="tw-basis">${t("basisItems", safe).map((item) => `<li>${item}</li>`).join("")}</ul>`;
 }
 

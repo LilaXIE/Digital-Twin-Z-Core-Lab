@@ -3,10 +3,11 @@ import { t, pick, formatNumber, ago } from "../../i18n.js";
 import { settings, select, ui } from "../../state.js";
 import { data } from "../../data/store.js";
 import { registry, sensorGroupFor, SENSOR_GROUPS } from "../../data/devices.js";
-import { deviceStatus, healthSummary, isSuspect, sensorReading } from "../../data/derived.js";
+import { deviceStatus, healthSummary, isSuspect, recommendationState, sensorReading } from "../../data/derived.js";
 import { sceneState, setLayerVisible, setSensorMode } from "../../scene/index.js";
 import { escapeHtml, icon } from "../dom.js";
 import { valueHtml } from "../format.js";
+import { ahuHours, dayTime } from "../ai-text.js";
 
 let body = null;
 let query = "";
@@ -129,12 +130,24 @@ function emptyResult() {
   return `<div class="tw-empty">${icon("ph-magnifying-glass")}<span>${escapeHtml(query.trim() ? t("noResults", { q: query.trim() }) : t("noDevices"))}</span></div>`;
 }
 
+// Without BMS data the AHU shows only what is known: its (inferred) hours and whether it runs now.
+function ahuScheduleHtml(info) {
+  const state = info.running ? t("ahuRunningState") : t("ahuOffTitle");
+  const next = info.running ? (info.nextStop ? t("ahuNextStop", { when: dayTime(Date.parse(info.nextStop)) }) : "") : (info.nextStart ? t("ahuNextStart", { when: dayTime(Date.parse(info.nextStart)) }) : "");
+  return `<div class="tw-row"><span>${escapeHtml(t("ahuState"))}</span><strong><span class="tw-dot" data-level="${info.running ? "good" : "offline"}"></span> ${escapeHtml(state)}</strong></div>
+    ${next ? `<div class="tw-row"><span></span><span class="tw-caption" style="margin:0">${escapeHtml(next)}</span></div>` : ""}
+    <div class="tw-row"><span>${escapeHtml(t("ahuHoursLine", { hours: ahuHours(info.schedule) }))}</span></div>
+    ${info.source === "bms" ? "" : `<p class="tw-caption">${escapeHtml(t("ahuHoursInferred"))}</p>`}
+    <div class="tw-empty">${icon("ph-hard-drives")}<span>${escapeHtml(t("ahuBmsPending"))}</span></div>`;
+}
+
 function renderAhu() {
   const ahu = data().ahu;
+  const schedule = recommendationState().rec?.ahu;
   const section = body.querySelector('[data-part="ahu-section"]');
-  // AHU data is not connected yet: hidden for customers, "not connected" in internal mode.
-  section.hidden = !ahu && !settings.internal;
+  section.hidden = !ahu && !schedule && !settings.internal;
   const host = body.querySelector('[data-part="ahu"]');
+  if (!ahu && schedule) { host.innerHTML = ahuScheduleHtml(schedule); return; }
   if (!ahu) { host.innerHTML = `<div class="tw-empty">${icon("ph-hard-drives")}<span>${escapeHtml(t("bmsReservedCopy"))}</span></div>`; return; }
   const row = (label, value, unit) => `<div class="tw-row"><span>${escapeHtml(label)}</span><strong><span class="tw-num">${formatNumber(value, 1)}</span><span class="tw-unit">${unit}</span></strong></div>`;
   host.innerHTML = [row(t("ahuSupply"), ahu.supply, "°C"), row(t("ahuReturn"), ahu.return, "°C"), row(t("ahuWater"), ahu.water, "%"), row(t("ahuOa"), ahu.oa, "%"), row(t("ahuFan"), ahu.fan, "Hz"), row(t("ahuSetpoint"), ahu.setpoint, "°C")].join("");
