@@ -231,7 +231,14 @@ body:not([data-view="home"]) .tw-dock-right > [data-home], body[data-replay] .tw
 :root:not([data-tier="narrow"]) body[data-view="home"] .tw-alarm-capsule,
 :root:not([data-tier="narrow"]) body[data-view="home"][data-home-details] .tw-capsules,
 :root:not([data-tier="narrow"]) body[data-view="home"][data-home-details] #outdoor-line { display: none; }
-body:not([data-home-details]) #indoor-card, body:not([data-home-details]) #outdoor-card, body:not([data-home-details]) #socket-card { display: none; }
+body:not([data-home-details]):not([data-showcase]) #indoor-card, body:not([data-home-details]):not([data-showcase]) #outdoor-card, body:not([data-home-details]):not([data-showcase]) #socket-card { display: none; }
+/* Big-screen showcase (section D5): indoor and outdoor side by side under the AI card, larger status line. */
+:root:not([data-tier="narrow"]) body[data-showcase] .tw-dock-left { width: calc(2 * var(--dock-width) + var(--s3) + 2 * var(--dock-pad)); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; }
+:root:not([data-tier="narrow"]) body[data-showcase] .tw-dock-left > .tw-ai-card { grid-column: 1 / -1; }
+body[data-showcase] .tw-details-toggle { display: none; }
+:root:not([data-tier="narrow"]) body[data-view="home"][data-showcase] .tw-capsules { display: none; }
+body[data-showcase][data-view="home"] .tw-sentence { font-size: 20px; padding: 10px 22px; }
+body[data-showcase] .tw-badge.is-demo { font-size: 15px; }
 .tw-details-toggle {
   align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 14px; border-radius: 999px;
   font: inherit; font-size: 13px; font-weight: 500; color: var(--text-2); cursor: pointer; transition: opacity 280ms ease;

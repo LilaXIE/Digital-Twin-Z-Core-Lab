@@ -175,7 +175,12 @@ export async function playIntro({ box, floorY, home, onUi, onMarkers }) {
   let markersShown = false;
   let uiShown = !firstVisit;
   await new Promise((resolve) => {
+    // A tab in the background gets no animation frames; finish on a timer so start-up (deep links,
+    // the standby timer) never waits for the tab to be shown.
+    let done = false;
+    const fallback = window.setTimeout(() => { if (!done) { done = true; skipRequested = true; resolve(); } }, totalMs + 1500);
     const step = (now) => {
+      if (done) return;
       const t = skipRequested ? totalMs : now - start;
       const rise = Math.min(1, t / riseMs);
       shared.uIntroCut.value = floorY + (top - floorY) * (1 - (1 - rise) ** 2);
@@ -188,7 +193,7 @@ export async function playIntro({ box, floorY, home, onUi, onMarkers }) {
       if (!uiShown && t >= riseMs + realMs) { uiShown = true; onUi(skipRequested); }
       requestRender();
       if (t < totalMs) requestAnimationFrame(step);
-      else resolve();
+      else { done = true; window.clearTimeout(fallback); resolve(); }
     };
     requestAnimationFrame(step);
   });
