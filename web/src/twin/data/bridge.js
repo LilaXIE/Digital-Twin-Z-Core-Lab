@@ -16,6 +16,7 @@ let retryTimer = null;
 let closing = false;
 const pendingReplies = new Map();
 
+const keyLabels = () => ({ title: t("keyTitle"), field: t("keyField"), cancel: t("cancel"), unlock: t("keyUnlock") });
 const isOpen = () => socket && socket.readyState === WebSocket.OPEN;
 const requestId = (type) => `${type}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 
@@ -233,7 +234,7 @@ export const bridgeApi = {
     send({ type: "recommendation-history-request", requestId: requestId("rec-history"), hours });
   },
   async socketControl(deviceId, desired) {
-    const key = await bridgeKey(live.control.writeProtected, t("accessKeyPrompt"));
+    const key = await bridgeKey(live.control.writeProtected, t("accessKeyPrompt"), keyLabels());
     if (key === null) return false;
     if (!live.control.connected || !isOpen()) {
       controlMessage(deviceId, "failed", "phaseFailed", { reason: t("reasonMqtt") }, "error");
@@ -247,7 +248,7 @@ export const bridgeApi = {
     return true;
   },
   async writeRequest(message, accessPrompt) {
-    const key = await bridgeKey(live.control.writeProtected, accessPrompt);
+    const key = await bridgeKey(live.control.writeProtected, accessPrompt, keyLabels());
     if (key === null) return null;
     if (!isOpen()) return { ok: false, error: t("disconnected") };
     const id = requestId(message.type);

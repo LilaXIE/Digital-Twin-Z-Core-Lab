@@ -69,7 +69,7 @@ export async function captureSnapshot(info) {
     ctx.font = `300 ${28 * scale}px ${info.font}`;
     const valueWidth = ctx.measureText(item.value).width;
     ctx.font = `500 ${12 * scale}px ${info.font}`;
-    const labelWidth = ctx.measureText(`${item.label} · ${item.status}`).width;
+    const labelWidth = ctx.measureText(item.status ? `${item.label} · ${item.status}` : item.label).width;
     const w = Math.max(valueWidth + ctx.measureText(item.unit).width + 30 * scale, labelWidth + 34 * scale);
     ctx.fillStyle = panel;
     roundRect(ctx, x, chipY, w, 64 * scale, 18 * scale);
@@ -79,7 +79,7 @@ export async function captureSnapshot(info) {
     ctx.arc(x + 18 * scale, chipY + 20 * scale, 4.5 * scale, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = muted;
-    ctx.fillText(`${item.label} · ${item.status}`, x + 28 * scale, chipY + 24 * scale);
+    ctx.fillText(item.status ? `${item.label} · ${item.status}` : item.label, x + 28 * scale, chipY + 24 * scale);
     ctx.fillStyle = text;
     ctx.font = `300 ${28 * scale}px ${info.font}`;
     ctx.fillText(item.value, x + 14 * scale, chipY + 54 * scale);

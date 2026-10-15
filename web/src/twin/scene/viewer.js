@@ -15,6 +15,7 @@ let lastFrameTime = 0;
 let frameCap = 0; // ms between frames; 0 = display rate
 const animations = new Set();
 const beforeRender = new Set();
+const cameraSteps = new Set(); // camera motion runs before anything that projects with the camera
 const afterRender = new Set();
 let customRender = null;
 let pixelRatioCap = 2;
@@ -108,6 +109,7 @@ export const isAnimating = () => animations.size > 0;
 export const activeAnimations = () => [...animations];
 
 export const onBeforeRender = (fn) => { beforeRender.add(fn); return () => beforeRender.delete(fn); };
+export const onCameraStep = (fn) => { cameraSteps.add(fn); return () => cameraSteps.delete(fn); };
 export const onAfterRender = (fn) => { afterRender.add(fn); return () => afterRender.delete(fn); };
 export function setCustomRender(fn) { customRender = fn; requestRender(); }
 
@@ -120,6 +122,7 @@ function frame(now) {
   }
   const delta = lastFrameTime ? Math.min(0.1, (now - lastFrameTime) / 1000) : 0.016;
   lastFrameTime = now;
+  for (const fn of cameraSteps) fn(delta, now);
   const moving = controls.update(delta);
   if (animations.has("inset")) { applyViewOffset(canvas.clientWidth, canvas.clientHeight); camera.updateProjectionMatrix(); }
   for (const fn of beforeRender) fn(delta, now);
@@ -174,7 +177,7 @@ export function flyTo(position, target, duration = 1000) {
       controls.target.lerpVectors(fromTarget, target, e);
       if (x >= 1) { remove(); resolve(); }
     };
-    const remove = onBeforeRender(step);
+    const remove = onCameraStep(step);
     flight = { cancel: () => { remove(); stopAnimation(id); resolve(); } };
     startAnimation(id);
     window.setTimeout(() => { stopAnimation(id); }, duration + 50);

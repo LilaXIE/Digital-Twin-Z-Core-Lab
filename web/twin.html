@@ -13,7 +13,7 @@
       const root = document.documentElement;
       root.dataset.theme = dark ? "dark" : "light";
       root.dataset.transparency = transparency || (matchMedia("(prefers-reduced-transparency: reduce)").matches ? "reduced" : "standard");
-      const kiosk = new URLSearchParams(location.search).get("kiosk") === "1" || innerWidth >= 1920;
+      const kiosk = innerWidth >= 1920 || (new URLSearchParams(location.search).get("kiosk") === "1" && innerWidth >= 1600);
       root.dataset.tier = kiosk ? "kiosk" : innerWidth < 1280 ? "narrow" : "standard";
       root.dataset.touch = String(matchMedia("(pointer: coarse)").matches || matchMedia("(hover: none)").matches);
     })();

@@ -1,6 +1,6 @@
 // Camera positions for each theme, the "back to default view" check, and the standby sway.
 import * as THREE from "three";
-import { camera, getControls, flyTo, onBeforeRender, startAnimation, stopAnimation } from "./viewer.js";
+import { camera, getControls, flyTo, onCameraStep, startAnimation, stopAnimation } from "./viewer.js";
 
 let presets = {};
 let room = null;
@@ -16,7 +16,7 @@ export function initPresets({ box, floorY, tableCenter, socketCenter }) {
   presets = {
     home: { target: new THREE.Vector3(c.x, floorY + 1.4, c.z), position: new THREE.Vector3(c.x - s.x * 1.05, floorY + s.y * 1.25, c.z + s.z * 1.05) },
     // From the door (south), below the 4 m grating, looking down across the meeting table.
-    environment: { target: table.clone().setY(table.y - 0.2), position: new THREE.Vector3(table.x + 1.1, floorY + 3.1, room.box.max.z + 4.4) },
+    environment: { target: table.clone().setY(table.y - 0.2), position: new THREE.Vector3(table.x - 0.9, floorY + 3.1, room.box.max.z + 4.4) },
     // From the east, looking at the west and south walls where the sockets are.
     energy: { target: new THREE.Vector3(sockets.x + 0.6, floorY + 0.7, sockets.z + 0.4), position: new THREE.Vector3(room.box.max.x + 3.2, floorY + 3.6, c.z + s.z * 0.42) },
     // High, steep view to show the ducts and terminals.
@@ -70,7 +70,7 @@ export function startSway(view) {
   const baseAngle = Math.atan2(offset.z, offset.x);
   const start = performance.now();
   startAnimation("sway");
-  swayRemove = onBeforeRender(() => {
+  swayRemove = onCameraStep(() => {
     const t = (performance.now() - start) / 1000;
     const angle = baseAngle + Math.sin((t / 120) * Math.PI * 2) * THREE.MathUtils.degToRad(25);
     camera.position.set(preset.target.x + Math.cos(angle) * radius, preset.target.y + offset.y, preset.target.z + Math.sin(angle) * radius);

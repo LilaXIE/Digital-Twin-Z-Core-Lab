@@ -16,10 +16,10 @@ function transition(target, duration) {
   const from = applied;
   applied = target;
   cancelAnimationFrame(tween);
-  if (!from || duration <= 0 || reduced) { push(target, true); return; }
+  if (!from || duration <= 0 || reduced) { stopAnimation("daylight"); push(target, true); return; }
   const start = performance.now();
   let lastShadow = 0;
-  const id = `daylight-${start}`;
+  const id = "daylight"; // one id: a new transition replaces the running one
   startAnimation(id);
   const step = (now) => {
     const x = Math.min(1, (now - start) / duration);

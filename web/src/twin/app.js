@@ -59,7 +59,8 @@ function applyTheme(immediate = false) {
 }
 
 function applyTier() {
-  const kiosk = settings.kioskTier || window.innerWidth >= 1920;
+  // Large-screen sizing from 1920 px (or 1600 px with ?kiosk=1); smaller screens keep the standard scale.
+  const kiosk = window.innerWidth >= 1920 || (settings.kioskTier && window.innerWidth >= 1600);
   root.dataset.tier = kiosk ? "kiosk" : window.innerWidth < 1280 ? "narrow" : "standard";
   root.dataset.touch = String(coarsePointer());
 }
@@ -257,7 +258,7 @@ async function boot() {
     },
   });
   emit("scene-ready");
-  if (settings.internal) window.__twin = { sceneState, ui, data, registry };
+  if (settings.internal) window.__twin = { sceneState, ui, data, registry, shared: (await import("./scene/materials.js")).shared, requestRender };
   // Deep links: twin.html#environment, twin.html#sensor=AM103-05 (device.html and overview.html land here too).
   const target = readHash();
   if (target.sensor && deviceById(target.sensor)) { setView(target.view === "home" ? "devices" : target.view, { fromHash: true }); select({ kind: "sensor", id: target.sensor }, { fromHash: true }); }

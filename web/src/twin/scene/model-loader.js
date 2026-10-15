@@ -133,6 +133,7 @@ async function buildDisplayLayer(modelId, model, result) {
     const element = elementOf.get(localId);
     const item = { modelId, localId, category, name, guid: guids[index], meshes: [], box: new THREE.Box3() };
     const isWall = /WALL/.test(category);
+    const isDoor = category === "IFCDOOR"; // fades with its wall, so it gets its own materials too
     const isLamp = modelId === "mep" && /Lighting Fixture/i.test(name);
     // Samples of one component that share a material are merged: one draw call per component and material.
     const byMaterial = new Map();
@@ -153,7 +154,7 @@ async function buildDisplayLayer(modelId, model, result) {
       if (!geometry) continue;
       let material;
       if (isLamp && splitLampLens(geometry)) material = [materialFor("lampFrame"), materialFor("lampLens", { unique: `${localId}` })];
-      else material = materialFor(key, { unique: isWall ? `${localId}` : null, revealable: isWall || key === "grating", frontGlow: modelId === "archi" && (isWall || key === "floor" || key === "columnPaint") });
+      else material = materialFor(key, { unique: isWall || isDoor ? `${localId}` : null, revealable: isWall || key === "grating", frontGlow: modelId === "archi" && (isWall || key === "floor" || key === "columnPaint") });
       const mesh = new THREE.Mesh(geometry, material);
       mesh.name = `${modelId}:${localId}`;
       mesh.userData = { modelId, localId, category, key };
@@ -170,7 +171,7 @@ async function buildDisplayLayer(modelId, model, result) {
     result.items.set(`${modelId}:${localId}`, item);
     if (!result.byCategory.has(category)) result.byCategory.set(category, []);
     result.byCategory.get(category).push(item);
-    if (isWall) result.walls.push(item);
+    if (isWall || isDoor) result.walls.push(item);
     if (isLamp) result.lamps.push(item);
     if (category === "IFCCOVERING") result.gratings.push(item);
   });

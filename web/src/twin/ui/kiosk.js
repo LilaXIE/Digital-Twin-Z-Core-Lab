@@ -1,7 +1,7 @@
 // Standby showcase for the lab display (section 13.7): after 3 idle minutes it cycles
 // Overview → Environment → Energy → Devices (≈20 s each), sways the camera gently, plays one ripple
 // per round, and stops on the first touch, click or key. Live data throughout; 30 fps cap.
-import { settings, ui, setView, select, on, reducedMotion } from "../state.js";
+import { settings, ui, setView, select, on, reducedMotion, queryParams } from "../state.js";
 import { SITE } from "../config/site.js";
 import { setFrameCap } from "../scene/viewer.js";
 import { startSway, stopSway, flyToView, sceneState, pick } from "../scene/index.js";
@@ -18,7 +18,9 @@ let step = 0;
 function resetIdle() {
   window.clearTimeout(idleTimer);
   if (active) stop();
-  if (settings.kiosk && sceneState.ready) idleTimer = window.setTimeout(start, SITE.kioskIdleMs);
+  // Internal mode can shorten the wait for on-site checks: ?mode=internal&kioskIdle=10 (seconds).
+  const idleMs = settings.internal && Number(queryParams.get("kioskIdle")) > 0 ? Number(queryParams.get("kioskIdle")) * 1000 : SITE.kioskIdleMs;
+  if (settings.kiosk && sceneState.ready) idleTimer = window.setTimeout(start, idleMs);
 }
 
 function start() {
