@@ -108,3 +108,22 @@ test("no savings accrue while the AHU is off, and the week is rebuilt from histo
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("AI review reports savings only while the AHU runs, and checks forecasts against measurements", async () => {
+  const { savingsReport, forecastReview } = await import("../scripts/strategy/review.mjs");
+  const start = Date.parse("2026-10-14T09:00:00+08:00"); // Wednesday
+  const entries = [];
+  for (let i = 0; i <= 18 * 6; i += 1) {
+    const t = start + i * 600000;
+    const running = t < Date.parse("2026-10-14T18:00:00+08:00");
+    entries.push({ t: new Date(t).toISOString(), roomPpm: 500 + i, lps: 20, baselineLps: running ? 90 : 22, ahuRunning: running, at60: { baseline: 506 + i } });
+  }
+  const nowMs = Date.parse(entries.at(-1).t);
+  const savings = savingsReport(entries, { config: DEFAULT_CONFIG, nowMs, days: 2 }); // the series ends at 03:00 the next day
+  assert.ok(savings.totals.savedKwh > 0);
+  assert.ok(savings.totals.savedKwhLow < savings.totals.savedKwh && savings.totals.savedKwh < savings.totals.savedKwhHigh);
+  assert.equal(savings.hours.length, 9, "09:00–18:00 only");
+  const forecast = forecastReview(entries, { nowMs, hours: 24 });
+  assert.equal(forecast.mae60, 0, "each prediction matches the reading an hour later");
+  assert.ok(forecast.samples60 > 90);
+});

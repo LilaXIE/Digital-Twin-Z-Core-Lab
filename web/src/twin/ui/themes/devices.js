@@ -1,7 +1,7 @@
 // Devices theme (section 5.4): status summary, search, categories, list or table, layers, AHU.
 import { t, pick, formatNumber, ago } from "../../i18n.js";
 import { settings, select, ui } from "../../state.js";
-import { data } from "../../data/store.js";
+import { data, provider } from "../../data/store.js";
 import { registry, sensorGroupFor, SENSOR_GROUPS } from "../../data/devices.js";
 import { deviceStatus, healthSummary, isSuspect, recommendationState, sensorReading } from "../../data/derived.js";
 import { sceneState, setLayerVisible, setSensorMode } from "../../scene/index.js";
@@ -19,6 +19,7 @@ export function mount(element) {
   body = element;
   body.innerHTML = `
     <section class="tw-section"><h3>${escapeHtml(t("summary"))}</h3><div class="tw-dist" data-part="summary"></div></section>
+    <section class="tw-section"><h3>${escapeHtml(t("healthTitle"))}<small>${escapeHtml(t("healthWindow"))}</small></h3><div data-part="data-health"></div></section>
     <section class="tw-section">
       <div class="tw-search">${icon("ph-magnifying-glass")}<input type="search" autocomplete="off" placeholder="${escapeHtml(t("searchDevices"))}" aria-label="${escapeHtml(t("searchDevices"))}" data-part="search"></div>
       <div class="tw-toolbar">
@@ -38,7 +39,38 @@ export function mount(element) {
   body.querySelectorAll("[data-asset]").forEach((button) => button.addEventListener("click", () => { assetView = button.dataset.asset; renderList(); }));
   body.querySelectorAll("[data-mode]").forEach((button) => button.addEventListener("click", () => { listMode = button.dataset.mode; renderList(); }));
   renderLayers();
+  provider().requestDeviceHealth?.();
   update();
+}
+
+// "10 min" or "3.4 h".
+const gapText = (minutes) => (minutes < 90 ? t("gapMinutes", { n: minutes }) : t("gapHours", { n: formatNumber(minutes / 60, 1) }));
+
+// Data health (section C3): per device how it reported over 24 hours, worst first, and the latest
+// changes of the CO₂ health check.
+function renderDataHealth() {
+  const host = body.querySelector('[data-part="data-health"]');
+  const report = data().deviceHealth;
+  if (!report) { host.innerHTML = `<p class="tw-caption">${escapeHtml(t("loading"))}</p>`; return; }
+  if (report.error) { host.innerHTML = `<p class="tw-caption is-error">${escapeHtml(t("historyFailed"))}</p>`; return; }
+  const rows = Object.entries(report.devices || {}).map(([id, item]) => {
+    const battery = data().snapshots.get(id)?.values.battery;
+    const suspect = isSuspect(id);
+    const gapLimit = item.intervalMinutes ? Math.max(60, item.intervalMinutes * 6) : null;
+    const issue = suspect || (item.completeness !== null && item.completeness < 95) || (Number.isFinite(battery) && battery < 20) || (gapLimit !== null && item.longestGapMinutes > gapLimit && item.completeness !== null);
+    return { id, item, battery, suspect, issue };
+  }).sort((a, b) => Number(b.issue) - Number(a.issue) || (a.item.completeness ?? 101) - (b.item.completeness ?? 101) || b.item.longestGapMinutes - a.item.longestGapMinutes || a.id.localeCompare(b.id));
+  const periodic = rows.filter((row) => row.item.completeness !== null);
+  const average = periodic.length ? periodic.reduce((sum, row) => sum + row.item.completeness, 0) / periodic.length : null;
+  const issues = rows.filter((row) => row.issue).length;
+  const summary = `<p class="tw-health-summary">${escapeHtml([average === null ? "" : t("healthAverage", { n: periodic.length, v: formatNumber(average, 1) }), issues ? t("healthIssues", { n: issues }) : t("healthNoIssues")].filter(Boolean).join(" · "))}</p>`;
+  const table = `<div class="tw-table-wrap"><table class="tw-table"><thead><tr><th>${escapeHtml(t("colId"))}</th><th>${escapeHtml(t("colUplinks"))}</th><th>${escapeHtml(t("colLongestGap"))}</th><th>${escapeHtml(t("colCompleteness"))}</th><th>${escapeHtml(t("colBattery"))}</th></tr></thead><tbody>
+    ${rows.map(({ id, item, battery, suspect, issue }) => `<tr data-device="${escapeHtml(id)}" tabindex="0" class="${issue ? "is-issue" : ""}"><td>${issue ? `<span class="tw-dot" data-level="caution"></span> ` : ""}${escapeHtml(id)}${suspect ? ` <small>${escapeHtml(t("readingSuspect"))}</small>` : ""}</td><td>${item.uplinks}</td><td>${escapeHtml(gapText(item.longestGapMinutes))}</td><td>${item.completeness === null ? `<small>${escapeHtml(t("eventDriven"))}</small>` : `${formatNumber(item.completeness, 1)}%`}</td><td>${Number.isFinite(battery) ? `${Math.round(battery)}%` : ""}</td></tr>`).join("")}
+  </tbody></table></div>`;
+  const events = (report.events || data().sensorHealth?.events || []).slice(-5).reverse();
+  const log = events.length ? `<div class="tw-health-log"><small>${escapeHtml(t("healthLog"))}</small>${events.map((event) => `<p>${escapeHtml(`${ago(Date.parse(event.t))} · ${event.id} · ${event.state === "suspect" ? t("readingSuspect") : t("statusNormal")}`)}</p>`).join("")}</div>` : "";
+  host.innerHTML = summary + table + log;
+  host.querySelectorAll("[data-device]").forEach((row) => row.addEventListener("click", () => select({ kind: "sensor", id: row.dataset.device })));
 }
 
 export function unmount() { body = null; }
@@ -178,6 +210,7 @@ function renderLayers() {
 export function update() {
   if (!body) return;
   body.querySelector('[data-part="summary"]').innerHTML = summaryHtml();
+  if (!body.contains(document.activeElement) || !document.activeElement.closest('[data-part="data-health"]')) renderDataHealth();
   if (document.activeElement?.closest?.('[data-part="list"]') === null || !body.contains(document.activeElement)) renderList();
   renderAhu();
 }

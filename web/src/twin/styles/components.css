@@ -546,12 +546,19 @@ table.tw-table tr:hover td { background: var(--surface-sunken); }
 /* Replay controls sit above the tab bar while a replay runs. */
 .tw-replay-bar {
   position: fixed; z-index: 22; left: 50%; bottom: calc(var(--edge) + var(--tap) + 26px); transform: translateX(-50%);
-  width: min(760px, calc(100vw - 2 * var(--edge))); display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; align-items: center; gap: 12px;
+  width: min(860px, calc(100vw - 2 * var(--edge))); display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto auto; align-items: center; gap: 10px;
   padding: 10px 12px 10px 10px; border-radius: 22px;
 }
 .tw-replay-bar input[type="range"] { width: 100%; accent-color: var(--replay); }
 .tw-replay-bar time { font-size: 13px; font-weight: 500; white-space: nowrap; min-width: 92px; text-align: center; }
 .tw-replay-events { position: relative; height: 4px; margin-top: -2px; }
+.tw-replay-steps { display: inline-flex; gap: 2px; }
+.tw-replay-track { position: relative; min-width: 0; }
+.tw-replay-marks { position: absolute; left: 8px; right: 8px; top: -7px; height: 6px; pointer-events: none; }
+.tw-replay-marks i { position: absolute; top: 0; height: 6px; border-radius: 3px; pointer-events: auto; cursor: pointer; }
+.tw-replay-marks i.is-over { background: var(--poor); opacity: 0.75; }
+.tw-replay-marks i.is-event { width: 3px; margin-left: -1px; background: var(--caution); }
+.tw-chart polygon.area { opacity: 0.28; }
 
 /* ---------- Banner and popovers ---------- */
 .tw-banner {
@@ -632,6 +639,21 @@ table.tw-energy th:first-child { text-align: left; color: var(--text-2); font-we
 .tw-calendar-form input[type="time"] { min-width: 104px; }
 .tw-ai-page:not(.is-full) .tw-calendar-form { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .tw-device-meta { color: var(--text-3); }
+.tw-proof-head { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 4px 0 10px; }
+.tw-proof-head > div { display: grid; gap: 2px; padding: 10px 12px; border-radius: 14px; background: var(--good-soft); }
+.tw-proof-head small, .tw-proof-head span { font-size: var(--fs-caption); color: var(--text-2); }
+.tw-proof-head strong { font-size: 24px; font-weight: 400; color: var(--text); }
+.tw-proof-head .tw-unit { margin-left: 3px; font-size: 13px; }
+.tw-health-summary { margin: 0 4px 8px; font-size: 13px; color: var(--text); }
+.tw-table tr.is-issue td { background: var(--caution-soft); }
+.tw-table td small { color: var(--text-3); }
+.tw-health-log { display: grid; gap: 2px; margin-top: 10px; font-size: var(--fs-caption); color: var(--text-2); }
+.tw-health-log p { margin: 0; }
+.tw-standby { display: grid; gap: 6px; }
+.tw-standby-row { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; align-items: center; gap: 8px; font-size: 13px; }
+.tw-standby-row strong { font-weight: 500; white-space: nowrap; }
+.tw-standby-bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.tw-standby-bar i { display: block; height: 100%; border-radius: inherit; background: var(--caution); }
 .tw-energy-total { margin: 10px 4px 0; font-size: 14px; font-weight: 500; color: var(--text); }
 .tw-device-meta.is-caution { color: var(--caution); }
 .tw-device-meta.is-poor { color: var(--poor); }

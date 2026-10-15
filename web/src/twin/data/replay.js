@@ -124,3 +124,19 @@ export function stopReplay() {
 }
 
 export function clearReplayCache() { cache = null; }
+
+// Marks for the replay timeline: stretches where room CO₂ was over the limit, and door/leak events.
+export function replayMarks(limit) {
+  if (!cache) return { over: [], events: [] };
+  const stepMs = cache.stepMinutes * 60000;
+  const over = [];
+  let run = null;
+  for (let t = cache.start; t <= cache.stop; t += stepMs) {
+    const value = evaluate(t).room.co2;
+    if (Number.isFinite(value) && value > limit) {
+      if (run && t - run.to <= stepMs * 1.5) run.to = t; else { if (run) over.push(run); run = { from: t, to: t }; }
+    }
+  }
+  if (run) over.push(run);
+  return { over: over.map((item) => ({ from: item.from, to: item.to + stepMs })), events: (cache.events || []).map((event) => ({ t: event.t, type: event.type })) };
+}

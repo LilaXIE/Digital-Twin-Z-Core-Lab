@@ -198,6 +198,47 @@ demoFactory.api = {
     return dataset.roomHistory;
   },
   requestRecommendationHistory() { emit("data", { kind: "rec-history" }); },
+  // Illustrative data health and standby figures for the demo devices.
+  requestDeviceHealth() {
+    const dataset = currentDemo();
+    if (!dataset) return;
+    const devices = {};
+    for (const id of dataset.snapshots.keys()) devices[id] = { uplinks: 144, intervalMinutes: 10, longestGapMinutes: id === "AM103-07" ? 70 : 10, completeness: id === "AM103-07" ? 96.5 : 100, last: new Date().toISOString() };
+    dataset.deviceHealth = { hours: 24, devices, events: [] };
+    emit("data", { kind: "device-health" });
+  },
+  requestStandbyReport() {
+    const dataset = currentDemo();
+    if (!dataset) return;
+    const sockets = Object.keys(SOCKET_POWER).map((id, index) => ({ id, standbyW: [12, 3.5, 1.2, 0][index] ?? 0, workingW: SOCKET_POWER[id], yearKwh: Math.round(([12, 3.5, 1.2, 0][index] ?? 0) * 6157 / 1000) })).sort((a, b) => b.yearKwh - a.yearKwh);
+    dataset.standby = { days: 7, sockets, totalYearKwh: sockets.reduce((s, x) => s + x.yearKwh, 0), standbyHoursPerYear: 6157 };
+    emit("data", { kind: "standby" });
+  },
+  // Illustrative AI review: working-hours savings for a week and a forecast that tracks the room.
+  requestAiReview() {
+    const dataset = currentDemo();
+    if (!dataset) return;
+    const now = Date.now();
+    const hours = [];
+    const points = [];
+    for (let t = Math.floor((now - 7 * 24 * HOUR) / HOUR) * HOUR; t < now; t += HOUR) {
+      const h = hkHour(t);
+      const day = new Date(t + 8 * HOUR).getUTCDay();
+      if (day >= 1 && day <= 5 && h >= 8 && h < 18) hours.push({ t: new Date(t).toISOString(), baselineKwh: 0.21, recommendedKwh: peopleAt(t) ? 0.16 : 0.06 });
+    }
+    for (let t = now - 24 * HOUR; t < now; t += 600000) {
+      const actual = Math.round(co2At(t, 0));
+      points.push({ t: new Date(t).toISOString(), actual, predicted: Math.round(actual + 14 * Math.sin(t / 4e6)) });
+    }
+    const baselineKwh = hours.reduce((s, h) => s + h.baselineKwh, 0);
+    const recommendedKwh = hours.reduce((s, h) => s + h.recommendedKwh, 0);
+    const savedKwh = baselineKwh - recommendedKwh;
+    dataset.aiReview = {
+      savings: { hours, days: [], totals: { baselineKwh, recommendedKwh, savedKwh, savedSharePct: Math.round(savedKwh / baselineKwh * 1000) / 10, savedKwhLow: savedKwh * 0.62, savedKwhHigh: savedKwh * 1.6 }, assumptions: { plantCop: 4.5, baselineDamperPct: 30, airflowShare: 0.25, copDelta: 1 } },
+      forecast: { hours: 24, points, mae30: 9, mae60: 11, bias60: 2, samples30: 144, samples60: 138 },
+    };
+    emit("data", { kind: "ai-review" });
+  },
   async socketControl(deviceId, desired) {
     const dataset = currentDemo();
     if (!dataset) return false;

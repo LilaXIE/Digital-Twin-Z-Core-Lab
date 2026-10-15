@@ -85,6 +85,9 @@ function handle(message) {
       emit("data", { kind: "rec-history" });
       return;
     case "calendar": live.meetings = message.meetings || []; emit("data", { kind: "calendar" }); return;
+    case "ai-review": live.aiReview = { savings: message.savings, forecast: message.forecast }; emit("data", { kind: "ai-review" }); return;
+    case "device-health": live.deviceHealth = message; emit("data", { kind: "device-health" }); return;
+    case "standby-report": live.standby = message; emit("data", { kind: "standby" }); return;
     case "calendar-result":
     case "control-mode-result":
       if (message.keyRejected) forgetBridgeKey();
@@ -234,6 +237,11 @@ export const bridgeApi = {
   },
   requestRecommendationHistory(hours = 24) {
     send({ type: "recommendation-history-request", requestId: requestId("rec-history"), hours });
+  },
+  requestDeviceHealth() { send({ type: "device-health-request", requestId: requestId("device-health") }); },
+  requestStandbyReport() { send({ type: "standby-report-request", requestId: requestId("standby") }); },
+  requestAiReview(days = 7, hours = 24) {
+    send({ type: "ai-review-request", requestId: requestId("ai-review"), days, hours });
   },
   async socketControl(deviceId, desired) {
     const key = await bridgeKey(live.control.writeProtected, t("accessKeyPrompt"), keyLabels());

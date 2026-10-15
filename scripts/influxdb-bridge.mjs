@@ -13,6 +13,8 @@ import { buildCo2HistoryQuery, co2RowsToSeries } from "./strategy/influx-history
 import { hkWeekStart } from "./strategy/occupancy-forecast.mjs";
 import { fetchHkoOutdoor, fetchHkoWind } from "./strategy/weather.mjs";
 import { assessCo2Health, calibrationSummary, correctCo2Samples, correctTelemetry } from "./co2-quality.mjs";
+import { buildUplinkQuery, deviceHealthFromRows } from "./device-health.mjs";
+import { buildSocketHourlyQuery, standbyReport } from "./standby.mjs";
 
 const url = process.env.ZB202_INFLUX_URL;
 const token = process.env.ZB202_INFLUX_TOKEN;
@@ -498,8 +500,48 @@ function refreshSensorHealth() {
   const signature = JSON.stringify(Object.entries(sensors).map(([id, item]) => [id, item.state, item.reasons]));
   latestSensorHealth = { type: "sensor-health", outdoorPpm: strategyConfig.co2.outdoorPpm, sensors, at: new Date().toISOString() };
   if (signature !== sensorHealthSignature) {
+    // Keep a short log of state changes for the data-health panel (not after the first assessment).
+    const previous = sensorHealthSignature ? Object.fromEntries(JSON.parse(sensorHealthSignature).map(([id, state, reasons]) => [id, { state, reasons }])) : null;
+    if (previous) {
+      for (const [id, item] of Object.entries(sensors)) {
+        if (previous[id]?.state !== item.state) healthEvents.push({ t: new Date().toISOString(), id, state: item.state, reasons: item.reasons });
+      }
+      while (healthEvents.length > 50) healthEvents.shift();
+    }
     sensorHealthSignature = signature;
+    latestSensorHealth.events = healthEvents;
     broadcast(latestSensorHealth);
+  }
+}
+const healthEvents = [];
+
+// Per-device uplinks over 24 hours and socket standby power over 7 days; cached for 5 minutes so
+// several viewers share one query.
+const reportCache = new Map();
+function cachedReport(key, build) {
+  const cached = reportCache.get(key);
+  if (cached && Date.now() - cached.at < 5 * 60000) return cached.task;
+  const task = build();
+  reportCache.set(key, { at: Date.now(), task });
+  task.catch(() => reportCache.delete(key));
+  return task;
+}
+async function sendDeviceHealth(socket, message) {
+  const requestId = String(message.requestId || "");
+  try {
+    const devices = await cachedReport("device-health", async () => deviceHealthFromRows(await queryApi.collectRows(buildUplinkQuery({ bucket, hours: 24 })), { nowMs: Date.now(), hours: 24 }));
+    send(socket, { type: "device-health", requestId, hours: 24, devices, events: healthEvents });
+  } catch (error) {
+    send(socket, { type: "device-health", requestId, devices: {}, events: healthEvents, error: error.message });
+  }
+}
+async function sendStandbyReport(socket, message) {
+  const requestId = String(message.requestId || "");
+  try {
+    const report = await cachedReport("standby", async () => standbyReport(await queryApi.collectRows(buildSocketHourlyQuery({ bucket, days: 7 }))));
+    send(socket, { type: "standby-report", requestId, days: 7, ...report });
+  } catch (error) {
+    send(socket, { type: "standby-report", requestId, sockets: [], error: error.message });
   }
 }
 
@@ -549,6 +591,10 @@ async function handleStrategyMessage(socket, message) {
   const requestId = String(message.requestId || "");
   if (!strategy) {
     send(socket, { type: "strategy-error", requestId, error: "AI ventilation strategy is disabled" });
+    return;
+  }
+  if (message.type === "ai-review-request") {
+    send(socket, { type: "ai-review", requestId, ...strategy.aiReview({ days: Number(message.days) || 7, hours: Number(message.hours) || 24 }) });
     return;
   }
   if (message.type === "recommendation-history-request") {
@@ -638,7 +684,9 @@ websocketServer.on("connection", (socket) => {
       return;
     }
     if (message.type === "socket-control") enqueueSocketControl(socket, message);
-    if (["recommendation-history-request", "calendar-update", "control-mode-request"].includes(message.type)) void handleStrategyMessage(socket, message);
+    if (["recommendation-history-request", "ai-review-request", "calendar-update", "control-mode-request"].includes(message.type)) void handleStrategyMessage(socket, message);
+    if (message.type === "device-health-request") void sendDeviceHealth(socket, message);
+    if (message.type === "standby-report-request") void sendStandbyReport(socket, message);
     if (["sensor-history-request", "demand-history-request", "room-history-request"].includes(message.type)) {
       if (pendingHistory.has(message.type)) {
         send(socket, message.type === "sensor-history-request"

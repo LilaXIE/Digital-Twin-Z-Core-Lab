@@ -9,6 +9,7 @@ import { addSavings, intervalSavings } from "./energy.mjs";
 import { OccupancyEstimator } from "./occupancy-estimator.mjs";
 import { hkDayStart, hkWeekStart, scheduledPriorAt } from "./occupancy-forecast.mjs";
 import { buildRecommendation } from "./recommend.mjs";
+import { forecastReview, savingsReport } from "./review.mjs";
 import { doorChanged, latestNoise, measuredOccupancy, roomCo2, sensorKey } from "./sensors.mjs";
 import { fetchHkoOutdoor } from "./weather.mjs";
 
@@ -111,7 +112,7 @@ export class StrategyService {
         occupancy: Math.round(occupancy.current * 100) / 100, occupancySource: occupancy.source,
         lps: recommendation.exact.lps, damperPct: recommendation.airflow.recommendedDamperPct, minLps: recommendation.exact.minLps,
         baselineLps: recommendation.exact.baselineLps, peak: Math.round(recommendation.exact.peak), atMax: recommendation.airflow.atMax,
-        ahuRunning: recommendation.ahu.running, mode: this.controller.mode, commandPct: null, shadowPpm: null,
+        at30: recommendation.co2.at30, at60: recommendation.co2.at60, ahuRunning: recommendation.ahu.running, mode: this.controller.mode, commandPct: null, shadowPpm: null,
         savings: this.savingsSince(previous, point.t, this.config.energy.fallbackOutdoor, this.config.energy.fallbackIndoor),
       };
       if (entry.savings) entry.savingsFrom = previous.t;
@@ -370,6 +371,15 @@ export class StrategyService {
       recommendedLps: Math.round(entry.lps), damperPct: entry.damperPct, baselineLps: Math.round(entry.baselineLps),
       peak: entry.peak, atMax: entry.atMax, mode: entry.mode, commandPct: entry.commandPct, shadowPpm: entry.shadowPpm,
     }));
+  }
+
+  // Savings report and forecast accuracy for the AI review section (scripts/strategy/review.mjs).
+  aiReview({ days = 7, hours = 24 } = {}) {
+    const nowMs = this.now();
+    return {
+      savings: savingsReport(this.history, { config: this.config, nowMs, days: Math.min(HISTORY_DAYS, Math.max(1, days)) }),
+      forecast: forecastReview(this.history, { nowMs, hours: Math.min(72, Math.max(6, hours)) }),
+    };
   }
 
   // Offset-corrected room CO₂ for the last 8 hours, including the start-up warm-up.

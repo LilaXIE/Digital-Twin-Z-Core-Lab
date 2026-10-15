@@ -2,6 +2,7 @@
 // switch asks for confirmation first and then shows queued → sent → applied (or the failure).
 import { t, formatNumber } from "../../i18n.js";
 import { settings } from "../../state.js";
+import { SITE } from "../../config/site.js";
 import { data, provider } from "../../data/store.js";
 import { socketDevices, socketInfo, totalPowerKw } from "../../data/derived.js";
 import { sceneState } from "../../scene/index.js";
@@ -35,10 +36,27 @@ export function mount(element) {
       <p class="tw-energy-total" data-part="kwh"></p>
       <div class="tw-chart" data-part="demand" style="margin-top:10px"></div>
       <p class="tw-caption" data-part="demand-note"></p>
-    </section>`;
+    </section>
+    <section class="tw-section"><h3>${escapeHtml(t("standbyTitle"))}<small>${escapeHtml(t("standbyWindow"))}</small></h3><div data-part="standby"></div></section>`;
   body.querySelectorAll("[data-range]").forEach((button) => button.addEventListener("click", () => { demandRange = button.dataset.range; requestDemand(true); update(); }));
   requestDemand();
+  provider().requestStandbyReport?.();
   update();
+}
+
+// Standby (section C5): what each socket draws after hours and at weekends, and over a year.
+function renderStandby() {
+  const host = body.querySelector('[data-part="standby"]');
+  const report = data().standby;
+  if (!report) { host.innerHTML = `<p class="tw-caption">${escapeHtml(t("loading"))}</p>`; return; }
+  if (!report.sockets?.length) { host.innerHTML = `<p class="tw-caption">${escapeHtml(t("noPowerHistory"))}</p>`; return; }
+  const max = Math.max(1, ...report.sockets.map((item) => item.yearKwh || 0));
+  host.innerHTML = `<div class="tw-standby">${report.sockets.map((item) => `
+      <div class="tw-standby-row"><span>${escapeHtml(item.id)}</span>
+        <span class="tw-standby-bar" aria-hidden="true"><i style="width:${(((item.yearKwh || 0) / max) * 100).toFixed(1)}%"></i></span>
+        <strong>${escapeHtml(t("standbyRow", { w: formatNumber(item.standbyW ?? 0, 1), kwh: item.yearKwh ?? 0 }))}</strong></div>`).join("")}</div>
+    <p class="tw-energy-total">${escapeHtml(t("standbyTotal", { kwh: report.totalYearKwh, kg: Math.round(report.totalYearKwh * SITE.carbonKgPerKwh) }))}</p>
+    <p class="tw-caption">${escapeHtml(t("standbyNote", { h: report.standbyHoursPerYear }))}</p>`;
 }
 
 // kWh between two times from kW samples (trapezoids; gaps over an hour are not bridged).
@@ -150,6 +168,7 @@ export function update() {
   if (confirmOpen()) return; // do not redraw under an open confirmation
   renderSockets();
   renderDemand();
+  renderStandby();
 }
 
 export function markerReadout(deviceId) {

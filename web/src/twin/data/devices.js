@@ -140,6 +140,9 @@ export function createDataset(kind) {
     calibration: null, // { offsets: { "AM103-08": -130 }, outdoorPpm, calibratedAt }
     sensorHealth: null, // { sensors: { "AM103-08": { state, reasons, ppm, at } }, outdoorPpm }
     recHistory: [],
+    aiReview: null, // { savings, forecast } from scripts/strategy/review.mjs
+    deviceHealth: null, // { devices: { id: { uplinks, longestGapMinutes, completeness, ... } }, events } (scripts/device-health.mjs)
+    standby: null, // { sockets: [{ id, standbyW, yearKwh, ... }], totalYearKwh } (scripts/standby.mjs)
     recRoom: [],
     meetings: [],
     demandHistory: new Map(),
