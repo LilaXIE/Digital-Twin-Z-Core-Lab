@@ -661,6 +661,11 @@ table.tw-energy th:first-child { text-align: left; color: var(--text-2); font-we
 .tw-proof-head small, .tw-proof-head span { font-size: var(--fs-caption); color: var(--text-2); }
 .tw-proof-head strong { font-size: 1.5rem; font-weight: 400; color: var(--text); }
 .tw-proof-head .tw-unit { margin-left: 0.1875rem; font-size: 0.8125rem; }
+/* Building-services button: a faint icon when faded, solid when shown, struck through when hidden. */
+.tw-mep-button { position: relative; }
+.tw-mep-button[data-state="faded"] i { opacity: 0.45; }
+.tw-mep-button[data-state="shown"] i { color: var(--accent); }
+.tw-mep-button[data-state="hidden"]::after { content: ""; position: absolute; left: 25%; right: 25%; top: 50%; height: 2px; border-radius: 1px; background: currentColor; transform: rotate(-45deg); }
 .tw-h3-actions { display: inline-flex; gap: 0.375rem; align-items: center; }
 .tw-qr { display: grid; place-items: center; padding: 0.625rem; border-radius: 0.875rem; background: #fff; }
 .tw-qr svg { width: 13.75rem; height: 13.75rem; }

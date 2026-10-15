@@ -1,10 +1,10 @@
 // Devices theme (section 5.4): status summary, search, categories, list or table, layers, AHU.
 import { t, pick, formatNumber, ago } from "../../i18n.js";
-import { settings, select, ui } from "../../state.js";
+import { settings, select, ui, on } from "../../state.js";
 import { data, provider } from "../../data/store.js";
 import { registry, sensorGroupFor, SENSOR_GROUPS } from "../../data/devices.js";
 import { deviceStatus, healthSummary, isSuspect, recommendationState, sensorReading } from "../../data/derived.js";
-import { sceneState, setLayerVisible, setSensorMode } from "../../scene/index.js";
+import { sceneState, setLayerVisible, setMepMode, setSensorMode } from "../../scene/index.js";
 import { escapeHtml, icon } from "../dom.js";
 import { valueHtml } from "../format.js";
 import { ahuHours, dayTime } from "../ai-text.js";
@@ -216,7 +216,10 @@ function renderLayers() {
     <div class="tw-layer-row"><span>${escapeHtml(t("layerSensors"))}</span><div class="tw-seg" role="group">
       ${[["all", "sensorModeAll"], ["model", "sensorModeModel"], ["hidden", "sensorModeHidden"]].map(([mode, key]) => `<button type="button" data-sensor-mode="${mode}" aria-pressed="${sceneState.sensorMode === mode}">${escapeHtml(t(key))}</button>`).join("")}
     </div></div>`;
-  host.querySelectorAll("[data-layer]").forEach((input) => input.addEventListener("change", () => setLayerVisible(input.dataset.layer, input.checked)));
+  host.querySelectorAll("[data-layer]").forEach((input) => input.addEventListener("change", () => {
+    if (input.dataset.layer === "mep") setMepMode(input.checked ? "shown" : "hidden");
+    else setLayerVisible(input.dataset.layer, input.checked);
+  }));
   host.querySelectorAll("[data-sensor-mode]").forEach((button) => button.addEventListener("click", () => { setSensorMode(button.dataset.sensorMode); renderLayers(); }));
 }
 
@@ -228,6 +231,9 @@ export function update() {
   renderAhu();
   renderAudit();
 }
+
+// The toolbar button and this panel's MEP switch show the same state.
+on("mep", () => { if (body) renderLayers(); });
 
 export const titleKey = "devicesTitle";
 export { ago };

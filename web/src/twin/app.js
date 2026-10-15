@@ -30,6 +30,7 @@ import { initGlossary } from "./ui/glossary.js";
 import { initInternal } from "./ui/internal.js";
 import { initMobile, phoneQuery } from "./ui/mobile.js";
 import { initFeedback } from "./ui/today.js";
+import { initMepToggle } from "./ui/mep-toggle.js";
 import { $, $$, toast, closePopover, popoverOpen } from "./ui/dom.js";
 
 const root = document.documentElement;
@@ -209,6 +210,7 @@ async function boot() {
   initInternal();
   initMobile();
   initFeedback();
+  initMepToggle();
 
   on("setting:lang", (lang) => applyLanguage(lang, true));
   on("setting:theme", () => applyTheme());

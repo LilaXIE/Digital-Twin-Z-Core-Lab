@@ -13,6 +13,7 @@ import { startPlan, setPlanProgress, alignPlan, failPlan, playIntro } from "./in
 import { setSelectionOutline, setHoverOutline } from "./outline.js";
 import { applyTier, initialTier, startMeasuring } from "./quality.js";
 import { registry } from "../data/devices.js";
+import { emit } from "../state.js";
 
 export const sceneState = {
   ready: false,
@@ -128,8 +129,28 @@ export function setSensorMode(mode) {
 }
 
 export function themeLayers(view) {
+  currentView = view;
   setFlowsVisible(view === "energy");
-  setMepEmphasis(view === "devices");
+  applyMep();
+}
+
+// MEP display. "auto" follows the theme: faded everywhere except Devices, where it is solid. The
+// toolbar button (ui/mep-toggle.js) pins "faded", "shown" or "hidden" for this visit.
+let mepMode = "auto";
+let currentView = "home";
+export function mepDisplay() {
+  if (!sceneState.layerVisibility.mep) return "hidden";
+  if (mepMode !== "auto") return mepMode;
+  return currentView === "devices" ? "shown" : "faded";
+}
+export function setMepMode(mode) {
+  mepMode = ["faded", "shown", "hidden"].includes(mode) ? mode : "auto";
+  if (mepMode !== "auto") setLayerVisible("mep", mepMode !== "hidden");
+  applyMep();
+}
+function applyMep() {
+  setMepEmphasis(mepDisplay() === "shown");
+  emit("mep", mepDisplay());
 }
 
 // Ducts, pipes and the AHU recede outside the Devices theme so the table, people and sensors lead
