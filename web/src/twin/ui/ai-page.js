@@ -109,7 +109,7 @@ function renderControl() {
 }
 
 function meetingBands() {
-  return data().meetings.map((meeting) => ({ from: Date.parse(meeting.start), to: Date.parse(meeting.end), label: `${meeting.title || t("calendar")} · ${meeting.people}` }));
+  return data().meetings.map((meeting) => ({ from: Date.parse(meeting.start), to: Date.parse(meeting.end), label: `${meeting.title || t("meetingDefault")} · ${meeting.people}` }));
 }
 
 function table(element, headers, rows) {
@@ -242,7 +242,7 @@ function renderCalendar() {
     host.dataset.lang = getLang();
     host.dataset.unlocked = String(unlocked);
     host.innerHTML = `<header><div><h2>${escapeHtml(t("calendar"))}</h2><p>${escapeHtml(t("calendarSub"))}</p></div></header>
-      <p class="tw-caption" data-part="calendar-locked" ${unlocked ? "hidden" : ""}>${escapeHtml(t("calendarLocked"))} <button type="button" class="tw-link" data-action="unlock">${icon("ph-lock-key")}${escapeHtml(t("keyUnlock"))}</button></p>
+      <p class="tw-caption" data-part="calendar-locked" ${unlocked ? "hidden" : ""}>${escapeHtml(t("calendarLocked"))} <button type="button" class="tw-link" data-action="unlock">${icon("ph-lock-key")}${escapeHtml(t("login"))}</button></p>
       <form class="tw-calendar-form" ${unlocked ? "" : "hidden"}>
         <label><span>${escapeHtml(t("meetingTitle"))}</span><input name="title" maxlength="80" placeholder="${escapeHtml(t("meetingPlaceholder"))}"></label>
         <label><span>${escapeHtml(t("date"))}</span><input name="date" type="date" required value="${today}"></label>
@@ -261,17 +261,17 @@ function renderCalendar() {
       const start = new Date(`${form.date.value}T${form.start.value}:00+08:00`);
       const end = new Date(`${form.date.value}T${form.end.value}:00+08:00`);
       if (!(end > start)) { status.className = "tw-caption is-error"; status.textContent = t("invalidTime"); return; }
-      const result = await provider().writeRequest({ type: "calendar-update", action: "upsert", meeting: { title: form.title.value.trim(), start: start.toISOString(), end: end.toISOString(), people: Number(form.people.value) } }, t("accessKeyPrompt"));
+      const result = await provider().writeRequest({ type: "calendar-update", action: "upsert", meeting: { title: form.title.value.trim(), start: start.toISOString(), end: end.toISOString(), people: Number(form.people.value) } });
       if (!result) return;
       status.className = `tw-caption ${result.ok ? "is-success" : "is-error"}`;
       status.textContent = result.ok ? t("saved") : result.error || "Error";
     });
   }
   const list = host.querySelector('[data-part="meetings"]');
-  list.innerHTML = meetings.length ? meetings.map((meeting) => `<li class="${Date.parse(meeting.end) <= Date.now() ? "is-past" : ""}"><span>${escapeHtml(`${dateTime(Date.parse(meeting.start))}–${clockTime(Date.parse(meeting.end))} · ${meeting.title || t("calendar")} · ${meeting.people} ${getLang() === "en" ? "people" : "人"}`)}</span>${unlocked ? `<button type="button" class="tw-icon-button" data-delete="${escapeHtml(meeting.id)}" aria-label="${escapeHtml(t("deleteMeeting"))}" title="${escapeHtml(t("deleteMeeting"))}">${icon("ph-trash")}</button>` : ""}</li>`).join("")
+  list.innerHTML = meetings.length ? meetings.map((meeting) => `<li class="${Date.parse(meeting.end) <= Date.now() ? "is-past" : ""}"><span>${escapeHtml(`${dateTime(Date.parse(meeting.start))}–${clockTime(Date.parse(meeting.end))} · ${meeting.title || t("meetingDefault")} · ${meeting.people} ${getLang() === "en" ? "people" : "人"}`)}</span>${unlocked ? `<button type="button" class="tw-icon-button" data-delete="${escapeHtml(meeting.id)}" aria-label="${escapeHtml(t("deleteMeeting"))}" title="${escapeHtml(t("deleteMeeting"))}">${icon("ph-trash")}</button>` : ""}</li>`).join("")
     : `<li>${escapeHtml(t("noMeetings"))}</li>`;
   list.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", async () => {
-    const result = await provider().writeRequest({ type: "calendar-update", action: "delete", meeting: { id: button.dataset.delete } }, t("accessKeyPrompt"));
+    const result = await provider().writeRequest({ type: "calendar-update", action: "delete", meeting: { id: button.dataset.delete } });
     const status = host.querySelector('[data-part="calendar-status"]');
     if (result) { status.className = `tw-caption ${result.ok ? "is-success" : "is-error"}`; status.textContent = result.ok ? t("saved") : result.error || "Error"; }
   }));
@@ -316,7 +316,7 @@ function renderInternal() {
     <p class="tw-caption" data-part="control-status" role="status"></p><p class="tw-caption">${escapeHtml(t("l2Note"))}</p>`;
   const status = host.querySelector('[data-part="control-status"]');
   const send = async (mode) => {
-    const result = await provider().writeRequest({ type: "control-mode-request", mode }, t("accessKeyPrompt"));
+    const result = await provider().writeRequest({ type: "control-mode-request", mode });
     if (result) { status.className = `tw-caption ${result.ok ? "is-success" : "is-error"}`; status.textContent = result.ok ? t("saved") : result.error || "Error"; }
   };
   host.querySelectorAll("[data-mode]").forEach((button) => button.addEventListener("click", () => send(button.dataset.mode)));

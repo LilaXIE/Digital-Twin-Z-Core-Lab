@@ -29,6 +29,7 @@ export function mount(element) {
       <div class="tw-tags" data-part="tags"></div>
       <div data-part="list"></div>
     </section>
+    <section class="tw-section" data-part="audit-section" hidden><h3>${escapeHtml(t("auditTitle"))}</h3><div data-part="audit"></div></section>
     <section class="tw-section" data-part="ahu-section" hidden><h3>${escapeHtml(t("ahu"))}</h3><div class="tw-rows" data-part="ahu"></div></section>
     <section class="tw-section">
       <details class="tw-collapse" data-part="layers"><summary>${escapeHtml(t("layers"))}</summary><div data-part="layers-body"></div></details>
@@ -40,7 +41,19 @@ export function mount(element) {
   body.querySelectorAll("[data-mode]").forEach((button) => button.addEventListener("click", () => { listMode = button.dataset.mode; renderList(); }));
   renderLayers();
   provider().requestDeviceHealth?.();
+  provider().requestAuditLog?.();
   update();
+}
+
+// Members see who switched, edited or noted what (section D1).
+const AUDIT_ACTIONS = { socket: "auditSocket", "meeting-upsert": "auditMeetingAdd", "meeting-delete": "auditMeetingDelete", "control-mode": "auditMode", "note-add": "auditNoteAdd", "note-delete": "auditNoteDelete", login: "auditLogin" };
+function renderAudit() {
+  const section = body.querySelector('[data-part="audit-section"]');
+  const entries = data().auditLog || [];
+  section.hidden = !entries.length;
+  if (!entries.length) return;
+  const detail = (entry) => entry.action === "socket" ? `${entry.detail?.deviceId} ${t(entry.detail?.action === "on" ? "socketOn" : "socketOff")}` : entry.action === "control-mode" ? entry.detail?.mode : entry.detail?.target || "";
+  body.querySelector('[data-part="audit"]').innerHTML = `<div class="tw-health-log">${entries.slice(-12).reverse().map((entry) => `<p${entry.ok === false ? ' class="is-error"' : ""}>${escapeHtml(`${ago(Date.parse(entry.t))} · ${entry.member} · ${t(AUDIT_ACTIONS[entry.action] || entry.action)}${detail(entry) ? ` · ${detail(entry)}` : ""}${entry.ok === false ? ` · ${t("auditFailed")}` : ""}`)}</p>`).join("")}</div>`;
 }
 
 // "10 min" or "3.4 h".
@@ -213,6 +226,7 @@ export function update() {
   if (!body.contains(document.activeElement) || !document.activeElement.closest('[data-part="data-health"]')) renderDataHealth();
   if (document.activeElement?.closest?.('[data-part="list"]') === null || !body.contains(document.activeElement)) renderList();
   renderAhu();
+  renderAudit();
 }
 
 export const titleKey = "devicesTitle";

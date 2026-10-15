@@ -1,7 +1,7 @@
 // WebSocket connection to the data bridge (scripts/influxdb-bridge.mjs, port 8787).
 // The protocol is unchanged; room-history-request and reading-stats are the only additions.
 import { bridgeUrl } from "../../shared/bridge-url.js";
-import { bridgeKey, forgetBridgeKey } from "../../shared/bridge-key.js";
+import { forgetBridgeKey, memberToken, promptForKey, setMemberToken } from "../../shared/bridge-key.js";
 import { live } from "./store.js";
 import { deviceById, ingestTelemetry, registry, snapshotFor } from "./devices.js";
 import { emit } from "../state.js";
@@ -16,7 +16,6 @@ let retryTimer = null;
 let closing = false;
 const pendingReplies = new Map();
 
-const keyLabels = () => ({ title: t("keyTitle"), field: t("keyField"), cancel: t("cancel"), unlock: t("keyUnlock") });
 const isOpen = () => socket && socket.readyState === WebSocket.OPEN;
 const requestId = (type) => `${type}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 
@@ -90,9 +89,21 @@ function handle(message) {
     case "standby-report": live.standby = message; emit("data", { kind: "standby" }); return;
     case "calendar-result":
     case "control-mode-result":
-      if (message.keyRejected) forgetBridgeKey();
+    case "note-result":
+      if (message.keyRejected) signedOut();
       settleReply(message);
       return;
+    case "feedback-result": settleReply(message); return;
+    case "session":
+      live.member = message.member ? { name: message.member } : null;
+      if (message.token) setMemberToken(message.token);
+      if (!message.member) setMemberToken("");
+      settleReply(message);
+      emit("data", { kind: "control" });
+      return;
+    case "audit-log": live.auditLog = message.entries || []; emit("data", { kind: "audit-log" }); return;
+    case "notes": live.notes = message.notes || []; emit("data", { kind: "notes" }); return;
+    case "feedback": live.feedback = message.entries || []; emit("data", { kind: "feedback" }); return;
     case "control-mode": emit("data", { kind: "control-mode", mode: message.mode }); return;
     case "demand-history": {
       const range = ["today", "7d", "30d"].includes(message.range) ? message.range : "today";
@@ -130,7 +141,7 @@ function handle(message) {
       if (!pending) return;
       if (!message.ok) {
         live.pendingControls.delete(message.requestId);
-        if (message.keyRejected) forgetBridgeKey();
+        if (message.keyRejected) signedOut();
         controlMessage(pending.deviceId, "failed", "phaseFailed", { reason: message.error || "Unknown error" }, "error");
         return;
       }
@@ -168,7 +179,12 @@ export function connect() {
     scheduleReconnect();
     return;
   }
-  socket.addEventListener("open", () => { retryAttempt = 0; emit("data", { kind: "socket-open" }); });
+  socket.addEventListener("open", () => {
+    retryAttempt = 0;
+    // A member stays logged in across reconnects for this tab (the token expires after 12 hours).
+    if (memberToken()) send({ type: "resume", token: memberToken(), requestId: requestId("resume") });
+    emit("data", { kind: "socket-open" });
+  });
   socket.addEventListener("message", (event) => {
     let message;
     try { message = JSON.parse(event.data); } catch { return; }
@@ -178,6 +194,7 @@ export function connect() {
     socket = null;
     live.connection = { ...live.connection, known: true, connected: false, diagnostic: "Browser lost the connection to the data bridge; reconnecting" };
     live.control = { ...live.control, connected: false };
+    live.member = null; // the next connection resumes the session from the token
     for (const pending of live.pendingControls.values()) window.clearTimeout(pending.timeoutId);
     live.pendingControls.clear();
     live.demandLoading.clear();
@@ -187,6 +204,15 @@ export function connect() {
   });
   socket.addEventListener("error", () => socket?.close());
 }
+
+function signedOut() {
+  live.member = null;
+  setMemberToken("");
+  forgetBridgeKey();
+  emit("data", { kind: "control" });
+}
+
+const loginLabels = () => ({ title: t("loginTitle"), field: t("keyField"), cancel: t("cancel"), unlock: t("login") });
 
 function scheduleReconnect() {
   if (closing) return;
@@ -243,9 +269,33 @@ export const bridgeApi = {
   requestAiReview(days = 7, hours = 24) {
     send({ type: "ai-review-request", requestId: requestId("ai-review"), days, hours });
   },
+  // Members log in once with their own key; protected bridges refuse writes from visitors.
+  async login() {
+    if (live.member) return true;
+    if (!isOpen()) return false;
+    const key = await promptForKey(t("loginPrompt"), loginLabels());
+    if (!key) return false;
+    const id = requestId("login");
+    send({ type: "login", key, requestId: id });
+    const reply = await awaitReply(id, 15000, { member: null, error: "timeout" });
+    return Boolean(reply.member);
+  },
+  logout() {
+    send({ type: "logout" });
+    signedOut();
+  },
+  async ensureMember() {
+    return !live.control.writeProtected || Boolean(live.member) || this.login();
+  },
+  async sendFeedback(vote) {
+    if (!isOpen()) return { ok: false };
+    const id = requestId("feedback");
+    send({ type: "feedback", vote, requestId: id });
+    return awaitReply(id, 15000, { ok: false, error: "timeout" });
+  },
+  requestAuditLog() { send({ type: "audit-log-request" }); },
   async socketControl(deviceId, desired) {
-    const key = await bridgeKey(live.control.writeProtected, t("accessKeyPrompt"), keyLabels());
-    if (key === null) return false;
+    if (!(await this.ensureMember())) return false;
     if (!live.control.connected || !isOpen()) {
       controlMessage(deviceId, "failed", "phaseFailed", { reason: t("reasonMqtt") }, "error");
       return false;
@@ -254,15 +304,14 @@ export const bridgeApi = {
     const snapshot = snapshotFor(live, deviceId);
     live.pendingControls.set(id, { deviceId, desired, phase: "queued", baselineTelemetryAt: snapshot.metricUpdatedAt.socketStatus || 0, timeoutId: null });
     controlMessage(deviceId, "queued", "phaseQueued");
-    send({ type: "socket-control", requestId: id, deviceId, action: desired ? "on" : "off", ...(key ? { key } : {}) });
+    send({ type: "socket-control", requestId: id, deviceId, action: desired ? "on" : "off" });
     return true;
   },
-  async writeRequest(message, accessPrompt) {
-    const key = await bridgeKey(live.control.writeProtected, accessPrompt, keyLabels());
-    if (key === null) return null;
+  async writeRequest(message) {
+    if (!(await this.ensureMember())) return null;
     if (!isOpen()) return { ok: false, error: t("disconnected") };
     const id = requestId(message.type);
-    send({ ...message, requestId: id, ...(key ? { key } : {}) });
+    send({ ...message, requestId: id });
     return awaitReply(id, 30000, { ok: false, error: "timeout" });
   },
 };

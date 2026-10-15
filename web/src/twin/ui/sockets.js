@@ -4,7 +4,6 @@
 import { t } from "../i18n.js";
 import { data, provider } from "../data/store.js";
 import { settings, emit } from "../state.js";
-import { bridgeKey, hasBridgeKey } from "../../shared/bridge-key.js";
 import { escapeHtml, icon, openAsPopover, closePopover } from "./dom.js";
 
 export function controlAvailability() {
@@ -20,15 +19,14 @@ export function controlUnlocked() {
   const dataset = data();
   if (dataset.kind === "demo") return true;
   if (dataset.control.readOnly) return false;
-  return !dataset.control.writeProtected || hasBridgeKey();
+  return !dataset.control.writeProtected || Boolean(dataset.member);
 }
 
 // Switches appear only when a press can actually do something.
 export const switchesInteractive = () => controlAvailability().ok && controlUnlocked();
 
 export async function unlockControl() {
-  const key = await bridgeKey(true, t("accessKeyPrompt"), { title: t("keyTitle"), field: t("keyField"), cancel: t("cancel"), unlock: t("keyUnlock") });
-  if (key) emit("data", { kind: "control" });
+  if (await provider().login?.()) emit("data", { kind: "control" });
 }
 
 // Read-only socket state in place of a switch: a dot and "On" / "Off".
@@ -50,7 +48,7 @@ export function controlStatus(element) {
     element.textContent = settings.internal ? `${t("controlUnavailable")} · ${availability.reason}` : t("controlViewOnly");
   } else if (!controlUnlocked()) {
     element.className = "tw-caption";
-    element.innerHTML = `${escapeHtml(t("controlLocked"))} <button type="button" class="tw-link" data-action="unlock">${icon("ph-lock-key")}${escapeHtml(t("keyUnlock"))}</button>`;
+    element.innerHTML = `${escapeHtml(t("controlLocked"))} <button type="button" class="tw-link" data-action="unlock">${icon("ph-lock-key")}${escapeHtml(t("login"))}</button>`;
     element.querySelector('[data-action="unlock"]').addEventListener("click", () => { void unlockControl(); });
   }
   else if (message && Date.now() - message.at < 120000) { element.className = `tw-caption is-${message.level}`; element.textContent = t(message.key, message.vars); }

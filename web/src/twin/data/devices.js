@@ -143,6 +143,10 @@ export function createDataset(kind) {
     aiReview: null, // { savings, forecast } from scripts/strategy/review.mjs
     deviceHealth: null, // { devices: { id: { uplinks, longestGapMinutes, completeness, ... } }, events } (scripts/device-health.mjs)
     standby: null, // { sockets: [{ id, standbyW, yearKwh, ... }], totalYearKwh } (scripts/standby.mjs)
+    member: null, // { name } once logged in (scripts/members.mjs)
+    auditLog: [], // members only: who switched, edited or noted what
+    notes: [], // members only: notes pinned to devices and components
+    feedback: [], // comfort votes from the last 48 hours
     recRoom: [],
     meetings: [],
     demandHistory: new Map(),

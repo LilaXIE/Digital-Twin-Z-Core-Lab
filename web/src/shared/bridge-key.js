@@ -1,6 +1,15 @@
 // Access key for control commands on a protected (public) bridge.
-// The key is kept for this browser tab session only and sent with each command.
+// Older pages kept the key for the tab session and sent it with each command; the twin now logs a
+// member in once (scripts/members.mjs) and keeps only the signed session token for the tab.
 const STORAGE_KEY = "zb202-bridge-key";
+const TOKEN_KEY = "zb202-member-token";
+
+export function memberToken() {
+  try { return sessionStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; }
+}
+export function setMemberToken(token) {
+  try { if (token) sessionStorage.setItem(TOKEN_KEY, token); else sessionStorage.removeItem(TOKEN_KEY); } catch { /* storage unavailable */ }
+}
 let pendingPrompt = null;
 
 function storedKey() {
@@ -13,7 +22,7 @@ export function forgetBridgeKey() {
   try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* storage unavailable */ }
 }
 
-function promptForKey(message, labels = {}) {
+export function promptForKey(message, labels = {}) {
   const dialog = document.createElement("dialog");
   dialog.className = "zb-key-dialog";
   dialog.innerHTML = `

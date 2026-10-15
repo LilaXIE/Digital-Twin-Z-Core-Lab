@@ -256,6 +256,18 @@ demoFactory.api = {
     emit("data", { kind: "telemetry", deviceId, changed: ["socketStatus", "activePower"] });
     return true;
   },
+  // Demo mode needs no login; votes stay on this page.
+  async login() { return true; },
+  logout() {},
+  async ensureMember() { return true; },
+  requestAuditLog() {},
+  async sendFeedback(vote) {
+    const dataset = currentDemo();
+    if (!dataset) return { ok: false };
+    dataset.feedback = [...dataset.feedback, { t: new Date().toISOString(), vote, member: null, room: {} }];
+    emit("data", { kind: "feedback" });
+    return { ok: true };
+  },
   async writeRequest(message) {
     const dataset = currentDemo();
     if (!dataset) return { ok: false };
@@ -264,6 +276,12 @@ demoFactory.api = {
       else dataset.meetings = [...dataset.meetings, { id: `demo-${Date.now()}`, ...message.meeting }];
       dataset.recommendation = demoRecommendation(dataset, Date.now());
       emit("data", { kind: "calendar" });
+      return { ok: true };
+    }
+    if (message.type === "note-add" || message.type === "note-delete") {
+      if (message.type === "note-add") dataset.notes = [...dataset.notes, { id: `demo-${Date.now()}`, t: new Date().toISOString(), member: "demo", target: message.target, text: message.text, camera: message.camera || null }];
+      else dataset.notes = dataset.notes.filter((note) => note.id !== message.id);
+      emit("data", { kind: "notes" });
       return { ok: true };
     }
     if (message.type === "control-mode-request") {
