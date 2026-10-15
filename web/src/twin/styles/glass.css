@@ -42,7 +42,7 @@
   padding: 1.5px;
   border-radius: inherit;
   /* Near the pointer the rim catches the light. */
-  background: radial-gradient(170px circle at var(--px, 50%) var(--py, 50%), rgb(255 255 255 / calc(var(--rim-lit) * 0.95)), transparent 72%), var(--glass-card-rim);
+  background: radial-gradient(10.625rem circle at var(--px, 50%) var(--py, 50%), rgb(255 255 255 / calc(var(--rim-lit) * 0.95)), transparent 72%), var(--glass-card-rim);
   mix-blend-mode: plus-lighter;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -56,7 +56,7 @@
 .tw-identity.glass-thin.is-lit { --rim-lit: 1; box-shadow: var(--glass-card-glow), var(--glass-card-shadow-lit); }
 .tw-dock > .glass-thick::after,
 .tw-identity.glass-thin::after {
-  background: radial-gradient(220px circle at var(--px, 50%) var(--py, 50%), var(--glass-card-hover), transparent 72%);
+  background: radial-gradient(13.75rem circle at var(--px, 50%) var(--py, 50%), var(--glass-card-hover), transparent 72%);
   mix-blend-mode: plus-lighter;
   transition: opacity 450ms ease;
 }
@@ -77,7 +77,7 @@
   border-radius: inherit;
   pointer-events: none;
   opacity: 0;
-  background: radial-gradient(120px circle at var(--px, 50%) var(--py, 50%), var(--glass-sheen), transparent 70%);
+  background: radial-gradient(7.5rem circle at var(--px, 50%) var(--py, 50%), var(--glass-sheen), transparent 70%);
   transition: opacity 240ms ease;
 }
 .glass-thin.is-lit::after,
@@ -86,7 +86,7 @@
 .glass-thick.is-touch-lit::after { opacity: 1; transition: opacity 500ms ease; }
 
 /* Low quality tier halves the blur radius. */
-:root[data-quality="low"] { --glass-blur-thin: 10px; --glass-blur-thick: 18px; --glass-blur-card: 12px; }
+:root[data-quality="low"] { --glass-blur-thin: 0.625rem; --glass-blur-thick: 1.125rem; --glass-blur-card: 0.75rem; }
 
 /* Reduced transparency (system or setting): opaque surfaces, no blur, no sheen. */
 :root[data-transparency="reduced"] .glass-thin,

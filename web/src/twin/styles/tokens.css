@@ -1,4 +1,9 @@
 /* Design tokens: colour, spacing, radius, type. Light is the default theme; dark is "night". */
+/* Fluid interface scale: every size is in rem, and 1 rem follows the window, 16 px at 1440 × 900,
+   growing on larger laptops and screens and shrinking on small ones (from 13.6 px up to 28 px). */
+:root { font-size: clamp(13.6px, min(1.1111vw, 1.7778vh), 28px); }
+:root[data-phone] { font-size: 16px; }
+
 :root {
   color-scheme: light;
   --font-ui: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
@@ -48,38 +53,38 @@
      the material is carried by a thin specular rim (brightest top-left and bottom-right, faintly
      iridescent) and a soft inner edge glow. */
   --glass-card-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04) 55%, rgba(255, 255, 255, 0.08));
-  --glass-blur-card: 18px;
+  --glass-blur-card: 1.125rem;
   --glass-card-rim: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.55) 10%, rgba(255, 255, 255, 0.1) 32%, rgba(255, 255, 255, 0.05) 68%, rgba(255, 255, 255, 0.5) 90%, #fff 100%);
-  --glass-card-glow: inset 0 1px 1px rgba(255, 255, 255, 0.45), inset 0 0 14px rgba(255, 255, 255, 0.1);
-  --glass-card-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-  --glass-card-shadow-lit: 0 14px 40px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.25);
+  --glass-card-glow: inset 0 1px 1px rgba(255, 255, 255, 0.45), inset 0 0 0.875rem rgba(255, 255, 255, 0.1);
+  --glass-card-shadow: 0 0.625rem 1.875rem rgba(15, 23, 42, 0.08);
+  --glass-card-shadow-lit: 0 0.875rem 2.5rem rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.25);
   --glass-card-hover: rgba(255, 255, 255, 0.5);
   --glass-ripple: rgba(255, 255, 255, 0.45);
   --glass-ripple-strong: rgba(255, 255, 255, 0.85);
   --card-inset: rgba(255, 255, 255, 0.22);
   --card-inset-hover: rgba(255, 255, 255, 0.4);
   --card-inset-rim: inset 0 0 0 0.5px rgba(255, 255, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  --glass-blur-thin: 20px;
-  --glass-blur-thick: 36px;
+  --glass-blur-thin: 1.25rem;
+  --glass-blur-thick: 2.25rem;
   --glass-highlight: rgba(255, 255, 255, 0.6);
   --glass-edge: rgba(255, 255, 255, 0.55);
-  --glass-shadow: 0 8px 32px rgba(15, 23, 42, 0.12);
+  --glass-shadow: 0 0.5rem 2rem rgba(15, 23, 42, 0.12);
   --glass-sheen: rgba(255, 255, 255, 0.18);
   --opaque-bg: #f6f7f9;
 
   /* Spacing (4 px base), radii (concentric), type scale */
-  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s6: 24px; --s8: 32px;
-  --r-panel: 28px;
-  --r-inner: 16px; /* 28 − 12 px padding */
-  --r-small: 10px;
-  --fs-hero: 36px;
-  --fs-capsule: 17px;
-  --fs-body: 14px;
-  --fs-caption: 12px;
-  --tap: 40px;
-  --edge: 16px;
-  --panel-width: 400px;
-  --dock-width: 300px;
+  --s1: 0.25rem; --s2: 0.5rem; --s3: 0.75rem; --s4: 1rem; --s6: 1.5rem; --s8: 2rem;
+  --r-panel: 1.75rem;
+  --r-inner: 1rem; /* 28 − 12 px padding */
+  --r-small: 0.625rem;
+  --fs-hero: 2.125rem;
+  --fs-capsule: 1.0625rem;
+  --fs-body: 0.875rem;
+  --fs-caption: 0.75rem;
+  --tap: 2.5rem;
+  --edge: 1rem;
+  --panel-width: 25rem;
+  --dock-width: 19.25rem;
 }
 
 :root:lang(zh-Hant) { --font-ui: "Inter", "Noto Sans HK", "PingFang HK", "Microsoft JhengHei", system-ui, sans-serif; }
@@ -121,9 +126,9 @@
   --glass-full-bg: rgba(22, 24, 28, 0.94);
   --glass-card-bg: linear-gradient(160deg, rgba(48, 52, 60, 0.34), rgba(16, 18, 22, 0.26) 55%, rgba(30, 33, 40, 0.32));
   --glass-card-rim: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.22) 10%, rgba(255, 255, 255, 0.05) 32%, rgba(255, 255, 255, 0.03) 68%, rgba(255, 255, 255, 0.2) 90%, rgba(255, 255, 255, 0.5) 100%);
-  --glass-card-glow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.18), inset 0 0 18px rgba(255, 255, 255, 0.05);
-  --glass-card-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-  --glass-card-shadow-lit: 0 14px 40px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --glass-card-glow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.18), inset 0 0 1.125rem rgba(255, 255, 255, 0.05);
+  --glass-card-shadow: 0 0.625rem 1.875rem rgba(0, 0, 0, 0.3);
+  --glass-card-shadow-lit: 0 0.875rem 2.5rem rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.08);
   --glass-card-hover: rgba(255, 255, 255, 0.13);
   --glass-ripple: rgba(255, 255, 255, 0.12);
   --glass-ripple-strong: rgba(255, 255, 255, 0.26);
@@ -132,34 +137,9 @@
   --card-inset-rim: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --glass-highlight: rgba(255, 255, 255, 0.12);
   --glass-edge: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  --glass-shadow: 0 0.5rem 2rem rgba(0, 0, 0, 0.35);
   --glass-sheen: rgba(255, 255, 255, 0.08);
   --opaque-bg: #16181c;
 }
 
-/* Large laptops (1500–1919 px wide, e.g. 14- and 16-inch): the fixed pixel sizes made the side
-   cards look small and flat on these wider screens, so text, tiles and padding step up a little. */
-:root[data-roomy] {
-  --tap: 44px;
-  --panel-width: 430px;
-  --dock-width: 344px;
-  --fs-hero: 40px;
-  --fs-capsule: 19px;
-  --fs-body: 15px;
-  --fs-caption: 13px;
-}
-
-/* Large screens (lab touch display): scale the whole interface. */
-:root[data-tier="kiosk"] {
-  font-size: clamp(16px, 0.62vw + 6px, 24px);
-  --tap: 56px;
-  --edge: 24px;
-  --panel-width: clamp(440px, 26vw, 600px);
-  --dock-width: clamp(340px, 19vw, 420px);
-  --fs-hero: 48px;
-  --fs-capsule: 22px;
-  --fs-body: 17px;
-  --fs-caption: 14px;
-}
-:root[data-touch="true"] { --tap: 48px; }
-:root[data-touch="true"][data-tier="kiosk"] { --tap: 56px; }
+:root[data-touch="true"] { --tap: 3rem; }

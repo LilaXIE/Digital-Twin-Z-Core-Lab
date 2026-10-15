@@ -83,6 +83,7 @@ export function initMobile() {
   const apply = () => {
     const phone = phoneQuery.matches;
     document.body.toggleAttribute("data-mobile", phone);
+    document.documentElement.toggleAttribute("data-phone", phone); // fixed 16 px base (tokens.css)
     host.hidden = !phone;
     renderMobile();
   };

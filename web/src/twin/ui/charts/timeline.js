@@ -31,7 +31,9 @@ function segments(points, gapMs) {
 export function lineChart(container, spec) {
   const width = Math.max(240, container.clientWidth || 320);
   const height = container.clientHeight || 160;
-  const margin = { top: 10, right: spec.rightMargin ?? (spec.series.some((s) => s.directLabel) || spec.refs?.length ? 70 : 10), bottom: 22, left: 38 };
+  // Margins scale with the interface's base size (1 rem), like the axis labels inside them.
+  const k = (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16;
+  const margin = { top: 10 * k, right: (spec.rightMargin ?? (spec.series.some((s) => s.directLabel) || spec.refs?.length ? 70 : 10)) * k, bottom: 22 * k, left: 38 * k };
   const plotW = width - margin.left - margin.right;
   const plotH = height - margin.top - margin.bottom;
   const all = spec.series.flatMap((series) => series.points.filter((point) => Number.isFinite(point.v)));

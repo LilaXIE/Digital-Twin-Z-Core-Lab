@@ -15,7 +15,7 @@
       root.dataset.transparency = transparency || (matchMedia("(prefers-reduced-transparency: reduce)").matches ? "reduced" : "standard");
       const kiosk = innerWidth >= 1920 || (new URLSearchParams(location.search).get("kiosk") === "1" && innerWidth >= 1600);
       root.dataset.tier = kiosk ? "kiosk" : innerWidth < 1280 ? "narrow" : "standard";
-      if (!kiosk && innerWidth >= 1500) root.dataset.roomy = "";
+      if (matchMedia("(orientation: portrait) and (max-width: 760px)").matches) root.dataset.phone = "";
       root.dataset.touch = String(matchMedia("(pointer: coarse)").matches || matchMedia("(hover: none)").matches);
     })();
   </script>
