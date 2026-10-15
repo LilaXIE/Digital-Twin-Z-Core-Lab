@@ -58,6 +58,7 @@ export function mount(element) {
   body = element;
   body.innerHTML = `
     <section class="tw-section" data-part="switch"></section>
+    <p class="tw-halo-legend" data-part="halo-legend"></p>
     <section class="tw-section">
       <h3><span data-part="timeline-title"></span><button type="button" class="tw-button tw-button-small" data-action="replay">${icon("ph-play")}<span>${escapeHtml(t("replay"))}</span></button></h3>
       <div class="tw-ranges" role="group" aria-label="${escapeHtml(t("rangeAria"))}" data-part="ranges"></div>
@@ -84,6 +85,21 @@ function renderSwitch() {
     host.innerHTML = html;
     host.querySelectorAll("[data-metric]").forEach((button) => button.addEventListener("click", () => setFocusMetric(button.dataset.metric)));
   }
+}
+
+// What the coloured rings on the floor mean for the metric shown (section B4).
+function renderHaloLegend() {
+  const host = body.querySelector('[data-part="halo-legend"]');
+  const key = ui.focusMetric;
+  const c = thresholds[key];
+  let items = null;
+  if (key === "co2") items = [["good", `< ${c.goodBelow}`], ["caution", `${c.goodBelow}–${c.poorAbove}`], ["poor", `> ${c.poorAbove}`]];
+  else if (key === "temperature" || key === "humidity") items = [["good", `${c.comfort[0]}–${c.comfort[1]}`], ["caution", `${c.caution[0]}–${c.caution[1]}`], ["poor", t("haloOutside")]];
+  else if (key === "pm25") items = [["good", `≤ ${c.goodAtMost}`], ["caution", `${c.goodAtMost}–${c.poorAbove}`], ["poor", `> ${c.poorAbove}`]];
+  host.hidden = !items;
+  if (!items) return;
+  const unit = { co2: "ppm", temperature: "°C", humidity: "%", pm25: "µg/m³" }[key];
+  host.innerHTML = `<span>${escapeHtml(t("haloLegend"))}</span>${items.map(([level, text]) => `<span><i class="tw-dot" data-level="${level}"></i>${escapeHtml(text)}</span>`).join("")}<span class="tw-unit">${escapeHtml(unit)}</span>`;
 }
 
 function renderRanges() {
@@ -199,6 +215,7 @@ export function update() {
   if (!body) return;
   if (!available().some((m) => m.key === ui.focusMetric) && available().length) setFocusMetric(available()[0].key);
   renderSwitch();
+  renderHaloLegend();
   renderRanges();
   renderTimeline();
   renderIndoor();

@@ -10,6 +10,7 @@ import { lineChart, legend, cssVar } from "./charts/timeline.js";
 import { escapeHtml, icon, term } from "./dom.js";
 import { ahuHours, ahuOff, dayTime, reasonText, weekdayName } from "./ai-text.js";
 import { controlUnlocked, unlockControl } from "./sockets.js";
+import { updateViewInset } from "./panel.js";
 
 const page = () => document.getElementById("ai-page");
 let built = false;
@@ -46,6 +47,7 @@ function build() {
     button.setAttribute("aria-label", t(full ? "collapse" : "expand"));
     button.title = t(full ? "collapse" : "expand");
     renderCharts();
+    updateViewInset();
   });
   built = true;
 }
@@ -292,6 +294,7 @@ export function openAiPage() {
     page().hidden = false;
     page().style.viewTransitionName = "ai-surface";
     renderAiPage();
+    updateViewInset();
     page().querySelector('[data-action="close"]')?.focus({ preventScroll: true });
   };
   provider().requestRecommendationHistory(24);
@@ -304,6 +307,7 @@ export function closeAiPage() {
   const card = document.getElementById("ai-card");
   const hide = () => {
     page().hidden = true;
+    updateViewInset();
     page().style.viewTransitionName = "none";
     card.style.viewTransitionName = "";
   };

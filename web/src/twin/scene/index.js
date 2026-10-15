@@ -129,6 +129,32 @@ export function setSensorMode(mode) {
 
 export function themeLayers(view) {
   setFlowsVisible(view === "energy");
+  setMepEmphasis(view === "devices");
+}
+
+// Ducts, pipes and the AHU recede outside the Devices theme so the table, people and sensors lead
+// (section B4). Lamps stay solid. Materials are shared per kind, so each is changed once.
+const MEP_FADED_OPACITY = 0.3;
+let mepFull = null;
+export function setMepEmphasis(full) {
+  const group = sceneState.result?.groups.mep;
+  if (!group || mepFull === full) return;
+  mepFull = full;
+  const opacity = full ? 1 : MEP_FADED_OPACITY;
+  const done = new Set();
+  for (const mesh of group.children) {
+    if (/Lighting Fixture/i.test(sceneState.result.items.get(mesh.name)?.name || "")) continue;
+    for (const material of [].concat(mesh.material)) {
+      if (!material || done.has(material) || material.name === "lampFrame") continue;
+      done.add(material);
+      const transparent = opacity < 1;
+      // Toggling transparency changes the shader's OPAQUE define, so the program is rebuilt.
+      if (material.transparent !== transparent) { material.transparent = transparent; material.needsUpdate = true; }
+      material.opacity = opacity;
+      material.depthWrite = !transparent;
+    }
+  }
+  requestRender();
 }
 
 // Raycast against the display layer. Walls, floor and furniture are context, not selectable.

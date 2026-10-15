@@ -178,6 +178,15 @@ body[data-view]:not([data-view="home"]) .tw-capsule .tw-capsule-label { display:
 .tw-ai-value { margin-top: 6px; font-size: var(--fs-hero); font-weight: 300; letter-spacing: -0.02em; line-height: 1.05; }
 .tw-socket-state { display: inline-flex; align-items: center; gap: 5px; justify-self: end; font-size: 12px; font-weight: 500; color: var(--text-2); white-space: nowrap; }
 .tw-socket-state[data-on="false"] { color: var(--text-3); }
+.tw-halo-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 2px 4px 0; font-size: var(--fs-caption); color: var(--text-2); }
+.tw-halo-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.tw-locmap { display: flex; align-items: center; gap: 12px; margin: 4px 4px 10px; }
+.tw-locmap svg { width: 92px; height: auto; flex: none; overflow: visible; }
+.tw-locmap line { stroke: var(--text-3); stroke-width: 0.09; stroke-linecap: round; }
+.tw-locmap line.is-door { stroke: var(--accent); stroke-width: 0.07; }
+.tw-locmap-dot { fill: var(--accent); }
+.tw-locmap-ring { fill: var(--accent-soft); }
+.tw-locmap figcaption { font-size: var(--fs-caption); color: var(--text-2); }
 .tw-ai-value-line { margin: 6px 0 0; font-size: 13px; font-weight: 600; color: var(--text); }
 body[data-view="home"] .tw-sentence { padding: 7px 16px; border-radius: 999px; font-size: 16px; text-shadow: none;
   background: var(--glass-thin-bg, rgba(255, 255, 255, 0.55)); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4); box-shadow: var(--card-inset-rim); }

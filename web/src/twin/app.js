@@ -227,7 +227,7 @@ async function boot() {
   });
   window.addEventListener("keydown", handleEscape);
   window.addEventListener("resize", applyTier);
-  $("#reset-view").addEventListener("click", () => { sceneState.userMoved = false; $("#reset-view").hidden = true; void flyToView(ui.view === "ai" ? "home" : ui.view); });
+  $("#reset-view").addEventListener("click", () => { sceneState.userMoved = false; $("#reset-view").hidden = true; void flyToView(ui.view); });
   $("#snapshot-btn").addEventListener("click", () => void snapshot());
   $("#reload-btn").addEventListener("click", () => window.location.reload());
 
@@ -251,7 +251,7 @@ async function boot() {
   setDisplayMode("all");
   updateSceneBindings();
   getControls().addEventListener("end", () => {
-    if (sceneState.userMoved && offPreset(ui.view === "ai" ? "home" : ui.view)) $("#reset-view").hidden = false;
+    if (sceneState.userMoved && offPreset(ui.view)) $("#reset-view").hidden = false;
   });
   initPointer();
   document.body.classList.add("ui-entering");

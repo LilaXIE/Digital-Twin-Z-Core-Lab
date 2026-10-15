@@ -17,6 +17,7 @@ let labelLayer = null;
 let progressTarget = 0;
 let progressShown = 0;
 let skipRequested = false;
+let planOffset = { x: 0, z: 0 };
 
 const colors = { grid: 0x9fb2c8, wall: 0x2f6fd6, column: 0x2f6fd6, door: 0x5a8fe0, dim: 0x7c8ea6 };
 
@@ -109,6 +110,7 @@ export function failPlan() {
 export function alignPlan(archiBox) {
   if (!planGroup || !plan) return;
   const offset = archiBox.min.clone().sub(new THREE.Vector3(...plan.modelBox.min));
+  planOffset = { x: offset.x, z: offset.z };
   planGroup.position.copy(offset);
   planGroup.updateMatrixWorld(true);
   camera.position.add(offset);
@@ -117,6 +119,13 @@ export function alignPlan(archiBox) {
 }
 
 export function requestSkip() { skipRequested = true; }
+
+// Walls, columns and doors of the floor plan in model space, for the sensor sheet's location map.
+export function planOutline() {
+  if (!plan) return null;
+  return plan.lines.filter(([kind]) => kind === "wall" || kind === "column" || kind === "door")
+    .map(([kind, x1, z1, x2, z2]) => [kind, x1 + planOffset.x, z1 + planOffset.z, x2 + planOffset.x, z2 + planOffset.z]);
+}
 
 // The sequence itself. onUi() reveals the interface; onMarkers() lights the sensors.
 export async function playIntro({ box, floorY, home, onUi, onMarkers }) {

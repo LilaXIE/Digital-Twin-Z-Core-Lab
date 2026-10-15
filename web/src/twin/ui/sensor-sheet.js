@@ -8,6 +8,7 @@ import { deviceById } from "../data/devices.js";
 import { deviceStatus, sensorHealth, sensorReading } from "../data/derived.js";
 import { sceneState, focusDevice, focusItem, selectOutline, detailsFor, itemByKey } from "../scene/index.js";
 import { markerFor } from "../scene/markers.js";
+import { planOutline } from "../scene/intro.js";
 import { lineChart, cssVar } from "./charts/timeline.js";
 import { escapeHtml, icon, term, growFrom, shrinkTo } from "./dom.js";
 import { valueHtml, metricLabel } from "./format.js";
@@ -68,6 +69,22 @@ function bimSection() {
   </dl></div></details>`;
 }
 
+// A small floor plan with the sensor's position, so a close-up still says where in the room it is.
+function locationMap(deviceId) {
+  const lines = planOutline();
+  const anchor = sceneState.anchors.get(deviceId);
+  if (!lines?.length || !anchor) return "";
+  const xs = lines.flatMap(([, x1, , x2]) => [x1, x2]);
+  const zs = lines.flatMap(([, , z1, , z2]) => [z1, z2]);
+  const [minX, maxX, minZ, maxZ] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+  const pad = 0.4;
+  const view = `${(minX - pad).toFixed(2)} ${(minZ - pad).toFixed(2)} ${(maxX - minX + 2 * pad).toFixed(2)} ${(maxZ - minZ + 2 * pad).toFixed(2)}`;
+  const path = lines.map(([kind, x1, z1, x2, z2]) => `<line class="is-${kind}" x1="${x1.toFixed(2)}" y1="${z1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${z2.toFixed(2)}"/>`).join("");
+  return `<figure class="tw-locmap"><svg viewBox="${view}" role="img" aria-label="${escapeHtml(t("locationMap"))}">${path}
+    <circle class="tw-locmap-ring" cx="${anchor.x.toFixed(2)}" cy="${anchor.z.toFixed(2)}" r="0.45"/><circle class="tw-locmap-dot" cx="${anchor.x.toFixed(2)}" cy="${anchor.z.toFixed(2)}" r="0.18"/></svg>
+    <figcaption>${escapeHtml(t("locationMapCaption"))}</figcaption></figure>`;
+}
+
 // CO₂ sensors: raw reading, calibration offset and the health check's verdict.
 function qualitySection(device, snapshot) {
   const calibration = data().calibration;
@@ -109,6 +126,7 @@ function render() {
   const history = data().sensorHistory;
   const loading = history.deviceId === device.id && history.loading;
   body.innerHTML = `
+    ${locationMap(device.id)}
     <div class="tw-sheet-status">
       <span class="tw-pill" data-level="${statusLevel}"><span class="tw-dot" data-level="${statusLevel === "normal" ? "good" : statusLevel === "fault" ? "poor" : "offline"}"></span>${escapeHtml(statusText)}</span>
       <span>${escapeHtml(snapshot?.updatedAt ? t("lastRecord", { ago: ago(snapshot.updatedAt) }) : t("noRecord"))}</span>
