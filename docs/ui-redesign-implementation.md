@@ -21,7 +21,7 @@
 | 13.1 按需渲染、13.13 画质自适应 | `scene/viewer.js`、`scene/quality.js` |
 | 13.2 实时光照、13.6 深色即夜晚 | `scene/daylight.js`、`scene/night.js` |
 | 13.3 开场动画、13.4 涟漪与透视镜 | `scene/intro.js`、`scene/digital-layer.js`、`scripts/ifc-plan-lines.mjs` |
-| 13.5 一天回放 | `data/replay.js`、`ui/replay-bar.js`、桥接 `room-history-request` |
+| 13.5 一天回放（入口：环境面板 CO₂ 时间轴的"回放"按钮，以及首页 CO₂ 胶囊悬停卡片上的"回放这 24 小时"） | `data/replay.js`、`ui/replay-bar.js`、桥接 `room-history-request` |
 | 13.7 待机展示 | `ui/kiosk.js` |
 | 13.8 选中描边、13.9 术语说明、13.11 空状态、13.12 指针细节 | `scene/outline.js`、`ui/glossary.js`、`ui/pointer.js` 等 |
 | 第 14 节 内容对照、合并 overview.html | `overview.html` → `twin.html#devices`；`strategy.html` → `twin.html#ai`；`device.html` → `twin.html#sensor=…` |
