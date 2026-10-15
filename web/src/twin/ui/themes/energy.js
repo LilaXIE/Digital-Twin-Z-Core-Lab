@@ -6,7 +6,8 @@ import { data, provider } from "../../data/store.js";
 import { socketDevices, socketInfo, totalPowerKw } from "../../data/derived.js";
 import { sceneState } from "../../scene/index.js";
 import { lineChart, cssVar } from "../charts/timeline.js";
-import { escapeHtml, icon, term, rollNumber, openAsPopover, closePopover } from "../dom.js";
+import { escapeHtml, icon, term, rollNumber, closePopover } from "../dom.js";
+import { controlAvailability, controlStatus, confirmSwitch as confirmSockets, confirmOpen, pendingSocketIds } from "../sockets.js";
 
 let body = null;
 let demandRange = "today";
@@ -47,20 +48,12 @@ function requestDemand(force = false) {
   provider().requestDemandHistory(demandRange);
 }
 
-function controlAvailability() {
-  const dataset = data();
-  if (dataset.kind === "live" && dataset.control.readOnly) return { ok: false, reason: t("reasonReadOnly") };
-  if (dataset.kind === "live" && !dataset.connection.connected && dataset.connection.known) return { ok: false, reason: t("reasonBridge") };
-  if (!dataset.control.connected) return { ok: false, reason: t("reasonMqtt") };
-  return { ok: true };
-}
-
 function renderSockets() {
   const host = body.querySelector('[data-part="sockets"]');
   const devices = socketDevices();
   const infos = devices.map((device) => ({ device, info: socketInfo(device.id) })).filter(({ info }) => info.hasData || settings.internal);
   const availability = controlAvailability();
-  const pending = new Set([...data().pendingControls.values()].map((item) => item.deviceId));
+  const pending = pendingSocketIds();
   const placed = new Set(sceneState.anchors.keys());
   const anyOn = infos.some(({ info }) => info.on);
   const allOn = infos.length > 0 && infos.every(({ info }) => info.on);
@@ -87,27 +80,11 @@ function renderSockets() {
     const targets = infos.filter(({ info }) => info.on !== desired && info.on !== null).map(({ device }) => device.id);
     confirmSwitch(allInput.closest(".tw-switch"), targets, desired, t(desired ? "confirmAllOn" : "confirmAllOff"));
   });
-  const status = body.querySelector('[data-part="control-status"]');
-  const message = data().controlMessage;
-  if (!availability.ok) { status.className = "tw-caption"; status.textContent = `${t("controlUnavailable")} · ${availability.reason}`; }
-  else if (message && Date.now() - message.at < 120000) { status.className = `tw-caption is-${message.level}`; status.textContent = t(message.key, message.vars); }
-  else { status.className = "tw-caption"; status.textContent = data().kind === "demo" ? t("demoControl") : ""; }
+  controlStatus(body.querySelector('[data-part="control-status"]'));
 }
 
-// The confirmation grows out of the switch that was pressed.
 function confirmSwitch(trigger, ids, desired, question) {
-  if (!ids.length) return;
-  const popover = document.getElementById("confirm-popover");
-  popover.innerHTML = `<p>${escapeHtml(question)}</p><div class="tw-confirm-actions"><button type="button" class="tw-button" data-action="cancel">${escapeHtml(t("cancel"))}</button><button type="button" class="tw-button tw-button-primary" data-action="confirm">${escapeHtml(t("confirm"))}</button></div>`;
-  const status = body?.querySelector('[data-part="control-status"]');
-  if (status) { status.className = "tw-caption is-pending"; status.textContent = t("phaseConfirm"); }
-  openAsPopover(popover, trigger, { align: "end", onClose: () => update() });
-  popover.querySelector('[data-action="cancel"]').addEventListener("click", () => closePopover());
-  popover.querySelector('[data-action="confirm"]').addEventListener("click", async () => {
-    closePopover();
-    for (const id of ids) await provider().socketControl(id, desired);
-  });
-  popover.querySelector('[data-action="confirm"]').focus();
+  confirmSockets(trigger, ids, desired, question, { status: body?.querySelector('[data-part="control-status"]'), onClose: () => update() });
 }
 
 function renderDemand() {
@@ -129,7 +106,7 @@ export function update() {
     rollNumber(totalEl, total.value, { digits: 2 });
     totalEl.style.color = total.stale ? "var(--text-3)" : "";
   }
-  if (!document.getElementById("confirm-popover").hidden) return; // do not redraw under an open confirmation
+  if (confirmOpen()) return; // do not redraw under an open confirmation
   renderSockets();
   renderDemand();
 }

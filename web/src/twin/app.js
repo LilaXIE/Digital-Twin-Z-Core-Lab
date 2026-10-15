@@ -14,6 +14,7 @@ import { getControls, requestRender } from "./scene/viewer.js";
 import { applyDaylight } from "./scene/daylight.js";
 import { updateMarker, updateSeat, flashMarker, revealMarkers, setDisplayMode, refreshOcclusion } from "./scene/markers.js";
 import { updateFlow } from "./scene/flow-lines.js";
+import { initHomeDock, renderHomeDock } from "./ui/home-dock.js";
 import { captureSnapshot } from "./scene/snapshot.js";
 import { initShell, renderShell } from "./ui/shell.js";
 import { initPanel, showTheme, relabelTheme, markerReadout, energyTotalReadout } from "./ui/panel.js";
@@ -44,6 +45,7 @@ function applyLanguage(lang, animate = false) {
     document.title = `ZB202 · ${t("appTitle")}`;
     relabelTheme();
     renderShell();
+    renderHomeDock();
   };
   // 150 ms cross-fade, no full-page flash.
   if (animate && document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) document.startViewTransition(apply);
@@ -63,6 +65,7 @@ function applyTier() {
   const kiosk = window.innerWidth >= 1920 || (settings.kioskTier && window.innerWidth >= 1600);
   root.dataset.tier = kiosk ? "kiosk" : window.innerWidth < 1280 ? "narrow" : "standard";
   root.dataset.touch = String(coarsePointer());
+  renderHomeDock();
 }
 
 // ---- Daylight: real time, replayed time, or the demo time preview ----
@@ -193,6 +196,7 @@ async function boot() {
   initPanel();
   initSensorSheet();
   initAiCard();
+  initHomeDock();
   initAiPage();
   initAlarms();
   initSettings();

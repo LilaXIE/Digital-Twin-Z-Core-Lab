@@ -168,12 +168,13 @@ body[data-view]:not([data-view="home"]) .tw-capsule .tw-capsule-label { display:
 
 /* ---------- AI card ---------- */
 .tw-ai-card {
-  position: fixed; z-index: 15; left: var(--edge); top: calc(var(--edge) + 150px); width: 268px; padding: 14px 16px 15px;
+  position: relative; padding: 14px 16px 15px;
   border-radius: var(--r-panel); cursor: pointer; view-transition-name: ai-surface; overflow: hidden;
   transition: transform var(--dur-release) var(--ease-spring);
 }
 .tw-ai-card header { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: var(--fs-caption); color: var(--text-2); font-weight: 500; }
 .tw-ai-card header i { font-size: 15px; color: var(--accent); }
+.tw-ai-card header > span { display: inline-flex; align-items: center; gap: 6px; }
 .tw-ai-value { margin-top: 6px; font-size: var(--fs-hero); font-weight: 300; letter-spacing: -0.02em; line-height: 1.05; }
 .tw-ai-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 13px; color: var(--text-2); }
 .tw-ai-reason { margin: 10px 0 0; font-size: 13px; line-height: 1.5; color: var(--text); }
@@ -186,6 +187,155 @@ body[data-view]:not([data-view="home"]) .tw-capsule .tw-capsule-label { display:
 }
 .tw-ai-card.is-sweeping .tw-sweep::before { animation: tw-sweep 1.1s var(--ease-out) 1; }
 body[data-view="ai"] .tw-ai-card { opacity: 0; pointer-events: none; }
+
+/* ---------- Overview docks: glass cards beside the model ----------
+   The docks are scroll containers wider than the cards so the card shadows are not clipped. */
+.tw-dock {
+  --dock-pad: 24px;
+  position: fixed; z-index: 15; bottom: calc(var(--edge) - var(--dock-pad)); width: calc(var(--dock-width) + 2 * var(--dock-pad));
+  display: flex; flex-direction: column; gap: var(--s3); padding: 4px var(--dock-pad) var(--dock-pad);
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; pointer-events: none;
+}
+.tw-dock::-webkit-scrollbar { display: none; }
+.tw-dock.is-overflowing { -webkit-mask-image: linear-gradient(#000 calc(100% - 64px), transparent calc(100% - 8px)); mask-image: linear-gradient(#000 calc(100% - 64px), transparent calc(100% - 8px)); }
+.tw-dock > * { flex: none; pointer-events: auto; }
+.tw-dock-left { left: calc(var(--edge) - var(--dock-pad)); top: calc(var(--dock-left-top, 150px) - 4px); }
+.tw-dock-right { right: calc(var(--edge) - var(--dock-pad)); top: calc(var(--dock-right-top, 68px) - 4px); }
+.tw-dock > [data-home] { transition: opacity 280ms ease, transform 420ms var(--ease-panel), visibility 0s linear 0s; }
+body:not([data-view="home"]) .tw-dock > [data-home], body[data-replay] .tw-dock-right > [data-home], body[data-sheet] .tw-dock-right > [data-home] {
+  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 200ms ease, transform 300ms var(--ease-panel), visibility 0s linear 300ms;
+}
+body:not([data-view="home"]) .tw-dock-left > [data-home] { transform: translateX(-12px); }
+body:not([data-view="home"]) .tw-dock-right > [data-home], body[data-replay] .tw-dock-right > [data-home], body[data-sheet] .tw-dock-right > [data-home] { transform: translateX(12px); }
+/* Overview: the cards replace the capsules, the alarm capsule and the outdoor line (no repeated numbers). */
+:root:not([data-tier="narrow"]) body[data-view="home"] .tw-capsules,
+:root:not([data-tier="narrow"]) body[data-view="home"] .tw-alarm-capsule,
+:root:not([data-tier="narrow"]) body[data-view="home"] #outdoor-line { display: none; }
+
+.tw-card { position: relative; padding: 14px 16px 15px; border-radius: var(--r-panel); }
+.tw-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 20px; font-size: var(--fs-caption); color: var(--text-2); font-weight: 500; }
+.tw-card-head-actions { display: inline-flex; align-items: center; gap: 10px; }
+.tw-card-head h2 { margin: 0; display: inline-flex; align-items: center; gap: 6px; font: inherit; color: inherit; min-width: 0; }
+.tw-card-head h2 i { font-size: 15px; color: var(--accent); }
+.tw-card-open { width: 28px; height: 28px; margin: -6px -8px -6px 0; font-size: 15px; color: var(--text-3); }
+.tw-card-open:hover { color: var(--text); background: var(--surface-sunken); }
+.tw-link {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 0; border: 0; background: none;
+  font-size: var(--fs-caption); font-weight: 500; color: var(--accent-strong); cursor: pointer; white-space: nowrap;
+}
+.tw-link i { font-size: 13px; }
+.tw-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.tw-card-hero {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; width: 100%; margin-top: 6px;
+  padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer;
+}
+.tw-card-hero.is-static { cursor: default; }
+.tw-hero-value { font-size: var(--fs-hero); font-weight: 300; letter-spacing: -0.02em; line-height: 1.05; white-space: nowrap; }
+.tw-hero-value.is-stale { color: var(--text-3); }
+.tw-hero-side { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; padding-bottom: 4px; text-align: right; min-width: 0; }
+.tw-hero-label { font-size: 13px; font-weight: 500; color: var(--text); }
+.tw-hero-side small { font-size: var(--fs-caption); color: var(--text-2); }
+.tw-card-spark { position: relative; margin-top: 8px; height: 40px; }
+.tw-spark-cursor { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--replay); }
+.tw-card-spark:empty { display: none; }
+.tw-card-spark svg { display: block; width: 100%; height: 40px; overflow: visible; }
+.tw-card-spark .tw-spark-line { fill: none; stroke: var(--series-1); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.tw-card-spark .tw-spark-limit { stroke: var(--poor); stroke-dasharray: 3 3; stroke-width: 1; opacity: 0.6; vector-effect: non-scaling-stroke; }
+.tw-card-caption { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0 0; font-size: var(--fs-caption); color: var(--text-3); min-height: 18px; }
+.tw-card-caption > span:empty { display: none; }
+.tw-card-empty { margin: 10px 0 0; font-size: 13px; color: var(--text-2); }
+.tw-card-note { margin: 8px 0 0; font-size: 11px; line-height: 1.4; color: var(--text-3); }
+.tw-card-caption:has(> span:empty):has(> .tw-link[hidden]) { display: none; }
+
+.tw-card-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.tw-card-stats:empty { display: none; }
+.tw-stat {
+  display: grid; gap: 1px; align-content: start; min-width: 0; padding: 7px 9px 8px; border: 0; border-radius: 12px;
+  background: var(--surface-sunken); color: inherit; text-align: left; cursor: pointer; transition: background 160ms ease;
+}
+.tw-stat:hover { background: var(--line-strong); }
+.tw-stat > .tw-stat-label { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-stat > .tw-stat-label .tw-dot { width: 6px; height: 6px; }
+.tw-stat > .tw-stat-value { font-weight: 500; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-stat > .tw-stat-sub { font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-stat.is-stale > .tw-stat-value { color: var(--text-3); }
+.tw-stat > .tw-stat-value { font-size: 15px; }
+.tw-wind-arrow { display: inline-block; margin-right: 3px; font-size: 12px; color: var(--text-2); }
+
+/* Alarms and devices */
+.tw-card-ok { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--good-soft); }
+.tw-card-ok > i { font-size: 24px; color: var(--good); }
+.tw-card-ok span { display: grid; }
+.tw-card-ok strong { font-size: 15px; font-weight: 600; color: var(--text); }
+.tw-card-ok small { font-size: var(--fs-caption); color: var(--text-2); }
+.tw-alarm-row {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; margin-top: 8px;
+  padding: 8px 8px 8px 10px; border-radius: 12px; background: var(--caution-soft); cursor: pointer;
+}
+.tw-alarm-row.is-critical { background: var(--poor-soft); }
+.tw-alarm-row > i { font-size: 18px; color: var(--caution); }
+.tw-alarm-row.is-critical > i { color: var(--poor); }
+.tw-alarm-row span { display: grid; min-width: 0; }
+.tw-alarm-row strong { font-size: 13px; font-weight: 600; }
+.tw-alarm-row small { font-size: 11px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-ack { width: 30px; height: 30px; font-size: 15px; background: var(--surface-raised); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12); }
+.tw-more { margin-top: 6px; }
+.tw-health { margin-top: 10px; }
+.tw-health-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; font-size: var(--fs-caption); color: var(--text-2); }
+.tw-health-head strong { font-size: 15px; font-weight: 500; color: var(--text); }
+.tw-health-note { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; font-size: var(--fs-caption); color: var(--caution); }
+.tw-health-note i { font-size: 15px; }
+
+/* Sockets */
+.tw-socket-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.tw-socket-tile {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 6px;
+  padding: 6px 8px 6px 10px; border-radius: 12px; background: var(--surface-sunken);
+}
+.tw-socket-name { grid-column: 1 / -1; font-size: 11px; font-weight: 600; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-socket-tile .tw-switch { transform: scale(0.82); transform-origin: right center; margin-right: -2px; }
+.tw-socket-power { font-size: 15px; font-weight: 500; }
+.tw-socket-tile.is-off .tw-socket-name, .tw-socket-tile.is-off .tw-socket-power, .tw-socket-tile.is-stale .tw-socket-power { color: var(--text-3); }
+
+/* AHU (simulated) */
+.tw-sim-badge { padding: 2px 8px; border-radius: 999px; background: var(--demo-soft); color: var(--demo); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.tw-ahu-status { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; color: var(--text-2); white-space: nowrap; }
+.tw-ahu-status .tw-dot { width: 6px; height: 6px; }
+.tw-ahu-temps { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: end; gap: 10px; margin-top: 8px; }
+.tw-ahu-temps > div:not(.tw-ahu-path) { display: grid; }
+.tw-ahu-temps > div:last-child { text-align: right; }
+.tw-ahu-temps small { font-size: 11px; color: var(--text-2); }
+.tw-ahu-temps strong { font-size: 24px; font-weight: 300; letter-spacing: -0.02em; line-height: 1.1; white-space: nowrap; }
+.tw-ahu-path { position: relative; display: grid; justify-items: center; padding-bottom: 8px; }
+.tw-ahu-path i { width: 100%; height: 4px; border-radius: 999px; background: linear-gradient(90deg, #e8833a, var(--series-1)); }
+.tw-ahu-path span { position: absolute; bottom: 14px; font-size: 11px; color: var(--text-3); }
+.tw-ahu-card.is-standby .tw-ahu-path i, #ahu-card.is-standby .tw-ahu-path i { background: var(--line-strong); }
+.tw-setpoint { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; padding: 4px 4px 4px 10px; border-radius: 12px; background: var(--surface-sunken); font-size: var(--fs-caption); color: var(--text-2); }
+.tw-stepper { display: inline-flex; align-items: center; gap: 2px; }
+.tw-stepper .tw-icon-button { width: 28px; height: 28px; font-size: 14px; background: var(--surface-raised); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12); }
+.tw-stepper .tw-icon-button:disabled { opacity: 0.4; box-shadow: none; }
+.tw-stepper output { min-width: 56px; text-align: center; font-size: 15px; font-weight: 500; color: var(--text); }
+.tw-meters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+.tw-meter-row { display: grid; gap: 2px; min-width: 0; padding: 7px 9px 8px; border-radius: 12px; background: var(--surface-sunken); font-size: 11px; color: var(--text-2); }
+.tw-meter-row > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-meter-row > span:first-child i { margin-left: 3px; font-size: 11px; color: var(--accent); vertical-align: -1px; }
+.tw-meter-row strong { font-size: 15px; font-weight: 500; color: var(--text); white-space: nowrap; }
+.tw-meter { height: 3px; margin-top: 3px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.tw-meter i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width 600ms var(--ease-out); }
+#ahu-card.is-standby .tw-meter i { background: var(--offline); }
+
+/* Shorter screens (for example 1280 × 800): tighter cards; the docks scroll if still needed. */
+@media (max-height: 879px) {
+  .tw-dock { gap: 8px; }
+  .tw-card, .tw-ai-card { padding: 11px 14px 12px; }
+  .tw-card .tw-hero-value, .tw-ai-value { font-size: 30px; }
+  .tw-card-spark, .tw-card-spark svg { height: 30px; }
+  .tw-card-note { display: none; }
+  .tw-ahu-temps strong { font-size: 20px; }
+  .tw-card-stats, .tw-socket-grid, .tw-meters, .tw-health { margin-top: 8px; }
+  .tw-card-ok { margin-top: 8px; padding: 8px 10px; }
+  .tw-ai-reason { margin-top: 6px; }
+}
 
 /* ---------- Side panels (themes, sensor sheet) ---------- */
 .tw-panel {
@@ -246,6 +396,8 @@ dl.tw-props dd { margin: 0; font-family: var(--font-mono); overflow-wrap: anywhe
 .tw-dist-bar i { display: block; height: 100%; }
 .tw-dist-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: var(--fs-caption); color: var(--text-2); }
 .tw-dist-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.tw-dist-legend .is-caution { color: var(--caution); }
+.tw-dist-legend .is-caution i { font-size: 14px; }
 
 /* Socket rows (energy theme). */
 .tw-socket { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; min-height: 48px; padding: 6px 10px; border-radius: var(--r-small); }
@@ -506,11 +658,13 @@ table.tw-energy th:first-child { text-align: left; color: var(--text-2); font-we
 .tw-intro-error { pointer-events: auto; display: flex; align-items: center; gap: 12px; margin-top: 10px; padding: 12px 14px; border-radius: 22px; text-align: left; max-width: 520px; }
 .tw-intro-error i { font-size: 24px; color: var(--poor); }
 .tw-intro-error p { margin: 2px 0 0; font-size: var(--fs-caption); color: var(--text-2); }
-body[data-phase="loading"] .tw-top, body[data-phase="loading"] .tw-tabbar, body[data-phase="loading"] .tw-ai-card { opacity: 0; pointer-events: none; }
-body[data-phase="ready"] .tw-top, body[data-phase="ready"] .tw-tabbar, body[data-phase="ready"] .tw-ai-card { transition: opacity 500ms ease, transform 500ms var(--ease-panel); }
+body[data-phase="loading"] .tw-top, body[data-phase="loading"] .tw-tabbar, body[data-phase="loading"] .tw-dock { opacity: 0; pointer-events: none; }
+body[data-phase="loading"] .tw-dock > * { pointer-events: none; }
+body[data-phase="ready"] .tw-top, body[data-phase="ready"] .tw-tabbar, body[data-phase="ready"] .tw-dock { transition: opacity 500ms ease, transform 500ms var(--ease-panel); }
 body.ui-entering .tw-top { transform: translateY(-14px); opacity: 0; }
 body.ui-entering .tw-tabbar { transform: translate(-50%, 14px); opacity: 0; }
-body.ui-entering .tw-ai-card { transform: translateX(-14px); opacity: 0; }
+body.ui-entering .tw-dock-left { transform: translateX(-14px); opacity: 0; }
+body.ui-entering .tw-dock-right { transform: translateX(14px); opacity: 0; }
 
 /* ---------- Internal tools ---------- */
 .tw-hud { position: fixed; z-index: 80; left: var(--edge); bottom: var(--edge); padding: 6px 10px; border-radius: 10px; background: rgba(12, 16, 22, 0.72); color: #d6e4ff; font: 11px/1.5 var(--font-mono); pointer-events: none; white-space: pre; }
@@ -535,7 +689,9 @@ body.ui-entering .tw-ai-card { transform: translateX(-14px); opacity: 0; }
 }
 :root[data-tier="narrow"] .tw-panel.is-expanded { height: calc(100vh - var(--edge) * 2 - var(--tap) - 30px); }
 :root[data-tier="narrow"] .tw-sheet-grip { display: block; position: absolute; top: 6px; left: 50%; width: 40px; height: 5px; margin-left: -20px; border-radius: 999px; background: var(--line-strong); }
-:root[data-tier="narrow"] .tw-ai-card { top: auto; bottom: calc(var(--edge) + var(--tap) + 26px); width: auto; padding: 8px 14px; border-radius: 999px; }
+:root[data-tier="narrow"] .tw-dock-left { top: auto; bottom: calc(var(--edge) + var(--tap) + 26px - var(--dock-pad)); width: auto; overflow: visible; }
+:root[data-tier="narrow"] .tw-dock-right, :root[data-tier="narrow"] .tw-dock-left > [data-home] { display: none; }
+:root[data-tier="narrow"] .tw-ai-card { padding: 8px 14px; border-radius: 999px; }
 :root[data-tier="narrow"] .tw-ai-card .tw-ai-value { font-size: 18px; margin: 0; display: inline; }
 :root[data-tier="narrow"] .tw-ai-card .tw-ai-meta, :root[data-tier="narrow"] .tw-ai-card .tw-ai-reason, :root[data-tier="narrow"] .tw-ai-card .tw-ai-note { display: none; }
 :root[data-tier="narrow"] .tw-tab { min-width: 64px; padding: 0 10px; }
@@ -548,7 +704,7 @@ body.ui-entering .tw-ai-card { transform: translateX(-14px); opacity: 0; }
 /* Large touch display: everything a little larger and further from the edge. */
 :root[data-tier="kiosk"] .tw-room { font-size: 28px; }
 :root[data-tier="kiosk"] .tw-sentence { font-size: 20px; }
-:root[data-tier="kiosk"] .tw-ai-card { width: 320px; top: calc(var(--edge) + 190px); }
+
 :root[data-tier="kiosk"] .tw-tab { min-width: 112px; font-size: 17px; }
 :root[data-tier="kiosk"] .tw-panel { top: calc(var(--edge) + 120px); bottom: calc(var(--edge) + 96px); }
 
@@ -558,3 +714,12 @@ body.ui-entering .tw-ai-card { transform: translateX(-14px); opacity: 0; }
 @media (prefers-reduced-motion: reduce) {
   .tw-skeleton { animation: none; }
 }
+
+.tw-visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Lab display: the cards read from further away. */
+:root[data-tier="kiosk"] .tw-card-head, :root[data-tier="kiosk"] .tw-ai-card header { font-size: 14px; }
+:root[data-tier="kiosk"] .tw-card-caption, :root[data-tier="kiosk"] .tw-hero-side small, :root[data-tier="kiosk"] .tw-ahu-status, :root[data-tier="kiosk"] .tw-dist-legend, :root[data-tier="kiosk"] .tw-health-head { font-size: 13px; }
+:root[data-tier="kiosk"] .tw-stat > .tw-stat-label, :root[data-tier="kiosk"] .tw-meter-row, :root[data-tier="kiosk"] .tw-socket-name, :root[data-tier="kiosk"] .tw-ahu-temps small, :root[data-tier="kiosk"] .tw-card-note { font-size: 12px; }
+:root[data-tier="kiosk"] .tw-stat > .tw-stat-value, :root[data-tier="kiosk"] .tw-socket-power, :root[data-tier="kiosk"] .tw-meter-row strong { font-size: 18px; }
+:root[data-tier="kiosk"] .tw-ahu-temps strong { font-size: 28px; }

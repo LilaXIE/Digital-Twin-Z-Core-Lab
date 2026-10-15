@@ -64,6 +64,7 @@
   --tap: 40px;
   --edge: 16px;
   --panel-width: 400px;
+  --dock-width: 300px;
 }
 
 :root:lang(zh-Hant) { --font-ui: "Inter", "Noto Sans HK", "PingFang HK", "Microsoft JhengHei", system-ui, sans-serif; }
@@ -116,6 +117,7 @@
   --tap: 56px;
   --edge: 24px;
   --panel-width: clamp(440px, 26vw, 600px);
+  --dock-width: clamp(340px, 19vw, 420px);
   --fs-hero: 48px;
   --fs-capsule: 22px;
   --fs-body: 17px;
