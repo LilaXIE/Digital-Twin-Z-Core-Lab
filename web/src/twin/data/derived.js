@@ -3,7 +3,7 @@
 import { SITE, thresholds } from "../config/site.js";
 import { data, alarmStates } from "./store.js";
 import { deviceById, deviceStatusFromValues, registry } from "./devices.js";
-import { ui } from "../state.js";
+import { settings, ui } from "../state.js";
 
 const median = (values) => {
   if (!values.length) return null;
@@ -187,7 +187,9 @@ export function alarms() {
     if (device.model === "WS523" && Number.isFinite(values.voltage) && (values.voltage < 200 || values.voltage > 250)) add("socket-voltage", "warning", device.id, "raw", { text: `${values.voltage.toFixed(1)} V` });
   }
   if (dataset.kind === "live" && dataset.connection.known && !dataset.connection.connected) {
-    list.unshift({ id: "connection:database", type: "connection", level: "critical", deviceId: "dataService", detailKey: "raw", detailVars: { text: dataset.connection.diagnostic } });
+    // The bridge's diagnostic is English technical text: internal mode only.
+    list.unshift({ id: "connection:database", type: "connection", level: "critical", deviceId: "dataService",
+      ...(settings.internal ? { detailKey: "raw", detailVars: { text: dataset.connection.diagnostic } } : { detailKey: "connectionRetrying", detailVars: {} }) });
   }
   return list.map((alarm) => ({ ...alarm, state: alarmStates[alarm.id] || "active" }));
 }

@@ -127,6 +127,7 @@ const zh = {
   sensorsMedian: "{n} 个传感器校正后中位数", sensorsExcluded: "已排除 {n} 个异常传感器", readingSuspect: "读数异常", healthBelowOutdoor: "校正后仍低于室外本底（约 {v} ppm）", healthFlatline: "超过 2 小时读数不变", healthDeviates: "与其他传感器相差超过 150 ppm", dataQuality: "数据质量", rawReading: "原始读数", correction: "校正量", calibratedOn: "标定日期", excludedFromRoom: "未计入房间数值",
   ahuOffTitle: "AHU 已停机", ahuNextStart: "下次开机 {when}", ahuStartCo2: "开机时预计 CO₂ {v} ppm", ahuStartCo2Tile: "开机时预计 CO₂", ahuState: "AHU 状态", ahuRunningState: "运行中", ahuHoursLine: "运行时间：工作日 {hours}", ahuHoursInferred: "根据每晚 CO₂ 下降时刻推断，待 FMO 确认", ahuNextStop: "下次停机 {when}", ahuBmsPending: "接入 BMS 后显示送回风温度、阀门开度和风机频率", ahuOffNoSavings: "下班后 AHU 不送新风，AI 无需调节，也不计算节能", tomorrow: "明天", weekSince: "本周（自{day}起）", meetingDefault: "会议", rAhuOff: "AHU 已停机，{when}开机后再给出新风推荐", rAtMaxExceed: "预计 {at} CO₂ 超过 {limit} ppm，新风已达上限", rAtMax: "新风已达上限，CO₂ 可能高于 {target} ppm 控制目标", rMeetingNowRaised: "{name}进行中（预计 {people} 人），维持较大新风", rMeetingNow: "{name}进行中（预计 {people} 人），CO₂ 余量充足", rMeetingSoonRaised: "{at} {name}预计 {people} 人，提前加大新风", rMeetingSoon: "{at} {name}预计 {people} 人，当前 CO₂ 余量充足", rHeadroom: "CO₂ 余量充足，保持最小新风量", rRaised: "估计 {people} 人，按需加大新风，使 CO₂ 不超过 {target} ppm", rNoData: "最近 20 分钟没有 CO₂ 数据，暂时无法给出推荐",
   socketOn: "开", socketOff: "关", controlViewOnly: "仅供查看，插座开关由实验室成员操作", controlLocked: "输入访问密钥后可开关插座", updatedAtShort: "更新于 {time}", aiAdviceOnly: "AI 目前只给出建议，是否采用由设施管理团队决定", calendarLocked: "输入访问密钥后可添加或删除会议",
+  connectionRetrying: "暂时连不上数据服务，正在自动重试",
   basisItems: (r) => [
     `控制目标：预测时域内任一时刻 CO₂ ≤ <b>${r.co2.target} ppm</b>，比 ${r.co2.limit} ppm 限值留 ${r.co2.limit - r.co2.target} ppm 余量（传感器与预测误差）。`,
     `最小新风量 = 2.5 L/s·人 × 人数 + 0.3 L/s·m² × 46.6 m²，当前为 <b>${r.airflow.minLps} L/s</b>。`,
@@ -220,6 +221,8 @@ const zhHant = {
   sensorsMedian: "{n} 個感測器校正後中位數", sensorsExcluded: "已排除 {n} 個異常感測器", readingSuspect: "讀數異常", healthBelowOutdoor: "校正後仍低於室外本底（約 {v} ppm）", healthFlatline: "超過 2 小時讀數不變", healthDeviates: "與其他感測器相差超過 150 ppm", dataQuality: "數據質素", rawReading: "原始讀數", correction: "校正量", calibratedOn: "標定日期", excludedFromRoom: "未計入房間數值",
   ahuOffTitle: "AHU 已停機", ahuNextStart: "下次開機 {when}", ahuStartCo2: "開機時預計 CO₂ {v} ppm", ahuStartCo2Tile: "開機時預計 CO₂", ahuState: "AHU 狀態", ahuRunningState: "運行中", ahuHoursLine: "運行時間：工作日 {hours}", ahuHoursInferred: "根據每晚 CO₂ 下降時刻推斷，待 FMO 確認", ahuNextStop: "下次停機 {when}", ahuBmsPending: "接入 BMS 後顯示送回風溫度、閥門開度和風機頻率", ahuOffNoSavings: "下班後 AHU 不送新風，AI 無需調節，也不計算節能", tomorrow: "明天", weekSince: "本週（自{day}起）", meetingDefault: "會議", rAhuOff: "AHU 已停機，{when}開機後再給出新風推薦", rAtMaxExceed: "預計 {at} CO₂ 超過 {limit} ppm，新風已達上限", rAtMax: "新風已達上限，CO₂ 可能高於 {target} ppm 控制目標", rMeetingNowRaised: "{name}進行中（預計 {people} 人），維持較大新風", rMeetingNow: "{name}進行中（預計 {people} 人），CO₂ 餘量充足", rMeetingSoonRaised: "{at} {name}預計 {people} 人，提前加大新風", rMeetingSoon: "{at} {name}預計 {people} 人，當前 CO₂ 餘量充足", rHeadroom: "CO₂ 餘量充足，保持最小新風量", rRaised: "估計 {people} 人，按需加大新風，使 CO₂ 不超過 {target} ppm", rNoData: "最近 20 分鐘沒有 CO₂ 數據，暫時無法給出推薦",
   socketOn: "開", socketOff: "關", controlViewOnly: "僅供查看，插座開關由實驗室成員操作", controlLocked: "輸入訪問密鑰後可開關插座", updatedAtShort: "更新於 {time}", aiAdviceOnly: "AI 目前只給出建議，是否採用由設施管理團隊決定", calendarLocked: "輸入訪問密鑰後可新增或刪除會議",
+  forecastPoints: "30 分鐘 {a} ppm · 60 分鐘 {b} ppm", targetLine: "目標 {v}",
+  connectionRetrying: "暫時連不上數據服務，正在自動重試",
   basisItems: (r) => [
     `控制目標：預測時域內任一時刻 CO₂ ≤ <b>${r.co2.target} ppm</b>，比 ${r.co2.limit} ppm 限值留 ${r.co2.limit - r.co2.target} ppm 餘量（感測器與預測誤差）。`,
     `最小新風量 = 2.5 L/s·人 × 人數 + 0.3 L/s·m² × 46.6 m²，當前為 <b>${r.airflow.minLps} L/s</b>。`,
@@ -320,6 +323,8 @@ const en = {
   sensorsMedian: "median of {n} corrected sensors", sensorsExcluded: "{n} flagged sensor left out", readingSuspect: "Reading looks wrong", healthBelowOutdoor: "Below the outdoor baseline (about {v} ppm) even after correction", healthFlatline: "Unchanged for more than 2 hours", healthDeviates: "More than 150 ppm away from the other sensors", dataQuality: "Data quality", rawReading: "Raw reading", correction: "Correction", calibratedOn: "Calibrated on", excludedFromRoom: "left out of the room value",
   ahuOffTitle: "AHU off", ahuNextStart: "Next start {when}", ahuStartCo2: "CO₂ at start about {v} ppm", ahuStartCo2Tile: "CO₂ expected at start", ahuState: "AHU", ahuRunningState: "Running", ahuHoursLine: "Hours: weekdays {hours}", ahuHoursInferred: "Inferred from when CO₂ falls each evening; to be confirmed by FMO", ahuNextStop: "Stops {when}", ahuBmsPending: "Supply and return temperatures, valves and fan speed appear once the BMS is connected", ahuOffNoSavings: "With the AHU off there is no outdoor air to adjust, so nothing is counted as saved", tomorrow: "tomorrow", weekSince: "This week (since {day})", meetingDefault: "Meeting", rAhuOff: "The AHU is off; recommendations resume when it starts {when}", rAtMaxExceed: "CO₂ forecast to exceed {limit} ppm at {at}; outdoor air at maximum", rAtMax: "Outdoor air at maximum; CO₂ may exceed the {target} ppm target", rMeetingNowRaised: "{name} in progress ({people} expected); holding higher outdoor air", rMeetingNow: "{name} in progress ({people} expected); CO₂ headroom is sufficient", rMeetingSoonRaised: "{name} at {at} with {people} expected; increasing outdoor air in advance", rMeetingSoon: "{name} at {at} with {people} expected; current CO₂ headroom is sufficient", rHeadroom: "CO₂ headroom is sufficient; keeping minimum outdoor air", rRaised: "About {people} people; raising outdoor air to keep CO₂ at or below {target} ppm", rNoData: "No CO₂ reading in the last 20 minutes; no recommendation yet",
   socketOn: "On", socketOff: "Off", controlViewOnly: "View only; lab members switch the sockets", controlLocked: "Enter the access key to switch sockets", updatedAtShort: "Updated {time}", aiAdviceOnly: "The AI only advises for now; the facilities team decides whether to apply it", calendarLocked: "Enter the access key to add or remove meetings",
+  replayEvent: "{device} {type}",
+  connectionRetrying: "The data service is unreachable; retrying automatically",
   basisItems: (r) => [
     `Target: CO₂ at or below <b>${r.co2.target} ppm</b> at every point of the horizon, ${r.co2.limit - r.co2.target} ppm below the ${r.co2.limit} ppm limit to cover sensor and forecast error.`,
     `Minimum outdoor air = 2.5 L/s per person + 0.3 L/s·m² × 46.6 m², currently <b>${r.airflow.minLps} L/s</b>.`,
@@ -331,7 +336,7 @@ const en = {
   ],
 };
 
-const STRINGS = { zh, "zh-Hant": zhHant, en };
+export const STRINGS = { zh, "zh-Hant": zhHant, en };
 
 // Section 13.9 glossary. Simplified Chinese is the user's draft; the other two are translations for review.
 export const GLOSSARY = {
