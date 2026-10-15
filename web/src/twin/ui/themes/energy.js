@@ -7,7 +7,7 @@ import { socketDevices, socketInfo, totalPowerKw } from "../../data/derived.js";
 import { sceneState } from "../../scene/index.js";
 import { lineChart, cssVar } from "../charts/timeline.js";
 import { escapeHtml, icon, term, rollNumber, closePopover } from "../dom.js";
-import { controlAvailability, controlStatus, confirmSwitch as confirmSockets, confirmOpen, pendingSocketIds } from "../sockets.js";
+import { controlStatus, confirmSwitch as confirmSockets, confirmOpen, pendingSocketIds, socketStateHtml, switchesInteractive } from "../sockets.js";
 
 let body = null;
 let demandRange = "today";
@@ -52,20 +52,21 @@ function renderSockets() {
   const host = body.querySelector('[data-part="sockets"]');
   const devices = socketDevices();
   const infos = devices.map((device) => ({ device, info: socketInfo(device.id) })).filter(({ info }) => info.hasData || settings.internal);
-  const availability = controlAvailability();
+  const interactive = switchesInteractive();
   const pending = pendingSocketIds();
   const placed = new Set(sceneState.anchors.keys());
   const anyOn = infos.some(({ info }) => info.on);
   const allOn = infos.length > 0 && infos.every(({ info }) => info.on);
   const rows = infos.map(({ device, info }) => `
     <div class="tw-socket${info.on === false ? " is-off" : ""}" data-socket="${device.id}">
-      <span><strong>${escapeHtml(device.id)}</strong><small>${escapeHtml(placed.has(device.id) ? t("catSocket") : t("notPlaced"))}</small></span>
+      <span><strong>${escapeHtml(device.id)}</strong><small>${escapeHtml(placed.has(device.id) || !settings.internal ? t("catSocket") : t("notPlaced"))}</small></span>
       <span class="tw-socket-power">${info.power !== null ? `<span class="tw-num">${formatNumber(info.power, info.power >= 100 ? 0 : 1)}</span><span class="tw-unit">W</span>` : ""}</span>
-      <label class="tw-switch${pending.has(device.id) ? " is-pending" : ""}"><input type="checkbox" role="switch" ${info.on ? "checked" : ""} ${!availability.ok || pending.has(device.id) || info.on === null ? "disabled" : ""} aria-label="${escapeHtml(device.id)}"><span></span></label>
+      ${interactive ? `<label class="tw-switch${pending.has(device.id) ? " is-pending" : ""}"><input type="checkbox" role="switch" ${info.on ? "checked" : ""} ${pending.has(device.id) || info.on === null ? "disabled" : ""} aria-label="${escapeHtml(device.id)}"><span></span></label>` : socketStateHtml(info)}
     </div>`).join("");
-  const all = infos.length > 1 ? `
+  // "All" only where switching works; it still asks for confirmation.
+  const all = infos.length > 1 && interactive ? `
     <div class="tw-socket is-all"><span><strong>${escapeHtml(t("allSockets"))}</strong></span><span></span>
-      <label class="tw-switch"><input type="checkbox" role="switch" data-all ${allOn ? "checked" : ""} ${!availability.ok || pending.size ? "disabled" : ""} aria-label="${escapeHtml(t("allSockets"))}"><span></span></label></div>` : "";
+      <label class="tw-switch"><input type="checkbox" role="switch" data-all ${allOn ? "checked" : ""} ${pending.size ? "disabled" : ""} aria-label="${escapeHtml(t("allSockets"))}"><span></span></label></div>` : "";
   host.innerHTML = all + rows;
   const allInput = host.querySelector("[data-all]");
   if (allInput) allInput.indeterminate = anyOn && !allOn;

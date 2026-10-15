@@ -9,6 +9,7 @@ import { recommendationState } from "../data/derived.js";
 import { lineChart, legend, cssVar } from "./charts/timeline.js";
 import { escapeHtml, icon, term } from "./dom.js";
 import { ahuHours, ahuOff, dayTime, reasonText, weekdayName } from "./ai-text.js";
+import { controlUnlocked, unlockControl } from "./sockets.js";
 
 const page = () => document.getElementById("ai-page");
 let built = false;
@@ -71,7 +72,7 @@ function renderSummary() {
       ? tile(escapeHtml(t("ahuStartCo2Tile")), rec.ahu.ppmAtNextStart, "ppm", rec.ahu.nextStart ? dayTime(Date.parse(rec.ahu.nextStart)) : "")
       : tile(escapeHtml(t("peak60")), rec.co2.peakRecommended, "ppm", t("forecastPoints", { a: rec.co2.at30.recommended, b: rec.co2.at60.recommended })),
     tile(term("co2", t("currentCo2")), rec.co2.current, "ppm", average),
-  ].join("") + `<p class="tw-ai-reason-line${rec.status === "at-max" || stale ? " is-warning" : ""}">${escapeHtml(recText(rec))} · ${escapeHtml(t("updatedAt", { time: clockTime(Date.parse(rec.generatedAt)), mode: modeName(rec.controlMode) }))}${stale ? ` · ${escapeHtml(t("aiInterrupted", { time: clockTime(Date.parse(rec.generatedAt)) }))}` : ""}</p>`;
+  ].join("") + `<p class="tw-ai-reason-line${rec.status === "at-max" || stale ? " is-warning" : ""}">${escapeHtml(recText(rec))} · ${escapeHtml(settings.internal ? t("updatedAt", { time: clockTime(Date.parse(rec.generatedAt)), mode: modeName(rec.controlMode) }) : t("updatedAtShort", { time: clockTime(Date.parse(rec.generatedAt)) }))}${stale ? ` · ${escapeHtml(t("aiInterrupted", { time: clockTime(Date.parse(rec.generatedAt)) }))}` : ""}</p>`;
 }
 
 // From the former AI card: auto/manual mode and the supply-air setpoint. Read-only without AHU
@@ -81,13 +82,16 @@ function renderControl() {
   const { rec } = recommendationState();
   const demo = rec?.demo;
   const recommendedDamper = rec?.airflow?.recommendedDamperPct;
-  host.innerHTML = `<header><div><h2>${escapeHtml(t("aiControlMode"))}</h2><p>${escapeHtml(demo ? t("badgeDemo") : t("aiControlReadOnly"))}</p></div>
-      <div class="tw-seg" role="group" aria-label="${escapeHtml(t("aiControlMode"))}">
+  // The mode switch can never be used before AHU data and FMO authorisation exist, so customers see
+  // a plain statement instead of two disabled buttons; internal mode keeps the full detail.
+  const showSwitch = Boolean(demo) || settings.internal;
+  host.innerHTML = `<header><div><h2>${escapeHtml(t("aiControlMode"))}</h2><p>${escapeHtml(demo ? t("badgeDemo") : settings.internal ? t("aiControlReadOnly") : t("aiAdviceOnly"))}</p></div>
+      ${showSwitch ? `<div class="tw-seg" role="group" aria-label="${escapeHtml(t("aiControlMode"))}">
         <button type="button" ${demo ? "" : "disabled"} aria-pressed="${Boolean(demo?.autoMode)}">${icon("ph-sparkle")} ${escapeHtml(t("aiAutoMode"))}</button>
         <button type="button" ${demo ? "" : "disabled"} aria-pressed="${demo ? !demo.autoMode : true}">${icon("ph-hand")} ${escapeHtml(t("aiManualMode"))}</button>
-      </div></header>
+      </div>` : ""}</header>
     <div class="tw-control-rec">
-      <div><span>${escapeHtml(t("aiSupplySetpoint"))}</span>${demo ? `<strong><span class="tw-num">${demo.supplySetpoint.recommended.toFixed(1)}</span><span class="tw-unit">°C</span></strong><span>${escapeHtml(t("aiCurrentSetpoint", { v: `${demo.supplySetpoint.current.toFixed(1)}°C` }))}</span><br><em class="${demo.supplySetpoint.executed ? "" : "is-waiting"}">${escapeHtml(t(demo.supplySetpoint.executed ? "aiExecuted" : "aiAwaiting"))}</em>` : `<p class="tw-caption">${escapeHtml(t("aiSetpointUnavailable"))}</p>`}</div>
+      ${demo || settings.internal ? `<div><span>${escapeHtml(t("aiSupplySetpoint"))}</span>${demo ? `<strong><span class="tw-num">${demo.supplySetpoint.recommended.toFixed(1)}</span><span class="tw-unit">°C</span></strong><span>${escapeHtml(t("aiCurrentSetpoint", { v: `${demo.supplySetpoint.current.toFixed(1)}°C` }))}</span><br><em class="${demo.supplySetpoint.executed ? "" : "is-waiting"}">${escapeHtml(t(demo.supplySetpoint.executed ? "aiExecuted" : "aiAwaiting"))}</em>` : `<p class="tw-caption">${escapeHtml(t("aiSetpointUnavailable"))}</p>`}</div>` : ""}
       <div><span>${term("damper", t("aiDamperRec"))}</span>${ahuOff(rec) ? `<p class="tw-caption">${escapeHtml(t("ahuOffNoSavings"))}</p>` : Number.isFinite(recommendedDamper) ? `<strong><span class="tw-num">${recommendedDamper}</span><span class="tw-unit">%</span></strong><span>${escapeHtml(t("aiCurrentPosition", { v: `${rec.ahu?.assumedDamperPct ?? rec.airflow.baselineDamperPct}%` }))}</span>` : `<p class="tw-caption">${escapeHtml(t("noData"))}</p>`}</div>
     </div>`;
   if (demo) host.querySelectorAll(".tw-seg button").forEach((button, index) => button.addEventListener("click", () => { demo.autoMode = index === 0; renderControl(); }));
@@ -169,11 +173,14 @@ function renderCalendar() {
   const host = page().querySelector('[data-part="calendar"]');
   const meetings = data().meetings.filter((meeting) => Date.parse(meeting.end) > Date.now() - 86400000);
   const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
-  if (!host.dataset.built || host.dataset.lang !== getLang()) {
+  const unlocked = controlUnlocked();
+  if (!host.dataset.built || host.dataset.lang !== getLang() || host.dataset.unlocked !== String(unlocked)) {
     host.dataset.built = "1";
     host.dataset.lang = getLang();
+    host.dataset.unlocked = String(unlocked);
     host.innerHTML = `<header><div><h2>${escapeHtml(t("calendar"))}</h2><p>${escapeHtml(t("calendarSub"))}</p></div></header>
-      <form class="tw-calendar-form">
+      <p class="tw-caption" data-part="calendar-locked" ${unlocked ? "hidden" : ""}>${escapeHtml(t("calendarLocked"))} <button type="button" class="tw-link" data-action="unlock">${icon("ph-lock-key")}${escapeHtml(t("keyUnlock"))}</button></p>
+      <form class="tw-calendar-form" ${unlocked ? "" : "hidden"}>
         <label><span>${escapeHtml(t("meetingTitle"))}</span><input name="title" maxlength="80" placeholder="${escapeHtml(t("meetingPlaceholder"))}"></label>
         <label><span>${escapeHtml(t("date"))}</span><input name="date" type="date" required value="${today}"></label>
         <label><span>${escapeHtml(t("start"))}</span><input name="start" type="time" step="300" required></label>
@@ -183,6 +190,7 @@ function renderCalendar() {
       </form>
       <p class="tw-caption" data-part="calendar-status" role="status"></p>
       <ul class="tw-meetings" data-part="meetings"></ul>`;
+    host.querySelector('[data-action="unlock"]').addEventListener("click", async () => { await unlockControl(); renderCalendar(); });
     const form = host.querySelector("form");
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -197,7 +205,7 @@ function renderCalendar() {
     });
   }
   const list = host.querySelector('[data-part="meetings"]');
-  list.innerHTML = meetings.length ? meetings.map((meeting) => `<li class="${Date.parse(meeting.end) <= Date.now() ? "is-past" : ""}"><span>${escapeHtml(`${dateTime(Date.parse(meeting.start))}–${clockTime(Date.parse(meeting.end))} · ${meeting.title || t("calendar")} · ${meeting.people} ${getLang() === "en" ? "people" : "人"}`)}</span><button type="button" class="tw-icon-button" data-delete="${escapeHtml(meeting.id)}" aria-label="${escapeHtml(t("deleteMeeting"))}" title="${escapeHtml(t("deleteMeeting"))}">${icon("ph-trash")}</button></li>`).join("")
+  list.innerHTML = meetings.length ? meetings.map((meeting) => `<li class="${Date.parse(meeting.end) <= Date.now() ? "is-past" : ""}"><span>${escapeHtml(`${dateTime(Date.parse(meeting.start))}–${clockTime(Date.parse(meeting.end))} · ${meeting.title || t("calendar")} · ${meeting.people} ${getLang() === "en" ? "people" : "人"}`)}</span>${unlocked ? `<button type="button" class="tw-icon-button" data-delete="${escapeHtml(meeting.id)}" aria-label="${escapeHtml(t("deleteMeeting"))}" title="${escapeHtml(t("deleteMeeting"))}">${icon("ph-trash")}</button>` : ""}</li>`).join("")
     : `<li>${escapeHtml(t("noMeetings"))}</li>`;
   list.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", async () => {
     const result = await provider().writeRequest({ type: "calendar-update", action: "delete", meeting: { id: button.dataset.delete } }, t("accessKeyPrompt"));
@@ -292,7 +300,7 @@ export function closeAiPage() {
 }
 
 export function initAiPage() {
-  on("data", (event) => { if (!page().hidden && (!event || ["recommendation", "rec-history", "calendar", "connection", "dataset", "control-mode"].includes(event.kind))) renderAiPage(); });
+  on("data", (event) => { if (!page().hidden && (!event || ["recommendation", "rec-history", "calendar", "connection", "dataset", "control-mode", "control"].includes(event.kind))) renderAiPage(); });
   on("settings", () => { if (!page().hidden) { built = false; renderAiPage(); } });
   window.addEventListener("resize", () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(() => { if (!page().hidden) renderCharts(); }); });
 }

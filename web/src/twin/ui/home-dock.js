@@ -16,7 +16,7 @@ import { daylightState } from "../scene/daylight.js";
 import { sparkline } from "./charts/timeline.js";
 import { compassText } from "./format.js";
 import { $, escapeHtml, icon, rollNumber } from "./dom.js";
-import { controlAvailability, controlStatus, confirmSwitch, confirmOpen, pendingSocketIds } from "./sockets.js";
+import { controlStatus, confirmSwitch, confirmOpen, pendingSocketIds, socketStateHtml, switchesInteractive } from "./sockets.js";
 import { toggleAlarmPopover } from "./alarms.js";
 
 const INDOOR_STATS = [
@@ -223,14 +223,14 @@ function renderSocketCard() {
   }
   const on = infos.filter(({ info }) => info.on).length;
   card.querySelector('[data-part="count"]').textContent = t("socketsOnCount", { on, n: infos.length });
-  const availability = controlAvailability();
+  const interactive = switchesInteractive();
   const pending = pendingSocketIds();
   const host = card.querySelector('[data-part="sockets"]');
   host.innerHTML = infos.map(({ device, info }) => `
     <div class="tw-socket-tile${info.on === false ? " is-off" : ""}${info.stale ? " is-stale" : ""}" data-socket="${device.id}">
       <span class="tw-socket-name">${escapeHtml(device.id)}</span>
       <span class="tw-socket-power">${info.power !== null ? valueHtml(info.power, info.power >= 100 ? 0 : 1, "W") : ""}</span>
-      <label class="tw-switch${pending.has(device.id) ? " is-pending" : ""}"><input type="checkbox" role="switch" ${info.on ? "checked" : ""} ${!availability.ok || pending.has(device.id) || info.on === null ? "disabled" : ""} aria-label="${escapeHtml(device.id)}"><span></span></label>
+      ${interactive ? `<label class="tw-switch${pending.has(device.id) ? " is-pending" : ""}"><input type="checkbox" role="switch" ${info.on ? "checked" : ""} ${pending.has(device.id) || info.on === null ? "disabled" : ""} aria-label="${escapeHtml(device.id)}"><span></span></label>` : socketStateHtml(info)}
     </div>`).join("");
   host.querySelectorAll("input").forEach((input) => input.addEventListener("click", (event) => {
     event.preventDefault(); // the state changes only after confirmation and the device's own report
@@ -238,7 +238,7 @@ function renderSocketCard() {
     confirmSwitch(input.closest(".tw-switch"), [id], input.checked, t(input.checked ? "confirmOn" : "confirmOff", { id }), { status: card.querySelector('[data-part="status"]'), onClose: renderSocketCard });
   }));
   const allButton = card.querySelector('[data-action="all-sockets"]');
-  allButton.hidden = infos.length < 2 || !availability.ok || pending.size > 0;
+  allButton.hidden = infos.length < 2 || !interactive || pending.size > 0;
   allButton.textContent = t(on ? "allOff" : "allOn");
   controlStatus(card.querySelector('[data-part="status"]'));
 }

@@ -7,6 +7,8 @@ function storedKey() {
   try { return sessionStorage.getItem(STORAGE_KEY) || ""; } catch { return ""; }
 }
 
+export const hasBridgeKey = () => Boolean(storedKey());
+
 export function forgetBridgeKey() {
   try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* storage unavailable */ }
 }
