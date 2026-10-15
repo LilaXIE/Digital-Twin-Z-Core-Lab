@@ -20,11 +20,12 @@ import { controlStatus, confirmSwitch, confirmOpen, pendingSocketIds, socketStat
 import { toggleAlarmPopover } from "./alarms.js";
 import { todayHtml } from "./today.js";
 
+// Each metric has its own icon so small labels are not the only way to tell them apart (section B6).
 const INDOOR_STATS = [
-  { key: "temperature", unit: "°C", digits: 1 },
-  { key: "humidity", unit: "%", digits: 0 },
-  { key: "pm25", unit: "µg/m³", digits: 0 },
-  { key: "noise", unit: "dB(A)", digits: 0 },
+  { key: "temperature", unit: "°C", digits: 1, icon: "ph-thermometer-simple" },
+  { key: "humidity", unit: "%", digits: 0, icon: "ph-drop" },
+  { key: "pm25", unit: "µg/m³", digits: 0, icon: "ph-circles-three" },
+  { key: "noise", unit: "dB(A)", digits: 0, icon: "ph-waveform" },
 ];
 const MAX_ALARMS = 3;
 
@@ -35,9 +36,9 @@ const setHtml = (element, html) => { if (element && element.dataset.html !== htm
 // Cards are built once per language; numbers and lists update in place.
 const needsBuild = (card) => card.dataset.lang !== getLang() && (card.dataset.lang = getLang());
 
-function stat({ key, label, html, level = null, sub = "", stale = false, title = "" }) {
+function stat({ key, label, html, level = null, sub = "", stale = false, title = "", iconName = "" }) {
   return `<button type="button" class="tw-stat${stale ? " is-stale" : ""}" ${key ? `data-metric="${key}"` : 'data-open="environment"'}${title ? ` title="${escapeHtml(title)}"` : ""}>
-    <span class="tw-stat-label">${level ? `<i class="tw-dot" data-level="${level}"></i>` : ""}${escapeHtml(label)}</span>
+    <span class="tw-stat-label">${iconName ? icon(iconName) : ""}${escapeHtml(label)}${level ? `<i class="tw-dot" data-level="${level}"></i>` : ""}</span>
     <span class="tw-stat-value">${html}</span>${sub ? `<span class="tw-stat-sub">${escapeHtml(sub)}</span>` : ""}</button>`;
 }
 
@@ -88,10 +89,10 @@ function renderIndoor() {
     if (metric.value === null) continue; // no source: no tile, never a dash
     const status = metricStatus(spec.key, metric.value);
     tiles.push(stat({ key: spec.key, label: t(spec.key === "temperature" ? "tempShort" : spec.key), html: valueHtml(metric.value, spec.digits, spec.unit), level: status ? (metric.stale ? "stale" : status.level) : null, title: status ? t(status.word) : "",
-      sub: metric.stale ? t("stale") : "", stale: metric.stale }));
+      sub: metric.stale ? t("stale") : "", stale: metric.stale, iconName: spec.icon }));
     if (spec.key === "humidity") {
       const occupancy = occupancyInfo();
-      if (occupancy) tiles.push(stat({ label: t(occupancy.measured ? "peopleShort" : "peopleEstimatedShort"), html: valueHtml(occupancy.count, 0, "") }));
+      if (occupancy) tiles.push(stat({ label: t(occupancy.measured ? "peopleShort" : "peopleEstimatedShort"), html: valueHtml(occupancy.count, 0, ""), iconName: "ph-users-three" }));
     }
   }
   setHtml(card.querySelector('[data-part="stats"]'), tiles.join(""));

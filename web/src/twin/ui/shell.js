@@ -3,7 +3,7 @@
 import { t, ago, clockTime, formatNumber, getLang, pick } from "../i18n.js";
 import { ui, settings, setView, setFocusMetric, emit, on, updateSetting, coarsePointer } from "../state.js";
 import { data } from "../data/store.js";
-import { roomMetric, metricStatus, occupancyInfo, lastReadingAt, alarms, socketDevices, socketInfo, safetyFacts, recommendationState, roomSeries } from "../data/derived.js";
+import { roomMetric, metricStatus, occupancyInfo, lastReadingAt, alarms, socketDevices, socketInfo, safetyFacts, recommendationState, roomSeries, healthSummary } from "../data/derived.js";
 import { SITE, isWorkingTime, thresholds } from "../config/site.js";
 import { roomState, sentenceText } from "./room-state.js";
 import { $, $$, escapeHtml, rollNumber, term } from "./dom.js";
@@ -165,7 +165,8 @@ function renderIdentity() {
   const stats = dataset.readingStats;
   const statsLine = $("#stats-line");
   statsLine.hidden = !stats;
-  if (stats) statsLine.textContent = t("statsLine", { sensors: stats.sensorsReporting, readings: stats.readingsToday.toLocaleString("en-US") });
+  // One count everywhere: the registry's devices (as "devices online n / total"), then how many reported today.
+  if (stats) statsLine.textContent = t("statsLine", { total: healthSummary().total, sensors: stats.sensorsReporting, readings: stats.readingsToday.toLocaleString("en-US") });
 }
 
 function renderBadges() {

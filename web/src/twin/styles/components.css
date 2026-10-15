@@ -297,7 +297,7 @@ body:not([data-view="home"]) .tw-details-toggle, body[data-replay] .tw-details-t
 .tw-card-caption > span:empty { display: none; }
 .tw-card-caption > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tw-card-empty { margin: 10px 0 0; font-size: 13px; color: var(--text-2); }
-.tw-card-note { margin: 8px 0 0; font-size: 11px; line-height: 1.4; color: var(--text-3); }
+.tw-card-note { margin: 8px 0 0; font-size: 12px; line-height: 1.4; color: var(--text-3); }
 .tw-card-caption:has(> span:empty):has(> .tw-link[hidden]) { display: none; }
 
 .tw-card-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
@@ -308,10 +308,10 @@ body:not([data-view="home"]) .tw-details-toggle, body[data-replay] .tw-details-t
 }
 .tw-stat:hover { background: var(--card-inset-hover); }
 .tw-stat, .tw-socket-tile { box-shadow: var(--card-inset-rim); }
-.tw-stat > .tw-stat-label { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-stat > .tw-stat-label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tw-stat > .tw-stat-label .tw-dot { width: 6px; height: 6px; }
 .tw-stat > .tw-stat-value { font-weight: 500; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tw-stat > .tw-stat-sub { font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-stat > .tw-stat-sub { font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tw-stat.is-stale > .tw-stat-value { color: var(--text-3); }
 .tw-stat > .tw-stat-value { font-size: 15px; }
 .tw-wind-arrow { display: inline-block; margin-right: 3px; font-size: 12px; color: var(--text-2); }
@@ -331,7 +331,7 @@ body:not([data-view="home"]) .tw-details-toggle, body[data-replay] .tw-details-t
 .tw-alarm-row.is-critical > i { color: var(--poor); }
 .tw-alarm-row span { display: grid; min-width: 0; }
 .tw-alarm-row strong { font-size: 13px; font-weight: 600; }
-.tw-alarm-row small { font-size: 11px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-alarm-row small { font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tw-ack { width: 30px; height: 30px; font-size: 15px; background: var(--surface-raised); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12); }
 .tw-more { margin-top: 6px; }
 .tw-health { margin-top: 10px; }
@@ -346,13 +346,13 @@ body:not([data-view="home"]) .tw-details-toggle, body[data-replay] .tw-details-t
   display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 6px;
   padding: 6px 8px 6px 10px; border-radius: 12px; background: var(--card-inset);
 }
-.tw-socket-name { grid-column: 1 / -1; font-size: 11px; font-weight: 600; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-socket-name { grid-column: 1 / -1; font-size: 12px; font-weight: 600; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tw-socket-tile .tw-switch { transform: scale(0.82); transform-origin: right center; margin-right: -2px; }
 .tw-socket-power { font-size: 15px; font-weight: 500; }
 .tw-socket-tile.is-off .tw-socket-name, .tw-socket-tile.is-off .tw-socket-power, .tw-socket-tile.is-stale .tw-socket-power { color: var(--text-3); }
 
 /* AHU (simulated) */
-.tw-ahu-status { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; color: var(--text-2); white-space: nowrap; }
+.tw-ahu-status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: var(--text-2); white-space: nowrap; }
 .tw-ahu-status .tw-dot { width: 6px; height: 6px; }
 
 /* Shorter screens (for example 1280 × 800): tighter cards; the docks scroll if still needed. */
@@ -472,12 +472,12 @@ table.tw-table tr:hover td { background: var(--surface-sunken); }
 .tw-chart.is-small { height: 120px; }
 .tw-chart svg { display: block; width: 100%; height: 100%; overflow: visible; touch-action: pan-y; }
 .tw-chart .grid line { stroke: var(--series-grid); }
-.tw-chart .axis text { fill: var(--text-3); font-size: 10px; }
+.tw-chart .axis text { fill: var(--text-2); font-size: 12px; }
 .tw-chart .line { fill: none; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
 .tw-chart .line.dashed { stroke-dasharray: 5 4; }
 .tw-chart .area { stroke: none; opacity: 0.14; }
 .tw-chart .ref { stroke-dasharray: 4 4; stroke-width: 1; }
-.tw-chart .ref-label, .tw-chart .band-label, .tw-chart .direct-label { font-size: 10px; }
+.tw-chart .ref-label, .tw-chart .band-label, .tw-chart .direct-label { font-size: 12px; }
 .tw-chart .band { fill: var(--surface-sunken); }
 .tw-chart .band-label { fill: var(--text-3); }
 .tw-chart .direct-label { fill: var(--text-2); }
@@ -674,7 +674,7 @@ table.tw-energy th:first-child { text-align: left; color: var(--text-2); font-we
   background: var(--glass-thick-bg); border: 1px solid var(--glass-edge); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.16);
   font-size: 13px; font-weight: 500; white-space: nowrap; color: var(--text);
 }
-.tw-marker-label small { margin-left: 2px; font-size: 10px; color: var(--text-3); font-weight: 400; }
+.tw-marker-label small { margin-left: 2px; font-size: 12px; color: var(--text-2); font-weight: 400; }
 .tw-marker.has-label:not(.is-occluded) .tw-marker-label, .tw-marker.is-hovered .tw-marker-label { display: block; }
 .tw-marker.is-stale .tw-marker-label { color: var(--text-3); }
 .tw-marker.is-flashing .tw-marker-dot::after, .tw-marker.is-pulsing .tw-marker-dot::after {
@@ -701,9 +701,9 @@ table.tw-energy th:first-child { text-align: left; color: var(--text-2); font-we
 .tw-marker-node .tw-marker-label { display: block; bottom: 6px; color: var(--accent-strong); }
 .tw-digital-label {
   position: absolute; left: 0; top: 0; margin: -26px 0 0 8px; padding: 1px 6px; border-radius: 6px;
-  font-family: var(--font-mono); font-size: 11px; color: #e8f2ff; background: rgba(20, 90, 200, 0.78); white-space: nowrap; will-change: transform;
+  font-family: var(--font-mono); font-size: 12px; color: #e8f2ff; background: rgba(20, 90, 200, 0.78); white-space: nowrap; will-change: transform;
 }
-.tw-plan-label { position: absolute; left: 0; top: 0; translate: -50% -50%; font-size: 11px; color: #3f6db3; white-space: nowrap; }
+.tw-plan-label { position: absolute; left: 0; top: 0; translate: -50% -50%; font-size: 12px; color: #3f6db3; white-space: nowrap; }
 .tw-plan-label.is-grid { width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid #7f9cc4; border-radius: 50%; background: rgba(255, 255, 255, 0.6); }
 
 /* ---------- Opening and loading ---------- */

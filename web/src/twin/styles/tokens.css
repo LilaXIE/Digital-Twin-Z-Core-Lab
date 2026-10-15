@@ -7,8 +7,8 @@
 
   /* Neutrals */
   --text: #12161d;
-  --text-2: #4a5361;
-  --text-3: #6b7482;
+  --text-2: #424a57;
+  --text-3: #596270;
   --line: rgba(17, 24, 39, 0.09);
   --line-strong: rgba(17, 24, 39, 0.16);
   --surface: #f6f7f9;
@@ -90,7 +90,7 @@
   color-scheme: dark;
   --text: #eef1f5;
   --text-2: #b4bcc8;
-  --text-3: #8d96a3;
+  --text-3: #a0a9b6;
   --line: rgba(255, 255, 255, 0.09);
   --line-strong: rgba(255, 255, 255, 0.16);
   --surface: #16181c;
