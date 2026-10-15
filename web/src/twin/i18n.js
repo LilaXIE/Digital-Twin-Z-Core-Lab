@@ -237,7 +237,7 @@ const en = {
   sensorsAveraged: "{n} sensors averaged", solarShort: "Solar", tempShort: "Temp.", peopleShort: "People", peopleEstimatedShort: "Est. people", totalPowerShort: "Total power", stationShort: "King's Park", warmerThanIndoor: "{v}° warmer than inside", coolerThanIndoor: "{v}° cooler than inside", sameAsIndoor: "About the same as inside",
   alarmPanelTitle: "Alarms & devices", viewAll: "View all", noOpenAlarms: "No open alarms", devicesOnline: "Devices online", batteryLowCount: ({ n }) => `${n} device${n === 1 ? "" : "s"} below 20% battery`, moreAlarms: "{n} more",
   socketsTotal: "Total", socketsOnCount: "{on} of {n} on", allOff: "Turn all off", allOn: "Turn all on", openEnergy: "Open energy details",
-  ahuTitle: "AHU operation", simulated: "Simulated", ahuRunning: "Running", ahuStandby: "Standby", ahuAuto: "Auto", ahuAfterHours: "After hours",
+  ahuTitle: "AHU", simulated: "Simulated", ahuRunning: "Running", ahuStandby: "Standby", ahuAuto: "Auto", ahuAfterHours: "After hours",
   supplyAir: "Supply", returnAir: "Return", supplySetpoint: "Supply setpoint", setpointDown: "Lower the supply setpoint", setpointUp: "Raise the supply setpoint",
   freshDamper: "Fresh air", waterValve: "Water valve", fanSpeed: "Fan", followsAi: "follows AI", ahuNote: "BMS not connected yet: changes are simulated here and never sent to equipment",
   sInUseGood: "Air is good · {n} people in the room", sInUseGoodEstimated: "Air is good · about {n} people in the room",
