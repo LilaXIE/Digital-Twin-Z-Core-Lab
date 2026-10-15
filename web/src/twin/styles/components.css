@@ -258,8 +258,9 @@ body:not([data-view="home"]) .tw-details-toggle, body[data-replay] .tw-details-t
 .tw-iaq-badge strong { font-size: 0.875rem; font-weight: 600; color: var(--text); }
 .tw-iaq-badge small { font-size: var(--fs-caption); color: var(--text-2); }
 .tw-today-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.375rem; }
-.tw-today-grid > div { display: grid; gap: 2px; padding: 0.5rem 0.625rem; border-radius: 0.75rem; background: var(--card-inset); box-shadow: var(--card-inset-rim); }
-.tw-today-grid small { font-size: var(--fs-caption); color: var(--text-2); line-height: 1.3; }
+.tw-today-grid > div { display: grid; gap: 2px; min-width: 0; padding: 0.5rem 0.625rem; border-radius: 0.75rem; background: var(--card-inset); box-shadow: var(--card-inset-rim); }
+/* Labels wrap inside the tile; a word longer than the tile breaks rather than spilling out. */
+.tw-today-grid small { min-width: 0; font-size: var(--fs-caption); color: var(--text-2); line-height: 1.3; overflow-wrap: anywhere; hyphens: auto; }
 .tw-today-grid strong { font-size: 1.125rem; font-weight: 500; color: var(--text); }
 .tw-events { display: grid; gap: 0.25rem; }
 .tw-events > small { font-size: var(--fs-caption); color: var(--text-2); }
