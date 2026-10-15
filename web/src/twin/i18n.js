@@ -138,6 +138,7 @@ const zh = {
   replayBackHour: "后退 1 小时", replayForwardHour: "前进 1 小时", replayKeys: "← → 每次 10 分钟，按住 Shift 每次 1 小时，空格播放或暂停", replayOver: "CO₂ 超过 {limit} ppm",
   login: "成员登录", logout: "退出", loginTitle: "成员登录", loginPrompt: "输入你的成员访问密钥。登录后可开关插座、编辑会议和添加备注，操作会被记录。", memberLabel: "成员", memberAs: "已登录：{name}", visitorHint: "访客只能查看", auditTitle: "操作记录", auditSocket: "开关插座", auditMeetingAdd: "添加会议", auditMeetingDelete: "删除会议", auditMode: "切换控制级别", auditNoteAdd: "添加备注", auditNoteDelete: "删除备注", auditLogin: "登录", auditFailed: "失败",
   feedbackAsk: "此刻感觉如何？", vote_stuffy: "太闷", vote_warm: "偏热", vote_cold: "偏冷", vote_ok: "刚好", feedbackThanks: "谢谢，已记录（连同此刻的室内读数）", feedbackLimited: "每 5 分钟只能反馈一次", feedbackFailed: "暂时无法提交，请稍后再试",
+  csvTime: "时间（香港）", exportCsvHint: "下载过去 24 小时的房间和各传感器数据（CSV）", weeklyReport: "周报", reportTitle: "ZB202 实验室周报", reportFor: "{from} 至 {to}", reportTotal: "合计", iaqBasisShort: "8 小时平均 CO₂", qrCode: "二维码", copyLink: "复制链接", printLabel: "打印标签", labelHint: "用手机扫码查看这个传感器的实时读数", shareTitle: "在手机上打开", shareHint: "扫码带走当前视图，或打印本周报告",
   basisItems: (r) => [
     `控制目标：预测时域内任一时刻 CO₂ ≤ <b>${r.co2.target} ppm</b>，比 ${r.co2.limit} ppm 限值留 ${r.co2.limit - r.co2.target} ppm 余量（传感器与预测误差）。`,
     `最小新风量 = 2.5 L/s·人 × 人数 + 0.3 L/s·m² × 46.6 m²，当前为 <b>${r.airflow.minLps} L/s</b>。`,
@@ -243,6 +244,7 @@ const zhHant = {
   replayBackHour: "後退 1 小時", replayForwardHour: "前進 1 小時", replayKeys: "← → 每次 10 分鐘，按住 Shift 每次 1 小時，空格鍵播放或暫停", replayOver: "CO₂ 超過 {limit} ppm",
   login: "成員登入", logout: "登出", loginTitle: "成員登入", loginPrompt: "輸入你的成員訪問密鑰。登入後可開關插座、編輯會議和新增備註，操作會被記錄。", memberLabel: "成員", memberAs: "已登入：{name}", visitorHint: "訪客只能查看", auditTitle: "操作記錄", auditSocket: "開關插座", auditMeetingAdd: "新增會議", auditMeetingDelete: "刪除會議", auditMode: "切換控制級別", auditNoteAdd: "新增備註", auditNoteDelete: "刪除備註", auditLogin: "登入", auditFailed: "失敗",
   feedbackAsk: "此刻感覺如何？", vote_stuffy: "太悶", vote_warm: "偏熱", vote_cold: "偏冷", vote_ok: "剛好", feedbackThanks: "謝謝，已記錄（連同此刻的室內讀數）", feedbackLimited: "每 5 分鐘只能反饋一次", feedbackFailed: "暫時無法提交，請稍後再試",
+  csvTime: "時間（香港）", exportCsvHint: "下載過去 24 小時的房間和各感測器數據（CSV）", weeklyReport: "週報", reportTitle: "ZB202 實驗室週報", reportFor: "{from} 至 {to}", reportTotal: "合計", iaqBasisShort: "8 小時平均 CO₂", qrCode: "二維碼", copyLink: "複製連結", printLabel: "列印標籤", labelHint: "用手機掃碼查看這個感測器的即時讀數", shareTitle: "在手機上打開", shareHint: "掃碼帶走當前視圖，或列印本週報告",
   basisItems: (r) => [
     `控制目標：預測時域內任一時刻 CO₂ ≤ <b>${r.co2.target} ppm</b>，比 ${r.co2.limit} ppm 限值留 ${r.co2.limit - r.co2.target} ppm 餘量（感測器與預測誤差）。`,
     `最小新風量 = 2.5 L/s·人 × 人數 + 0.3 L/s·m² × 46.6 m²，當前為 <b>${r.airflow.minLps} L/s</b>。`,
@@ -355,6 +357,7 @@ const en = {
   replayBackHour: "Back 1 hour", replayForwardHour: "Forward 1 hour", replayKeys: "← → step 10 minutes, with Shift 1 hour; Space plays or pauses", replayOver: "CO₂ above {limit} ppm",
   login: "Member login", logout: "Log out", loginTitle: "Member login", loginPrompt: "Enter your member access key. Members can switch sockets, edit meetings and add notes; these actions are logged.", memberLabel: "Member", memberAs: "Logged in as {name}", visitorHint: "Visitors can only look", auditTitle: "Activity log", auditSocket: "socket", auditMeetingAdd: "added a meeting", auditMeetingDelete: "removed a meeting", auditMode: "control level", auditNoteAdd: "added a note", auditNoteDelete: "removed a note", auditLogin: "logged in", auditFailed: "failed",
   feedbackAsk: "How does the room feel?", vote_stuffy: "Stuffy", vote_warm: "Warm", vote_cold: "Cold", vote_ok: "Just right", feedbackThanks: "Thanks, recorded with the room's readings", feedbackLimited: "One vote every 5 minutes", feedbackFailed: "Could not send; try again shortly",
+  csvTime: "Time (Hong Kong)", exportCsvHint: "Download the last 24 hours for the room and each sensor (CSV)", weeklyReport: "Weekly report", reportTitle: "ZB202 weekly report", reportFor: "{from} to {to}", reportTotal: "Total", iaqBasisShort: "8-hour average CO₂", qrCode: "QR code", copyLink: "Copy link", printLabel: "Print label", labelHint: "Scan with a phone to see this sensor's live readings", shareTitle: "Open on a phone", shareHint: "Scan to take this view with you, or print this week's report",
   basisItems: (r) => [
     `Target: CO₂ at or below <b>${r.co2.target} ppm</b> at every point of the horizon, ${r.co2.limit - r.co2.target} ppm below the ${r.co2.limit} ppm limit to cover sensor and forecast error.`,
     `Minimum outdoor air = 2.5 L/s per person + 0.3 L/s·m² × 46.6 m², currently <b>${r.airflow.minLps} L/s</b>.`,

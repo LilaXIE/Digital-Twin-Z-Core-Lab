@@ -9,6 +9,7 @@ import { deviceStatus, sensorHealth, sensorReading } from "../data/derived.js";
 import { sceneState, focusDevice, focusItem, selectOutline, detailsFor, itemByKey } from "../scene/index.js";
 import { markerFor } from "../scene/markers.js";
 import { planOutline } from "../scene/intro.js";
+import { shareUrl, showQr } from "./export.js";
 import { lineChart, cssVar } from "./charts/timeline.js";
 import { escapeHtml, icon, term, growFrom, shrinkTo } from "./dom.js";
 import { valueHtml, metricLabel } from "./format.js";
@@ -130,6 +131,7 @@ function render() {
     <div class="tw-sheet-status">
       <span class="tw-pill" data-level="${statusLevel}"><span class="tw-dot" data-level="${statusLevel === "normal" ? "good" : statusLevel === "fault" ? "poor" : "offline"}"></span>${escapeHtml(statusText)}</span>
       <span>${escapeHtml(snapshot?.updatedAt ? t("lastRecord", { ago: ago(snapshot.updatedAt) }) : t("noRecord"))}</span>
+      <button type="button" class="tw-button tw-button-small" data-action="qr">${icon("ph-qr-code")}<span>${escapeHtml(t("qrCode"))}</span></button>
     </div>
     ${readings.length ? `<div class="tw-metric-grid">${readings.map(({ metric, reading }) => `
       <div class="tw-metric${reading.stale ? " is-stale" : ""}"><span>${icon(metric.icon)}${metric.glossary ? term(metric.glossary, metricLabel(metric)) : escapeHtml(metricLabel(metric))}</span>
@@ -166,6 +168,7 @@ function render() {
     provider().requestSensorHistory(device.id, range.hours);
     render();
   });
+  body.querySelector('[data-action="qr"]').addEventListener("click", (event) => showQr(event.currentTarget, { title: pick(device.name), url: shareUrl(`#sensor=${device.id}`), printable: true }));
   body.querySelector('[data-action="fault"]')?.addEventListener("click", () => {
     const faults = data().faults;
     if (faults.has(device.id)) faults.delete(device.id); else faults.add(device.id);

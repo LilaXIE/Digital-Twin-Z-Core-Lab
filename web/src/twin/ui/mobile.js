@@ -4,7 +4,10 @@
 import { t, formatNumber, clockTime, ago } from "../i18n.js";
 import { on, ui } from "../state.js";
 import { data } from "../data/store.js";
-import { roomMetric, metricStatus, occupancyInfo, recommendationState, roomSeries, todaySummary, lastReadingAt } from "../data/derived.js";
+import { roomMetric, metricStatus, occupancyInfo, recommendationState, roomSeries, todaySummary, lastReadingAt, sensorReading, deviceStatus } from "../data/derived.js";
+import { deviceById } from "../data/devices.js";
+import { pick } from "../i18n.js";
+import { valueHtml, metricLabel } from "./format.js";
 import { thresholds } from "../config/site.js";
 import { sparkline } from "./charts/timeline.js";
 import { ahuOff, dayTime, reasonText } from "./ai-text.js";
@@ -45,6 +48,19 @@ function aiHtml() {
   return `${main}<p class="${stale ? "is-stale" : ""}">${escapeHtml(ahuOff(rec) ? t("ahuOffNoSavings") : reasonText(rec))}</p>`;
 }
 
+// #sensor=AM103-05 (from a sensor's QR label): that sensor's readings at the top of the page.
+function sensorCard() {
+  const id = decodeURIComponent((window.location.hash.match(/sensor=([^&]+)/) || [])[1] || "");
+  const device = deviceById(id);
+  if (!device) return "";
+  const rows = device.metrics.map((metric) => ({ metric, reading: sensorReading(device.id, metric.key) })).filter(({ reading }) => reading.value !== null);
+  const snapshot = data().snapshots.get(device.id);
+  const online = deviceStatus(device.id) === "normal";
+  return `<section class="tw-m-card tw-m-sensor"><h2>${icon("ph-cpu")}${escapeHtml(pick(device.name))}</h2>
+    <small><i class="tw-dot" data-level="${online ? "good" : "offline"}"></i> ${escapeHtml(snapshot?.updatedAt ? t("lastRecord", { ago: ago(snapshot.updatedAt) }) : t("noRecord"))}</small>
+    <div class="tw-m-grid">${rows.map(({ metric, reading }) => `<div class="tw-m-tile${reading.stale ? " is-stale" : ""}">${icon(metric.icon)}<small>${escapeHtml(metricLabel(metric))}</small><strong>${valueHtml(metric, reading.value)}</strong></div>`).join("")}</div></section>`;
+}
+
 export function renderMobile() {
   const host = document.getElementById("mobile-view");
   if (!host || host.hidden) return;
@@ -52,6 +68,7 @@ export function renderMobile() {
   const points = roomSeries(data().roomHistory, "co2").filter((p) => p.t >= Date.now() - 24 * 3600000);
   host.innerHTML = `
     <header class="tw-m-head"><h1>ZB202</h1><span>${escapeHtml(last ? `${t("live")} · ${t("updatedAgo", { ago: ago(last) })}` : t("connecting"))}</span><small>${escapeHtml(`${t("hkTime")} ${clockTime(Date.now())}`)}</small></header>
+    ${sensorCard()}
     <p class="tw-m-sentence">${escapeHtml(document.getElementById("sentence")?.textContent || "")}</p>
     <section class="tw-m-grid">${VALUES.map(valueTile).join("")}</section>
     <section class="tw-m-card"><h2>${icon("ph-sparkle")}${escapeHtml(t("aiTitle"))}</h2>${aiHtml()}</section>
@@ -70,6 +87,7 @@ export function initMobile() {
     renderMobile();
   };
   phoneQuery.addEventListener("change", apply);
+  window.addEventListener("hashchange", renderMobile);
   on("data", renderMobile);
   on("settings", renderMobile);
   window.setInterval(renderMobile, 30000);

@@ -652,6 +652,28 @@ table.tw-energy th:first-child { text-align: left; color: var(--text-2); font-we
 .tw-proof-head small, .tw-proof-head span { font-size: var(--fs-caption); color: var(--text-2); }
 .tw-proof-head strong { font-size: 24px; font-weight: 400; color: var(--text); }
 .tw-proof-head .tw-unit { margin-left: 3px; font-size: 13px; }
+.tw-h3-actions { display: inline-flex; gap: 6px; align-items: center; }
+.tw-qr { display: grid; place-items: center; padding: 10px; border-radius: 14px; background: #fff; }
+.tw-qr svg { width: 220px; height: 220px; }
+.tw-qr-url { word-break: break-all; }
+.tw-print-host { display: none; }
+@media print {
+  body.is-printing > :not(#print-report) { display: none !important; }
+  body.is-printing { background: #fff !important; }
+  body.is-printing #print-report { display: block; color: #111; font: 12pt/1.45 var(--font-ui, sans-serif); }
+  .tw-print-report h1 { margin: 0 0 4px; font-size: 20pt; }
+  .tw-print-report h2 { margin: 18px 0 6px; font-size: 13pt; border-bottom: 1px solid #999; }
+  .tw-print-report table { width: 100%; border-collapse: collapse; }
+  .tw-print-report th, .tw-print-report td { padding: 4px 6px; border-bottom: 1px solid #ddd; text-align: left; vertical-align: top; }
+  .tw-print-report th { width: 42%; font-weight: 500; }
+  .tw-print-note { font-size: 9pt; color: #444; }
+  .tw-print-report footer { margin-top: 18px; font-size: 9pt; color: #666; }
+  .tw-print-label { display: flex; gap: 18px; align-items: center; width: 90mm; padding: 6mm; border: 1px dashed #999; }
+  .tw-print-qr svg { width: 34mm; height: 34mm; }
+  .tw-print-label h1 { margin: 0 0 4px; font-size: 13pt; }
+  .tw-print-label p { margin: 0; font-size: 9pt; }
+  .tw-print-url { word-break: break-all; color: #555; }
+}
 .tw-health-summary { margin: 0 4px 8px; font-size: 13px; color: var(--text); }
 .tw-table tr.is-issue td { background: var(--caution-soft); }
 .tw-table td small { color: var(--text-3); }

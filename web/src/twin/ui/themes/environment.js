@@ -7,7 +7,8 @@ import { registry } from "../../data/devices.js";
 import { SITE, thresholds } from "../../config/site.js";
 import { startReplay } from "../../data/replay.js";
 import { lineChart, legend, cssVar } from "../charts/timeline.js";
-import { escapeHtml, icon, term } from "../dom.js";
+import { escapeHtml, icon, term, toast } from "../dom.js";
+import { exportRoomCsv } from "../export.js";
 import { compassText } from "../format.js";
 
 const METRICS = [
@@ -60,7 +61,7 @@ export function mount(element) {
     <section class="tw-section" data-part="switch"></section>
     <p class="tw-halo-legend" data-part="halo-legend"></p>
     <section class="tw-section">
-      <h3><span data-part="timeline-title"></span><button type="button" class="tw-button tw-button-small" data-action="replay">${icon("ph-play")}<span>${escapeHtml(t("replay"))}</span></button></h3>
+      <h3><span data-part="timeline-title"></span><span class="tw-h3-actions"><button type="button" class="tw-button tw-button-small" data-action="csv" title="${escapeHtml(t("exportCsvHint"))}">${icon("ph-download-simple")}<span>CSV</span></button><button type="button" class="tw-button tw-button-small" data-action="replay">${icon("ph-play")}<span>${escapeHtml(t("replay"))}</span></button></span></h3>
       <div class="tw-ranges" role="group" aria-label="${escapeHtml(t("rangeAria"))}" data-part="ranges"></div>
       <div class="tw-chart" data-part="timeline" style="margin-top:10px"></div>
       <div data-part="legend"></div>
@@ -72,6 +73,7 @@ export function mount(element) {
   body.querySelector('[data-action="replay"]').addEventListener("click", () => void startReplay());
   ensureHistory();
   update();
+  body.querySelector('[data-action="csv"]').addEventListener("click", () => { if (!exportRoomCsv()) toast(t("loading"), { icon: "ph-hourglass" }); });
 }
 
 export function unmount() { body = null; }

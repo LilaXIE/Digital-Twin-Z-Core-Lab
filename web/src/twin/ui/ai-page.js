@@ -10,6 +10,7 @@ import { lineChart, legend, cssVar } from "./charts/timeline.js";
 import { escapeHtml, icon, term } from "./dom.js";
 import { ahuHours, ahuOff, dayTime, reasonText, weekdayName } from "./ai-text.js";
 import { SITE } from "../config/site.js";
+import { exportSavingsCsv, printWeeklyReport } from "./export.js";
 import { controlUnlocked, unlockControl } from "./sockets.js";
 import { updateViewInset } from "./panel.js";
 
@@ -189,7 +190,8 @@ function renderEnergy() {
       <div><small>${escapeHtml(t("proofCarbon"))}</small><strong><span class="tw-num">${number(totals.savedKwh * SITE.carbonKgPerKwh, 1)}</span><span class="tw-unit">kg CO₂e</span></strong><span>${escapeHtml(t("proofCarbonBasis", { f: SITE.carbonKgPerKwh }))}</span></div>
     </div>
     <div class="tw-chart" style="height:180px" data-part="proof-chart"></div>` : `<p class="tw-caption">${escapeHtml(t(review ? "proofNoHours" : "loading"))}</p>`;
-  host.innerHTML = `<header><div><h2>${escapeHtml(t("energySaved"))}</h2><p>${energy ? escapeHtml(t("energySub", { source, cop: energy.plantCop })) : ""}</p></div></header>
+  host.innerHTML = `<header><div><h2>${escapeHtml(t("energySaved"))}</h2><p>${energy ? escapeHtml(t("energySub", { source, cop: energy.plantCop })) : ""}</p></div>
+      <span class="tw-h3-actions"><button type="button" class="tw-button tw-button-small" data-action="savings-csv">${icon("ph-download-simple")}<span>CSV</span></button><button type="button" class="tw-button tw-button-small" data-action="report">${icon("ph-printer")}<span>${escapeHtml(t("weeklyReport"))}</span></button></span></header>
     ${headline}
     <table class="tw-energy"><thead><tr><th></th><th>${escapeHtml(t("today"))}</th><th>${escapeHtml(weekLabel)}</th></tr></thead><tbody>
       <tr><th>${escapeHtml(t("savedAir"))}</th><td>${cell(energy?.savedTodayM3, "m³", 0)}</td><td>${cell(energy?.savedWeekM3, "m³", 0)}</td></tr>
@@ -197,6 +199,8 @@ function renderEnergy() {
       <tr><th>${term("power", t("savedElectric"))}</th><td>${cell(energy?.savedTodayKwhElectric, "kWh", 2)}</td><td>${cell(energy?.savedWeekKwhElectric, "kWh", 2)}</td></tr>
     </tbody></table>
     <details class="tw-table-view"><summary>${escapeHtml(t("proofMethodTitle"))}</summary><p class="tw-caption">${escapeHtml(t("proofMethod", { pct: review?.assumptions?.baselineDamperPct ?? 30, cop: review?.assumptions?.plantCop ?? 4.5 }))}</p></details>`;
+  host.querySelector('[data-action="savings-csv"]').addEventListener("click", () => exportSavingsCsv());
+  host.querySelector('[data-action="report"]').addEventListener("click", () => void printWeeklyReport());
   const chart = host.querySelector('[data-part="proof-chart"]');
   if (chart) {
     const toPoints = (key) => review.hours.map((h) => ({ t: Date.parse(h.t), v: h[key] }));
