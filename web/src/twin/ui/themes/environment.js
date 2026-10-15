@@ -2,7 +2,7 @@
 import { t, formatNumber, clockTime } from "../../i18n.js";
 import { ui, settings, setFocusMetric, on } from "../../state.js";
 import { data, provider } from "../../data/store.js";
-import { roomMetric, metricStatus, occupancyInfo, recommendationState, roomSeries, sensorReading } from "../../data/derived.js";
+import { roomMetric, metricStatus, occupancyInfo, recommendationState, roomSeries, sensorReading, isSuspect } from "../../data/derived.js";
 import { registry } from "../../data/devices.js";
 import { SITE, thresholds } from "../../config/site.js";
 import { startReplay } from "../../data/replay.js";
@@ -212,7 +212,7 @@ export function markerReadout(deviceId) {
   const field = metric.key === "noise" ? "noiseLaeq" : metric.key;
   const reading = sensorReading(deviceId, field);
   if (reading.value === null) return null;
-  return { text: formatNumber(reading.value, metric.digits), unit: metric.unit, status: metricStatus(metric.key, reading.value), stale: reading.stale };
+  return { text: formatNumber(reading.value, metric.digits), unit: metric.unit, status: metricStatus(metric.key, reading.value), stale: reading.stale, suspect: metric.key === "co2" && isSuspect(deviceId) };
 }
 
 on("focus-metric", () => update());

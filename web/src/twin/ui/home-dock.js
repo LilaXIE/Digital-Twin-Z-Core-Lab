@@ -84,7 +84,7 @@ function renderIndoor() {
   const span = points.length > 1 ? points.at(-1).t - points[0].t : 0;
   const cursor = ui.replay && span > 0 ? `<i class="tw-spark-cursor" style="left:${Math.max(0, Math.min(100, ((ui.replay.t - points[0].t) / span) * 100)).toFixed(2)}%"></i>` : "";
   setHtml(card.querySelector('[data-part="spark"]'), spark ? spark + cursor : "");
-  card.querySelector('[data-part="caption"]').textContent = [points.length > 1 ? t("last24h") : "", co2.sources ? t("sensorsAveraged", { n: co2.sources }) : ""].filter(Boolean).join(" · ");
+  card.querySelector('[data-part="caption"]').textContent = [points.length > 1 ? t("last24h") : "", co2.sources ? t("sensorsMedian", { n: co2.sources }) : "", co2.excluded ? t("sensorsExcluded", { n: co2.excluded }) : ""].filter(Boolean).join(" · ");
   card.querySelector('[data-action="replay"]').hidden = Boolean(ui.replay) || points.length < 2;
 
   const tiles = [];

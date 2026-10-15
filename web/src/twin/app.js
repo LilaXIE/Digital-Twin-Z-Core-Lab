@@ -6,7 +6,7 @@ import { registerProviders, setDemo, data, provider } from "./data/store.js";
 import { connect, bridgeApi } from "./data/bridge.js";
 import { demoFactory, activeDemo, previewTime } from "./data/demo.js";
 import { registry, deviceById } from "./data/devices.js";
-import { deviceStatus, metricStatus, roomMetric, occupancyInfo, seatOccupancy, socketInfo, sensorReading } from "./data/derived.js";
+import { deviceStatus, metricStatus, roomMetric, occupancyInfo, seatOccupancy, socketInfo, sensorReading, isSuspect } from "./data/derived.js";
 import { SITE } from "./config/site.js";
 import { stopReplay } from "./data/replay.js";
 import { initScene, runIntro, sceneState, flyToView, offPreset, themeLayers } from "./scene/index.js";
@@ -102,8 +102,8 @@ function updateSceneBindings() {
       if (readout) {
         label = readout;
         stale = readout.stale;
-        markerStatus = readout.stale ? "offline" : readout.status?.level || "normal";
-        halo = readout.stale ? "offline" : readout.status?.level || null;
+        markerStatus = readout.stale ? "offline" : readout.suspect ? "suspect" : readout.status?.level || "normal";
+        halo = readout.stale || readout.suspect ? "offline" : readout.status?.level || null;
       } else markerStatus = "offline";
     } else if (ui.view === "energy" && device.model === "WS523") {
       label = markerReadout("energy", device.id);
@@ -111,7 +111,7 @@ function updateSceneBindings() {
     } else if (ENV_MODELS.includes(device.model) && status === "normal") {
       // Elsewhere an environment sensor's dot shows its own CO₂ state.
       const reading = sensorReading(device.id, "co2");
-      if (reading.value !== null) { markerStatus = reading.stale ? "offline" : metricStatus("co2", reading.value)?.level || "normal"; stale = reading.stale; }
+      if (reading.value !== null) { markerStatus = reading.stale ? "offline" : isSuspect(device.id) ? "suspect" : metricStatus("co2", reading.value)?.level || "normal"; stale = reading.stale; }
     }
     updateMarker(device.id, { status: markerStatus, label, halo, stale, selected: ui.selection?.kind === "sensor" && ui.selection.id === device.id });
   }

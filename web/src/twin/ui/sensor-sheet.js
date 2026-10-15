@@ -5,7 +5,7 @@ import { t, pick, ago, formatNumber } from "../i18n.js";
 import { ui, settings, select, on, emit } from "../state.js";
 import { data, provider } from "../data/store.js";
 import { deviceById } from "../data/devices.js";
-import { deviceStatus, sensorReading } from "../data/derived.js";
+import { deviceStatus, sensorHealth, sensorReading } from "../data/derived.js";
 import { sceneState, focusDevice, focusItem, selectOutline, detailsFor, itemByKey } from "../scene/index.js";
 import { markerFor } from "../scene/markers.js";
 import { lineChart, cssVar } from "./charts/timeline.js";
@@ -68,6 +68,24 @@ function bimSection() {
   </dl></div></details>`;
 }
 
+// CO₂ sensors: raw reading, calibration offset and the health check's verdict.
+function qualitySection(device, snapshot) {
+  const calibration = data().calibration;
+  const offset = calibration?.offsets?.[device.id];
+  if (offset === undefined) return "";
+  const raw = snapshot?.corrections?.co2?.raw;
+  const health = sensorHealth(device.id);
+  const reasons = health?.state === "suspect" ? health.reasons.map((reason) => t({ "below-outdoor": "healthBelowOutdoor", flatline: "healthFlatline", deviates: "healthDeviates" }[reason] || reason, { v: calibration.outdoorPpm })) : [];
+  const row = (label, value) => `<div><dt>${escapeHtml(label)}</dt><dd>${value}</dd></div>`;
+  return `<section class="tw-section"><h3>${escapeHtml(t("dataQuality"))}</h3>
+    ${reasons.length ? `<p class="tw-caption is-warning">${icon("ph-warning")} ${escapeHtml(reasons.join(" · "))} · ${escapeHtml(t("excludedFromRoom"))}</p>` : ""}
+    <dl class="tw-props">
+      ${Number.isFinite(raw) ? row(t("rawReading"), `${formatNumber(raw, 0)} ppm`) : ""}
+      ${row(t("correction"), `${offset > 0 ? "−" : offset < 0 ? "+" : "±"}${formatNumber(Math.abs(offset), 0)} ppm`)}
+      ${calibration.calibratedAt ? row(t("calibratedOn"), escapeHtml(new Date(calibration.calibratedAt).toLocaleDateString("en-CA", { timeZone: "Asia/Hong_Kong" }))) : ""}
+    </dl></section>`;
+}
+
 function render() {
   const body = document.getElementById("sheet-body");
   if (!current) return;
@@ -105,6 +123,7 @@ function render() {
       <p class="tw-caption${history.error && history.deviceId === device.id ? " is-error" : ""}">${escapeHtml(loading ? t("loading") : history.error && history.deviceId === device.id ? t("historyFailed") : t("readingsInRange", { range: range.key === "custom" ? `${range.hours}h` : range.key, count: countInRange(snapshot, metrics[0]) }))}</p>
       ${trendMetrics.map((metric) => `<div class="tw-chart-head" style="margin-top:12px"><span class="tw-caption" style="margin:0">${escapeHtml(metricLabel(metric))}</span></div><div class="tw-chart is-small" data-trend="${metric.key}"></div>`).join("") || (loading ? '<div class="tw-skeleton" style="height:120px;margin-top:12px"></div>' : `<div class="tw-empty">${icon("ph-chart-line")}<span>${escapeHtml(t("noRecords"))}</span></div>`)}
     </section>
+    ${data().kind === "live" ? qualitySection(device, snapshot) : ""}
     ${bimSection()}
     ${settings.demo ? `<button type="button" class="tw-button ${data().faults?.has(device.id) ? "" : "tw-button-danger"}" data-action="fault" style="margin-top:14px;width:100%">${icon("ph-warning")}${escapeHtml(t(data().faults?.has(device.id) ? "restoreNormal" : "simulateFault"))}</button>` : ""}`;
   const now = Date.now();
@@ -147,7 +166,7 @@ export function initSensorSheet() {
   on("data", (event) => {
     if (!current || sheet().hidden) return;
     if (document.activeElement?.closest?.("#sheet-body input")) return;
-    if (event?.kind === "sensor-history" || event?.kind === "fault" || event?.kind === "dataset" || (event?.kind === "telemetry" && (event.deviceId === current.id || event.demo))) render();
+    if (["sensor-history", "fault", "dataset", "sensor-health", "calibration"].includes(event?.kind) || (event?.kind === "telemetry" && (event.deviceId === current.id || event.demo))) render();
   });
   on("settings", () => { if (current) render(); });
 }

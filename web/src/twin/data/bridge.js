@@ -71,6 +71,8 @@ function handle(message) {
     case "outdoor-weather": live.outdoor = message; emit("data", { kind: "outdoor" }); return;
     case "solar-radiation": live.radiation = message; emit("data", { kind: "radiation" }); return;
     case "reading-stats": live.readingStats = message; emit("data", { kind: "stats" }); return;
+    case "sensor-calibration": live.calibration = message.co2 || null; emit("data", { kind: "calibration" }); return;
+    case "sensor-health": live.sensorHealth = message; emit("data", { kind: "sensor-health" }); return;
     case "recommendation":
       live.recommendation = message;
       live.recommendationAt = Date.now();

@@ -42,6 +42,7 @@ export class StrategyService {
     this.lastDataMs = null;
     this.bridgeHealthy = true;
     this.listeners = new Set();
+    this.excludedSensors = new Set(); // CO₂ sensors flagged by the bridge's health check
   }
 
   onRecommendation(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
@@ -86,6 +87,8 @@ export class StrategyService {
   }
 
   setBridgeHealthy(healthy) { this.bridgeHealthy = healthy; }
+
+  setExcludedSensors(ids) { this.excludedSensors = new Set([...ids].map(sensorKey)); }
 
   // series: [{ t, readings: { sensorId: ppm } }] at 10-minute steps, oldest first.
   warmUp(series) {
@@ -173,7 +176,7 @@ export class StrategyService {
   async tick() {
     const nowMs = this.now();
     const meetings = this.calendar.meetings;
-    const room = roomCo2(this.co2Readings, nowMs, this.config);
+    const room = roomCo2(this.co2Readings, nowMs, this.config, this.excludedSensors);
     const control = this.controller;
     if (!room) {
       await control.step({ damperPct: this.config.ventilation.baselineDamperPct, minLps: 0 }, { nowMs, measuredPpm: NaN, people: 0, lastDataMs: this.lastDataMs, bridgeHealthy: this.bridgeHealthy });

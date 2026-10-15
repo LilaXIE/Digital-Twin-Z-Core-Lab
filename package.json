@@ -9,7 +9,7 @@
     "serve:lan": "python -m http.server 8080 --directory dist --bind 0.0.0.0",
     "test:bridge": "node tests/bridge-smoke-test.mjs",
     "test:resilience": "node tests/bridge-resilience-test.mjs",
-    "test:strategy": "node --test tests/strategy-model.test.mjs tests/strategy-optimizer.test.mjs tests/strategy-controller.test.mjs tests/strategy-service.test.mjs tests/strategy-calibration.test.mjs",
+    "test:strategy": "node --test tests/strategy-model.test.mjs tests/strategy-optimizer.test.mjs tests/strategy-controller.test.mjs tests/strategy-service.test.mjs tests/strategy-calibration.test.mjs tests/co2-quality.test.mjs",
     "test:ui": "node --test tests/room-history.test.mjs tests/room-state.test.mjs tests/bridge-url.test.mjs",
     "bridge:mock": "node tests/mock-bridge.mjs",
     "build": "vite build",

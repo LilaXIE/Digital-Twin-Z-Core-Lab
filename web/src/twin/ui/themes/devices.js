@@ -3,7 +3,7 @@ import { t, pick, formatNumber, ago } from "../../i18n.js";
 import { settings, select, ui } from "../../state.js";
 import { data } from "../../data/store.js";
 import { registry, sensorGroupFor, SENSOR_GROUPS } from "../../data/devices.js";
-import { deviceStatus, healthSummary, sensorReading } from "../../data/derived.js";
+import { deviceStatus, healthSummary, isSuspect, sensorReading } from "../../data/derived.js";
 import { sceneState, setLayerVisible, setSensorMode } from "../../scene/index.js";
 import { escapeHtml, icon } from "../dom.js";
 import { valueHtml } from "../format.js";
@@ -69,9 +69,11 @@ function latestSummary(device) {
 
 function statusLevel(id) {
   const status = deviceStatus(id);
+  if (status === "normal" && isSuspect(id)) return "caution";
   return status === "normal" ? "good" : status === "fault" ? "poor" : "offline";
 }
-const statusText = (id) => ({ normal: t("statusNormal"), fault: t("statusFault"), offline: t("statusOffline"), unavailable: t("statusUnavailable") })[deviceStatus(id)] || "";
+const statusText = (id) => (deviceStatus(id) === "normal" && isSuspect(id) ? t("readingSuspect")
+  : ({ normal: t("statusNormal"), fault: t("statusFault"), offline: t("statusOffline"), unavailable: t("statusUnavailable") })[deviceStatus(id)] || "");
 
 function renderList() {
   if (!body) return;

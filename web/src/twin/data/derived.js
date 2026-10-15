@@ -5,7 +5,12 @@ import { data, alarmStates } from "./store.js";
 import { deviceById, deviceStatusFromValues, registry } from "./devices.js";
 import { ui } from "../state.js";
 
-const average = (values) => (values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null);
+const median = (values) => {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+};
 const now = () => (ui.replay ? ui.replay.t : Date.now());
 
 export function deviceStatus(id, dataset = data()) {
@@ -38,7 +43,15 @@ export function sensorReading(id, key) {
   return { value: Number.isFinite(value) ? value : null, at, stale: isStale(at) };
 }
 
-// Room value = mean of the five environment sensors; fresh readings win over stale ones.
+// CO₂ health from the bridge (scripts/co2-quality.mjs): { state: "ok" | "suspect" | "stale", reasons }.
+export function sensorHealth(id) {
+  const dataset = data();
+  return dataset.kind === "live" ? dataset.sensorHealth?.sensors?.[id] || null : null;
+}
+export const isSuspect = (id) => sensorHealth(id)?.state === "suspect";
+
+// Room value = median of the five environment sensors (CO₂ already offset-corrected by the bridge);
+// fresh readings win over stale ones, and CO₂ sensors flagged by the health check are left out.
 export function roomMetric(key) {
   if (ui.replay) {
     const value = ui.replay.room?.[key];
@@ -46,11 +59,17 @@ export function roomMetric(key) {
   }
   const ids = key === "pm25" ? ["AM308-01"] : key === "noise" ? registry.devices.filter((d) => d.model === "WS302").map((d) => d.id) : SITE.envSensors;
   const field = key === "noise" ? "noiseLaeq" : key;
-  const readings = ids.map((id) => sensorReading(id, field)).filter((reading) => reading.value !== null);
+  const readings = ids.map((id) => ({ id, ...sensorReading(id, field) })).filter((reading) => reading.value !== null);
   if (!readings.length) return { value: null, at: null, stale: true, sources: 0 };
   const fresh = readings.filter((reading) => !reading.stale);
-  const used = fresh.length ? fresh : readings;
-  return { value: average(used.map((reading) => reading.value)), at: Math.max(...used.map((reading) => reading.at || 0)), stale: !fresh.length, sources: used.length };
+  let used = fresh.length ? fresh : readings;
+  let excluded = 0;
+  if (key === "co2") {
+    const trusted = used.filter((reading) => !isSuspect(reading.id));
+    excluded = trusted.length ? used.length - trusted.length : 0;
+    if (trusted.length) used = trusted;
+  }
+  return { value: median(used.map((reading) => reading.value)), at: Math.max(...used.map((reading) => reading.at || 0)), stale: !fresh.length, sources: used.length, excluded };
 }
 
 // Good / caution / poor, with comfort wording for temperature and humidity (section 4.5).
@@ -178,7 +197,7 @@ export const ALARM_TITLE = { door: "alarmDoor", leak: "alarmLeak", tamper: "alar
 export const ALARM_ICON = { door: "ph-door-open", leak: "ph-drop", tamper: "ph-shield-warning", battery: "ph-battery-warning", "socket-load": "ph-plug",
   "socket-voltage": "ph-plug", connection: "ph-plugs", offline: "ph-wifi-slash", fault: "ph-warning-circle" };
 
-// Room-level series from a room-history response: mean of the environment sensors at each step.
+// Room-level series from a room-history response: median of the environment sensors at each step.
 export function roomSeries(history, key) {
   if (!history?.sensors) return [];
   const byTime = new Map();
@@ -189,7 +208,7 @@ export function roomSeries(history, key) {
       byTime.set(time, entry);
     }
   }
-  return [...byTime.entries()].sort((a, b) => a[0] - b[0]).map(([time, values]) => ({ t: time, v: average(values) }));
+  return [...byTime.entries()].sort((a, b) => a[0] - b[0]).map(([time, values]) => ({ t: time, v: median(values) }));
 }
 
 // Splits a series wherever consecutive points are further apart than maxGapMs (gaps are never interpolated).

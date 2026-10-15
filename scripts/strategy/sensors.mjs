@@ -9,8 +9,9 @@ const median = (values) => {
 };
 
 // readings: Map/obj sensorId → { ppm, t }. Offsets come from calibration (sensor − room consensus).
-// The median of offset-corrected values tolerates one faulty sensor.
-export function roomCo2(readings, nowMs, config) {
+// The median of offset-corrected values tolerates one faulty sensor; sensors flagged by the health
+// check (exclude) are left out unless no other sensor is fresh.
+export function roomCo2(readings, nowMs, config, exclude = null) {
   const entries = readings instanceof Map ? [...readings] : Object.entries(readings || {});
   const maxAge = config.co2.maxReadingAgeMinutes * 60000;
   const used = [];
@@ -21,7 +22,9 @@ export function roomCo2(readings, nowMs, config) {
     used.push({ id: key, ppm: reading.ppm - (config.co2.sensorOffsetsPpm[key] || 0) });
   }
   if (!used.length) return null;
-  return { ppm: median(used.map((item) => item.ppm)), sensors: used.map((item) => item.id) };
+  const kept = exclude?.size ? used.filter((item) => !exclude.has(item.id)) : used;
+  const chosen = kept.length ? kept : used;
+  return { ppm: median(chosen.map((item) => item.ppm)), sensors: chosen.map((item) => item.id) };
 }
 
 // readings: sensorId → { value, t }. Counts VS341 seats reporting presence when enough sensors are fresh.

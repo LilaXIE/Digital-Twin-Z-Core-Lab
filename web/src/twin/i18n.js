@@ -124,6 +124,7 @@ const zh = {
   aiControlMode: "控制方式", aiAutoMode: "AI 自动模式", aiManualMode: "手动模式", aiSupplySetpoint: "建议送风温度设定", aiDamperRec: "建议新风阀开度",
   aiCurrentSetpoint: "当前设定 {v}", aiCurrentPosition: "当前开度 {v}", aiAwaiting: "等待执行", aiExecuted: "已执行",
   aiControlReadOnly: "需接入 AHU 数据并获 FMO 授权后才能切换；目前推荐只作显示", aiSetpointUnavailable: "送风温度建议需接入 AHU 数据后提供",
+  sensorsMedian: "{n} 个传感器校正后中位数", sensorsExcluded: "已排除 {n} 个异常传感器", readingSuspect: "读数异常", healthBelowOutdoor: "校正后仍低于室外本底（约 {v} ppm）", healthFlatline: "超过 2 小时读数不变", healthDeviates: "与其他传感器相差超过 150 ppm", dataQuality: "数据质量", rawReading: "原始读数", correction: "校正量", calibratedOn: "标定日期", excludedFromRoom: "未计入房间数值",
   basisItems: (r) => [
     `控制目标：预测时域内任一时刻 CO₂ ≤ <b>${r.co2.target} ppm</b>，比 ${r.co2.limit} ppm 限值留 ${r.co2.limit - r.co2.target} ppm 余量（传感器与预测误差）。`,
     `最小新风量 = 2.5 L/s·人 × 人数 + 0.3 L/s·m² × 46.6 m²，当前为 <b>${r.airflow.minLps} L/s</b>。`,
@@ -213,6 +214,7 @@ const zhHant = {
   aiControlMode: "控制方式", aiAutoMode: "AI 自動模式", aiManualMode: "手動模式", aiSupplySetpoint: "建議送風溫度設定", aiDamperRec: "建議新風閥開度",
   aiCurrentSetpoint: "當前設定 {v}", aiCurrentPosition: "當前開度 {v}", aiAwaiting: "等待執行", aiExecuted: "已執行",
   aiControlReadOnly: "需接入 AHU 數據並獲 FMO 授權後才能切換；目前推薦只作顯示", aiSetpointUnavailable: "送風溫度建議需接入 AHU 數據後提供",
+  sensorsMedian: "{n} 個感測器校正後中位數", sensorsExcluded: "已排除 {n} 個異常感測器", readingSuspect: "讀數異常", healthBelowOutdoor: "校正後仍低於室外本底（約 {v} ppm）", healthFlatline: "超過 2 小時讀數不變", healthDeviates: "與其他感測器相差超過 150 ppm", dataQuality: "數據質素", rawReading: "原始讀數", correction: "校正量", calibratedOn: "標定日期", excludedFromRoom: "未計入房間數值",
   basisItems: (r) => [
     `控制目標：預測時域內任一時刻 CO₂ ≤ <b>${r.co2.target} ppm</b>，比 ${r.co2.limit} ppm 限值留 ${r.co2.limit - r.co2.target} ppm 餘量（感測器與預測誤差）。`,
     `最小新風量 = 2.5 L/s·人 × 人數 + 0.3 L/s·m² × 46.6 m²，當前為 <b>${r.airflow.minLps} L/s</b>。`,
@@ -309,6 +311,7 @@ const en = {
   aiControlMode: "Control mode", aiAutoMode: "AI auto mode", aiManualMode: "Manual mode", aiSupplySetpoint: "Recommended supply-air setpoint", aiDamperRec: "Recommended outdoor-air damper",
   aiCurrentSetpoint: "Current setpoint {v}", aiCurrentPosition: "Current position {v}", aiAwaiting: "Awaiting execution", aiExecuted: "Executed",
   aiControlReadOnly: "Switching needs AHU data and FMO authorisation; recommendations are display-only for now", aiSetpointUnavailable: "Supply-air setpoint advice needs AHU data",
+  sensorsMedian: "median of {n} corrected sensors", sensorsExcluded: "{n} flagged sensor left out", readingSuspect: "Reading looks wrong", healthBelowOutdoor: "Below the outdoor baseline (about {v} ppm) even after correction", healthFlatline: "Unchanged for more than 2 hours", healthDeviates: "More than 150 ppm away from the other sensors", dataQuality: "Data quality", rawReading: "Raw reading", correction: "Correction", calibratedOn: "Calibrated on", excludedFromRoom: "left out of the room value",
   basisItems: (r) => [
     `Target: CO₂ at or below <b>${r.co2.target} ppm</b> at every point of the horizon, ${r.co2.limit - r.co2.target} ppm below the ${r.co2.limit} ppm limit to cover sensor and forecast error.`,
     `Minimum outdoor air = 2.5 L/s per person + 0.3 L/s·m² × 46.6 m², currently <b>${r.airflow.minLps} L/s</b>.`,

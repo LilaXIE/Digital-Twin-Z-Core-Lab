@@ -580,7 +580,7 @@ table.tw-table tr:hover td { background: var(--surface-sunken); }
 .tw-tile > small { display: block; margin-top: 4px; font-size: var(--fs-caption); color: var(--text-3); }
 .tw-tile.is-main strong { color: var(--accent-strong); }
 .tw-ai-reason-line { grid-column: 1 / -1; margin: 2px 0 0; font-size: 14px; color: var(--text); }
-.tw-ai-reason-line.is-warning { color: var(--caution); }
+.tw-ai-reason-line.is-warning, .tw-caption.is-warning { color: var(--caution); }
 .tw-card { margin-top: 16px; padding: 16px 18px; border-radius: 24px; background: var(--surface-raised); border: 1px solid var(--line); }
 .tw-card > header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 16px; margin-bottom: 10px; }
 .tw-card > header h2 { margin: 0; font-size: 15px; font-weight: 500; }
@@ -629,6 +629,9 @@ table.tw-energy th:first-child { text-align: left; color: var(--text-2); font-we
 .tw-marker[data-status="caution"] .tw-marker-core { background: var(--caution); }
 .tw-marker[data-status="poor"] .tw-marker-core, .tw-marker[data-status="fault"] .tw-marker-core { background: var(--poor); }
 .tw-marker[data-status="offline"] .tw-marker-core, .tw-marker.is-stale .tw-marker-core { background: var(--offline); }
+/* A CO₂ sensor the health check flagged: hollow caution ring, label struck through. */
+.tw-marker[data-status="suspect"] .tw-marker-core { background: transparent; box-shadow: inset 0 0 0 2px var(--caution); }
+.tw-marker[data-status="suspect"] .tw-marker-label { color: var(--text-3); text-decoration: line-through; text-decoration-color: var(--caution); }
 .tw-marker.is-occluded { opacity: 0.5; }
 .tw-marker.is-hovered .tw-marker-dot, .tw-marker.is-selected .tw-marker-dot { transform: scale(1.3); }
 .tw-marker.is-selected .tw-marker-dot { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1px var(--accent), 0 1px 4px rgba(15, 23, 42, 0.3); }

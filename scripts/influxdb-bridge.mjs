@@ -11,6 +11,7 @@ import { loadConfig, strategyDataDir } from "./strategy/config.mjs";
 import { StrategyService } from "./strategy/service.mjs";
 import { buildCo2HistoryQuery, co2RowsToSeries } from "./strategy/influx-history.mjs";
 import { fetchHkoOutdoor, fetchHkoWind } from "./strategy/weather.mjs";
+import { assessCo2Health, calibrationSummary, correctCo2Samples, correctTelemetry } from "./co2-quality.mjs";
 
 const url = process.env.ZB202_INFLUX_URL;
 const token = process.env.ZB202_INFLUX_TOKEN;
@@ -250,6 +251,7 @@ async function sendSensorHistory(socket, message) {
       if (!field || !Number.isFinite(time) || !Number.isFinite(value)) continue;
       (trends[field.key] ||= []).push({ time, value });
     }
+    if (trends.co2) trends.co2 = correctCo2Samples(message.deviceId, trends.co2, strategyConfig);
     send(socket, { type: "sensor-history", requestId: message.requestId, deviceId: message.deviceId, hours, trends });
   } catch (error) {
     send(socket, { type: "sensor-history", requestId: message.requestId, deviceId: message.deviceId, hours, trends: {}, error: error.message });
@@ -286,7 +288,9 @@ async function sendRoomHistory(socket, message) {
           solarQueryApi.collectRows(queries.solar).catch(() => []),
           queryApi.collectRows(queries.events),
         ]);
-        return roomHistoryFromRows({ env, power, solar, events });
+        const history = roomHistoryFromRows({ env, power, solar, events });
+        for (const [id, metrics] of Object.entries(history.sensors)) if (metrics.co2) metrics.co2 = correctCo2Samples(id, metrics.co2, strategyConfig);
+        return history;
       })();
       roomHistoryCache.set(cacheKey, task);
       task.catch(() => roomHistoryCache.delete(cacheKey));
@@ -477,6 +481,27 @@ async function collectPollingRows(api, query) {
   }
 }
 
+// Flags CO₂ sensors whose corrected readings look implausible; flagged sensors leave the room value.
+let latestSensorHealth = null;
+let sensorHealthSignature = "";
+function refreshSensorHealth() {
+  const history = {};
+  for (const [deviceKey, entries] of historyByDevice) {
+    const points = entries.filter((entry) => Number.isFinite(entry.values.co2))
+      .map((entry) => correctTelemetry(entry, strategyConfig))
+      .map((entry) => ({ t: Date.parse(entry.receivedAt), ppm: entry.values.co2 }));
+    if (points.length) history[deviceKey] = points;
+  }
+  const sensors = assessCo2Health({ history, nowMs: Date.now(), config: strategyConfig });
+  strategy?.setExcludedSensors(Object.entries(sensors).filter(([, item]) => item.state === "suspect").map(([id]) => id));
+  const signature = JSON.stringify(Object.entries(sensors).map(([id, item]) => [id, item.state, item.reasons]));
+  latestSensorHealth = { type: "sensor-health", outdoorPpm: strategyConfig.co2.outdoorPpm, sensors, at: new Date().toISOString() };
+  if (signature !== sensorHealthSignature) {
+    sensorHealthSignature = signature;
+    broadcast(latestSensorHealth);
+  }
+}
+
 async function poll() {
   if (polling) return;
   polling = true;
@@ -499,9 +524,10 @@ async function poll() {
       if (telemetry) changedTelemetry.add(telemetry);
     }
     for (const telemetry of changedTelemetry) {
-      strategy?.ingestTelemetry(telemetry);
-      broadcast(telemetry);
+      strategy?.ingestTelemetry(telemetry); // the strategy applies the offsets itself
+      broadcast(correctTelemetry(telemetry, strategyConfig));
     }
+    refreshSensorHealth();
     if (!databaseConnected) console.log(`[InfluxDB] Connected to ${url}; loaded ${rows.length} rows from ${bucket}${weatherBucket ? ` + ${weatherBucket}` : ""}`);
     hasLoadedHistory = true;
     consecutiveFailures = 0;
@@ -587,7 +613,9 @@ websocketServer.on("connection", (socket) => {
   send(socket, databaseStatus());
   const pendingHistory = new Set();
   send(socket, { type: "control-status", connected: mqttConnected, readOnly, writeProtected: Boolean(writeKeyDigest) || requireWriteKey, source: "mqtt", supportedDevices: [...socketDevices.keys()] });
-  for (const history of historyByDevice.values()) for (const telemetry of history) send(socket, telemetry);
+  for (const history of historyByDevice.values()) for (const telemetry of history) send(socket, correctTelemetry(telemetry, strategyConfig));
+  send(socket, calibrationSummary(strategyConfig));
+  if (latestSensorHealth) send(socket, latestSensorHealth);
   if (strategy) {
     send(socket, { type: "calendar", meetings: strategy.calendar.meetings });
     if (strategy.latest) send(socket, strategy.latest);
