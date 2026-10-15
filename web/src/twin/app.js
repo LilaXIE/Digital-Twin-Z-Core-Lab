@@ -4,6 +4,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DRenderer } from "three/addons/renderers/CSS2DRenderer.js";
 import "@phosphor-icons/web/regular";
 import { demandAxis } from "../shared/demand-axis.js";
+import { bridgeUrl } from "../shared/bridge-url.js";
 
 const THEME_STORAGE_KEY = "zb202-theme";
 const DEBUG_MOCK_STORAGE_KEY = "zb202-debug-mock-data";
@@ -2468,12 +2469,9 @@ let bridgeReconnectTimer = null;
 let pageClosing = false;
 function connectInfluxBridge() {
   if (state.influxSocket && state.influxSocket.readyState < WebSocket.CLOSING) return;
-  const requestedPort = Number(query.get("bridgePort"));
-  const bridgePort = Number.isInteger(requestedPort) && requestedPort > 0 && requestedPort < 65536 ? requestedPort : 8787;
-  const bridgeUrl = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:${bridgePort}`;
   let socket;
   try {
-    socket = new WebSocket(bridgeUrl);
+    socket = new WebSocket(bridgeUrl());
     state.influxSocket = socket;
   } catch (error) {
     console.warn("InfluxDB bridge unavailable", error);
@@ -2533,6 +2531,11 @@ function connectInfluxBridge() {
     }
     if (message.type === "control-status") {
       state.socketControlConnected = Boolean(message.connected);
+      const status = document.getElementById("socket-control-status");
+      if (status && message.readOnly) {
+        status.className = "dt-socket-control-status";
+        status.textContent = "Read-only view: socket control is available on the local bridge only";
+      }
       renderUI();
       return;
     }

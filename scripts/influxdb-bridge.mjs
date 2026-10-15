@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { InfluxDB, Point } from "@influxdata/influxdb-client";
+import { createServer } from "node:http";
 import mqtt from "mqtt";
 import { buildSensorHistoryQuery } from "./sensor-history.mjs";
 import { SOLAR_URL, SOLAR_MEASUREMENT, parseSolarCsv, solarPoint } from "./hko-solar.mjs";
@@ -20,8 +21,13 @@ const historyRange = process.env.ZB202_INFLUX_HISTORY_RANGE || "-24h";
 const weatherBucket = process.env.ZB202_WEATHER_INFLUX_BUCKET || "";
 const weatherMeasurement = process.env.ZB202_WEATHER_INFLUX_MEASUREMENT || "";
 const weatherToken = process.env.ZB202_WEATHER_INFLUX_TOKEN || token;
-const websocketHost = process.env.ZB202_INFLUX_BRIDGE_HOST || "127.0.0.1";
-const websocketPort = Number(process.env.ZB202_INFLUX_BRIDGE_PORT || 8787);
+// Hosting platforms (e.g. Render) assign PORT and need the bridge on all interfaces.
+const websocketHost = process.env.ZB202_INFLUX_BRIDGE_HOST || (process.env.PORT ? "0.0.0.0" : "127.0.0.1");
+const websocketPort = Number(process.env.ZB202_INFLUX_BRIDGE_PORT || process.env.PORT || 8787);
+// Public deployments refuse socket control, meeting edits and mode changes.
+const readOnly = process.env.ZB202_BRIDGE_READ_ONLY === "true";
+// Extra browser origins allowed to connect, e.g. https://zb202-digital-twin.vercel.app.
+const allowedOrigins = new Set((process.env.ZB202_BRIDGE_ALLOWED_ORIGINS || "").split(",").map((origin) => origin.trim().replace(/\/$/, "")).filter(Boolean));
 const bridgeStartedAt = new Date().toISOString();
 const mqttBrokerUrl = process.env.ZB202_MQTT_URL || "mqtt://itf.beeerise.com:1889";
 const mqttUsername = process.env.ZB202_MQTT_USERNAME || "";
@@ -95,9 +101,16 @@ const strategy = strategyEnabled ? new StrategyService({
 }) : null;
 let strategyStarted = false;
 const weatherQueryApi = weatherBucket ? new InfluxDB({ url, token: weatherToken, timeout: queryTimeoutMs }).getQueryApi(org) : null;
-const websocketServer = new WebSocketServer({ host: websocketHost, port: websocketPort, maxPayload: 16 * 1024,
+// Plain HTTP answers health checks; WebSocket upgrades go to the bridge.
+const httpServer = createServer((req, res) => {
+  const healthy = req.url === "/healthz";
+  res.writeHead(healthy ? 200 : 426, { "content-type": "application/json" });
+  res.end(JSON.stringify(healthy ? { ...databaseStatus(), readOnly } : { error: "WebSocket upgrade required" }));
+});
+const websocketServer = new WebSocketServer({ server: httpServer, maxPayload: 16 * 1024,
   verifyClient({ origin, req }) {
     if (!origin) return true; // Non-browser monitoring clients.
+    if (allowedOrigins.has(origin)) return true;
     try { return new URL(origin).hostname === new URL(`http://${req.headers.host}`).hostname; }
     catch { return false; }
   } });
@@ -114,7 +127,7 @@ let mqttConnected = false;
 let processingDownlink = false;
 const downlinkQueue = [];
 
-const mqttClient = mqttUsername && mqttPassword
+const mqttClient = !readOnly && mqttUsername && mqttPassword
   ? mqtt.connect(mqttBrokerUrl, {
       username: mqttUsername,
       password: mqttPassword,
@@ -137,6 +150,8 @@ if (mqttClient) {
     broadcast({ type: "control-status", connected: false, source: "mqtt" });
   });
   mqttClient.on("error", (error) => console.error(`[MQTT] ${error.message}`));
+} else if (readOnly) {
+  console.log("[Bridge] Read-only mode: socket control, meeting edits and mode changes are refused.");
 } else {
   console.warn("[MQTT] Socket control disabled: set ZB202_MQTT_USERNAME and ZB202_MQTT_PASSWORD.");
 }
@@ -487,7 +502,7 @@ websocketServer.on("connection", (socket) => {
   socket.on("error", (error) => console.warn(`[Bridge] Client error: ${error.message}`));
   send(socket, databaseStatus());
   const pendingHistory = new Set();
-  send(socket, { type: "control-status", connected: mqttConnected, source: "mqtt", supportedDevices: [...socketDevices.keys()] });
+  send(socket, { type: "control-status", connected: mqttConnected, readOnly, source: "mqtt", supportedDevices: [...socketDevices.keys()] });
   for (const history of historyByDevice.values()) for (const telemetry of history) send(socket, telemetry);
   if (strategy) {
     send(socket, { type: "calendar", meetings: strategy.calendar.meetings });
@@ -497,6 +512,12 @@ websocketServer.on("connection", (socket) => {
     let message;
     try { message = JSON.parse(data.toString()); } catch { return; }
     if (!message || typeof message !== "object") return;
+    if (readOnly && ["socket-control", "calendar-update", "control-mode-request"].includes(message.type)) {
+      const error = "This bridge is read-only; use the local bridge for control";
+      const resultType = { "socket-control": "control-result", "calendar-update": "calendar-result", "control-mode-request": "control-mode-result" }[message.type];
+      send(socket, { type: resultType, requestId: String(message.requestId || ""), deviceId: message.deviceId, action: message.action, ok: false, error });
+      return;
+    }
     if (message.type === "socket-control") enqueueSocketControl(socket, message);
     if (["recommendation-history-request", "calendar-update", "control-mode-request"].includes(message.type)) void handleStrategyMessage(socket, message);
     if (["sensor-history-request", "demand-history-request"].includes(message.type)) {
@@ -514,8 +535,8 @@ websocketServer.on("connection", (socket) => {
 });
 
 await new Promise((resolve, reject) => {
-  websocketServer.once("listening", resolve);
-  websocketServer.once("error", reject);
+  httpServer.once("error", reject);
+  httpServer.listen(websocketPort, websocketHost, resolve);
 });
 if (strategy) {
   await strategy.init();

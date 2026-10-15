@@ -1,12 +1,8 @@
 import "@phosphor-icons/web/regular";
+import { bridgeUrl } from "../shared/bridge-url.js";
 
 const THEME_STORAGE_KEY = "zb202-theme";
 const HISTORY_HOURS = 24;
-// Optional ?bridgePort= for a bridge on a non-default port (ZB202_INFLUX_BRIDGE_PORT).
-const bridgePort = (() => {
-  const value = Number(new URLSearchParams(window.location.search).get("bridgePort"));
-  return Number.isInteger(value) && value > 0 && value < 65536 ? value : 8787;
-})();
 
 const I18N = {
   zh: {
@@ -466,7 +462,7 @@ function settle(message) {
 }
 
 function connect() {
-  const socket = new WebSocket(`${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:${bridgePort}`);
+  const socket = new WebSocket(bridgeUrl());
   state.socket = socket;
   socket.addEventListener("open", () => {
     state.retry = 0;

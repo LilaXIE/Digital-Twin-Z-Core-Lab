@@ -45,6 +45,7 @@
 
 import "@phosphor-icons/web/regular";
 import { safetySensorStatus } from "../shared/sensor-status.js";
+import { bridgeUrl } from "../shared/bridge-url.js";
 
 // Overview and device-detail page behavior.
 const THEME_STORAGE_KEY = "zb202-theme";
@@ -495,8 +496,7 @@ function connectOverviewBridge(devices) {
   };
 
   const connect = () => {
-    const bridgeUrl = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.hostname}:8787`;
-    socket = new WebSocket(bridgeUrl);
+    socket = new WebSocket(bridgeUrl());
     socket.addEventListener("open", () => { retryAttempt = 0; });
     socket.addEventListener("message", (event) => {
       let message;

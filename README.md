@@ -80,6 +80,13 @@ The measurement is `hko-solar-radiation`, the field is `solarRadiation`, and the
 
 Run the project locally or serve the built frontend on your local network. GitHub Pages is disabled and its deployment workflow has been removed.
 
+The public site at [zb202-digital-twin.vercel.app](https://zb202-digital-twin.vercel.app) is the static frontend on Vercel (`vercel.json`). Vercel cannot run the data bridge, so a read-only bridge runs on Render (`render.yaml`):
+
+1. In Render, choose New > Blueprint, select this repository and enter `ZB202_INFLUX_TOKEN` when prompted.
+2. In the Vercel project, set `VITE_ZB202_BRIDGE_URL` to the Render address with `wss://` (for example `wss://zb202-bridge.onrender.com`), then redeploy with `vercel deploy --prod`.
+
+The public bridge sets `ZB202_BRIDGE_READ_ONLY=true`: it shows live data but refuses socket control, meeting edits and mode changes, which still work on the local bridge. `ZB202_BRIDGE_ALLOWED_ORIGINS` lists the frontend origins allowed to connect. To try another bridge, add `?bridge=wss://host` to any page URL. Render's free plan sleeps after 15 minutes without visitors and takes about 30 seconds to wake.
+
 - `.env` stores the current local configuration; `.env.example` is the configuration template. Never commit real credentials.
 - `data/device-inventory/` contains historical backups for manual reference; it is not the live telemetry source.
 - `node_modules/` contains reinstallable dependencies; `dist/` contains generated build output. Both are ignored by Git.

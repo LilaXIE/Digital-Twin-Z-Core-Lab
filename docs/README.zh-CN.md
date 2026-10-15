@@ -80,6 +80,13 @@ Measurement 为 `hko-solar-radiation`，field 为 `solarRadiation`，station tag
 
 项目使用本地开发服务或局域网静态服务，GitHub Pages 已停用，仓库不再包含自动部署工作流。
 
+公开网站 [zb202-digital-twin.vercel.app](https://zb202-digital-twin.vercel.app) 是部署在 Vercel 上的静态前端（`vercel.json`）。Vercel 无法运行数据桥，因此只读数据桥部署在 Render 上（`render.yaml`）：
+
+1. 在 Render 中选择 New > Blueprint，选择本仓库，并在提示时填写 `ZB202_INFLUX_TOKEN`。
+2. 在 Vercel 项目中把 `VITE_ZB202_BRIDGE_URL` 设为 Render 地址（使用 `wss://`，例如 `wss://zb202-bridge.onrender.com`），然后运行 `vercel deploy --prod` 重新部署。
+
+公开数据桥设置了 `ZB202_BRIDGE_READ_ONLY=true`：可以查看实时数据，但会拒绝插座控制、会议编辑和模式切换，这些操作仍可在本地数据桥上使用。`ZB202_BRIDGE_ALLOWED_ORIGINS` 列出允许连接的前端来源。要临时连接其他数据桥，可在页面地址后加 `?bridge=wss://host`。Render 免费方案在 15 分钟无访问后休眠，唤醒约需 30 秒。
+
 - `web/` 保存前端源码和浏览器使用的静态模型；`models/` 保存可编辑的 Revit 与 IFC 源模型。
 - `scripts/` 保存开发服务、数据桥接与模型转换工具；`tests/` 保存验证脚本。
 - `data/device-inventory/` 是历史设备清单备份，供人工核对，不是前端实时数据源。
