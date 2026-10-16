@@ -30,7 +30,7 @@ async function download(spec) {
 // failures surface when loadModels() awaits them.
 export function warmFragments() {
   if (!libraryPromise) {
-    libraryPromise = Promise.all([import("@thatopen/fragments"), import("@thatopen/fragments/worker?url")]);
+    libraryPromise = Promise.all([import("@thatopen/fragments"), import("@thatopen/fragments/worker?url").then((module) => workerBlobUrl(module.default))]);
     libraryPromise.catch(() => {});
   }
   for (const spec of MODELS) {
@@ -41,10 +41,24 @@ export function warmFragments() {
   }
 }
 
+// The library gives each loaded model its own worker thread (a pool of up to CPU cores − 3), and
+// every `new Worker(url)` fetched the 3.2 MB worker script again. Downloading it once and handing
+// out a blob URL means one request however many threads start. The worker is self-contained, so
+// it runs the same from a blob; if the download fails, the original URL is used.
+async function workerBlobUrl(url) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return url;
+    return URL.createObjectURL(new Blob([await response.arrayBuffer()], { type: "text/javascript" }));
+  } catch {
+    return url;
+  }
+}
+
 function ensureFragments() {
   warmFragments();
-  fragmentsPromise ||= libraryPromise.then(([module, worker]) => {
-    fragments = new module.FragmentsModels(worker.default);
+  fragmentsPromise ||= libraryPromise.then(([module, workerUrl]) => {
+    fragments = new module.FragmentsModels(workerUrl);
     return fragments;
   });
   return fragmentsPromise;

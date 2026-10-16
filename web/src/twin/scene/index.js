@@ -1,6 +1,6 @@
 // Scene assembly and the API the UI uses (fly to a theme, focus a device, pick, layers, snapshot).
 import * as THREE from "three";
-import { initViewer, scene, camera, getControls, getCanvas, requestRender, onBeforeRender } from "./viewer.js";
+import { initViewer, scene, camera, getControls, getCanvas, requestRender, onBeforeRender, onAfterRender } from "./viewer.js";
 import { loadModels, itemDetails, warmFragments } from "./model-loader.js";
 import { initLighting, noteCameraMotion } from "./lighting.js";
 import { initNight } from "./night.js";
@@ -116,13 +116,14 @@ export async function initScene({ canvas, markerLayer, onProgress }) {
   registry.mep = (result.byCategory.get("IFCFLOWSEGMENT") || []).concat(result.byCategory.get("IFCFLOWTERMINAL") || [], result.byCategory.get("IFCFLOWFITTING") || [], (result.byCategory.get("IFCBUILDINGELEMENTPROXY") || []).filter((item) => item.modelId === "mep"))
     .map((item) => ({ key: `${item.modelId}:${item.localId}`, name: item.name, category: item.category, modelId: item.modelId, localId: item.localId, guid: item.guid }));
   sceneState.ready = true;
-  requestRender();
   mark("scene-built");
+  requestRender();
   return result;
 }
 
 export function runIntro({ onUi, onMarkers }) {
-  mark("room-visible"); // the intro's first frame draws the room
+  mark("room-visible"); // the intro starts drawing the room
+  const off = onAfterRender(() => { off(); mark("room-drawn"); }); // its first frame is on screen
   const preset = presetFor("home");
   return playIntro({ box: sceneState.roomBox, floorY: sceneState.floorY, home: preset, onUi, onMarkers }).then(() => startMeasuring());
 }
