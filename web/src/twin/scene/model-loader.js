@@ -15,11 +15,39 @@ export const MODELS = [
 ];
 
 let fragments = null;
-async function ensureFragments() {
-  if (fragments) return fragments;
-  const [module, worker] = await Promise.all([import("@thatopen/fragments"), import("@thatopen/fragments/worker?url")]);
-  fragments = new module.FragmentsModels(worker.default);
-  return fragments;
+let libraryPromise = null; // [Fragments module, worker URL module]
+let fragmentsPromise = null;
+const downloads = new Map(); // model id → Promise<ArrayBuffer>
+
+async function download(spec) {
+  const response = await fetch(spec.url, { signal: AbortSignal.timeout(60000) });
+  if (!response.ok) throw new Error(`HTTP ${response.status} for ${spec.url}`);
+  return response.arrayBuffer();
+}
+
+// Starts the Fragments library, its worker and all three model downloads at once, as early as the
+// page can (app.js calls it before the viewer exists). Repeated calls reuse the same requests;
+// failures surface when loadModels() awaits them.
+export function warmFragments() {
+  if (!libraryPromise) {
+    libraryPromise = Promise.all([import("@thatopen/fragments"), import("@thatopen/fragments/worker?url")]);
+    libraryPromise.catch(() => {});
+  }
+  for (const spec of MODELS) {
+    if (downloads.has(spec.id)) continue;
+    const task = download(spec);
+    task.catch(() => {});
+    downloads.set(spec.id, task);
+  }
+}
+
+function ensureFragments() {
+  warmFragments();
+  fragmentsPromise ||= libraryPromise.then(([module, worker]) => {
+    fragments = new module.FragmentsModels(worker.default);
+    return fragments;
+  });
+  return fragmentsPromise;
 }
 
 const readable = (value) => {
@@ -91,10 +119,10 @@ export async function loadModels({ onProgress }) {
   mark("fragments-ready");
   const result = { models: new Map(), items: new Map(), groups: {}, box: new THREE.Box3(), byCategory: new Map(), lamps: [], walls: [], gratings: [] };
   let done = 0;
+  // The three files download in parallel (warmFragments); they are parsed and built in order so the
+  // progress bar and the display layers behave as before.
   for (const spec of MODELS) {
-    const response = await fetch(spec.url, { signal: AbortSignal.timeout(60000) });
-    if (!response.ok) throw new Error(`HTTP ${response.status} for ${spec.url}`);
-    const buffer = await response.arrayBuffer();
+    const buffer = await downloads.get(spec.id);
     mark(`${spec.id}-downloaded`);
     const model = await fragments.load(buffer, {
       modelId: spec.id,

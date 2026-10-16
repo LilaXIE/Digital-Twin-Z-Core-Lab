@@ -1,7 +1,7 @@
 // Scene assembly and the API the UI uses (fly to a theme, focus a device, pick, layers, snapshot).
 import * as THREE from "three";
 import { initViewer, scene, camera, getControls, getCanvas, requestRender, onBeforeRender } from "./viewer.js";
-import { loadModels, itemDetails } from "./model-loader.js";
+import { loadModels, itemDetails, warmFragments } from "./model-loader.js";
 import { initLighting, noteCameraMotion } from "./lighting.js";
 import { initNight } from "./night.js";
 import { initPresets, flyToView, focusBox, presetFor, offPreset, startSway, stopSway, jumpToView } from "./camera-presets.js";
@@ -13,7 +13,7 @@ import { startPlan, setPlanProgress, alignPlan, failPlan, playIntro } from "./in
 import { setSelectionOutline, setHoverOutline } from "./outline.js";
 import { applyTier, initialTier, startMeasuring } from "./quality.js";
 import { registry } from "../data/devices.js";
-import { emit } from "../state.js";
+import { emit, settings } from "../state.js";
 import { mark } from "../perf.js";
 
 export const sceneState = {
@@ -52,9 +52,20 @@ export async function initScene({ canvas, markerLayer, onProgress }) {
   initNight(result.lamps, floorY);
 
   // Bind IFC sensors (by GlobalId) to their display items; the marker sits on top of each one.
+  // The display layer already holds every item's GlobalId, so the lookup needs no round trip to the
+  // Fragments worker (getLocalIdsByGuids took ~2.3 s on a slow CPU); the worker is asked only for
+  // GUIDs that are not found here.
   const sensorModel = result.models.get("sensor");
   const sensorDevices = registry.devices.filter((device) => device.sensorGuid);
-  const localIds = sensorModel ? await sensorModel.getLocalIdsByGuids(sensorDevices.map((device) => device.sensorGuid)) : [];
+  const localIdByGuid = new Map();
+  for (const item of result.items.values()) if (item.modelId === "sensor" && item.guid) localIdByGuid.set(item.guid, item.localId);
+  const localIds = sensorDevices.map((device) => localIdByGuid.get(device.sensorGuid));
+  const missing = sensorDevices.filter((device, index) => localIds[index] === undefined);
+  if (missing.length && sensorModel) {
+    if (settings.internal) console.warn(`[Scene] ${missing.length} sensor GUID(s) not in the display layer; asking the model: ${missing.map((device) => device.id).join(", ")}`);
+    const found = await sensorModel.getLocalIdsByGuids(missing.map((device) => device.sensorGuid));
+    missing.forEach((device, index) => { localIds[sensorDevices.indexOf(device)] = found[index]; });
+  }
   sensorDevices.forEach((device, index) => {
     const localId = localIds[index];
     const item = localId == null ? null : result.items.get(`sensor:${localId}`);
@@ -228,4 +239,4 @@ export function detailsFor(item) {
 }
 
 export const itemByKey = (key) => sceneState.result?.items.get(key);
-export { flyToView, offPreset, startSway, stopSway, jumpToView, onBeforeRender };
+export { flyToView, offPreset, startSway, stopSway, jumpToView, onBeforeRender, warmFragments };

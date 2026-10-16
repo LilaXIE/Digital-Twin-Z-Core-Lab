@@ -9,7 +9,7 @@ import { registry, deviceById } from "./data/devices.js";
 import { deviceStatus, metricStatus, roomMetric, occupancyInfo, seatOccupancy, socketInfo, sensorReading, isSuspect } from "./data/derived.js";
 import { SITE } from "./config/site.js";
 import { stopReplay } from "./data/replay.js";
-import { initScene, runIntro, sceneState, flyToView, offPreset, themeLayers } from "./scene/index.js";
+import { initScene, runIntro, sceneState, flyToView, offPreset, themeLayers, warmFragments } from "./scene/index.js";
 import { getControls, requestRender } from "./scene/viewer.js";
 import { applyDaylight } from "./scene/daylight.js";
 import { updateMarker, updateSeat, flashMarker, revealMarkers, setDisplayMode, refreshOcclusion } from "./scene/markers.js";
@@ -190,6 +190,9 @@ async function snapshot() {
 
 // ---- Start-up ----
 async function boot() {
+  // Start downloading the 3D library and models before anything else. Portrait phones show the 2D
+  // page and load nothing until the phone is turned sideways (startScene → loadModels warms then).
+  if (!phoneQuery.matches) warmFragments();
   applyTier();
   applyLanguage(settings.lang);
   applyTheme(true);
