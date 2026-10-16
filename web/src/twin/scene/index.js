@@ -14,6 +14,7 @@ import { setSelectionOutline, setHoverOutline } from "./outline.js";
 import { applyTier, initialTier, startMeasuring } from "./quality.js";
 import { registry } from "../data/devices.js";
 import { emit } from "../state.js";
+import { mark } from "../perf.js";
 
 export const sceneState = {
   ready: false,
@@ -30,6 +31,7 @@ export const sceneState = {
 export async function initScene({ canvas, markerLayer, onProgress }) {
   initViewer(canvas);
   await startPlan(markerLayer);
+  mark("plan-ready");
   let result;
   try {
     result = await loadModels({ onProgress: (value, spec) => { setPlanProgress(value); onProgress?.(value, spec); } });
@@ -67,6 +69,7 @@ export async function initScene({ canvas, markerLayer, onProgress }) {
   const tableCenter = table ? table.box.getCenter(new THREE.Vector3()).setY(table.box.max.y) : null;
   const socketAnchors = registry.devices.filter((device) => device.model === "WS523" && sceneState.anchors.has(device.id)).map((device) => ({ id: device.id, anchor: sceneState.anchors.get(device.id) }));
   const socketCenter = socketAnchors.length ? socketAnchors.reduce((sum, item) => sum.add(item.anchor), new THREE.Vector3()).multiplyScalar(1 / socketAnchors.length) : null;
+  mark("sensors-bound");
   initPresets({ box: archiBox, floorY, tableCenter, socketCenter });
   initCutaway(result.walls, archiBox.getCenter(new THREE.Vector3()));
 
@@ -103,10 +106,12 @@ export async function initScene({ canvas, markerLayer, onProgress }) {
     .map((item) => ({ key: `${item.modelId}:${item.localId}`, name: item.name, category: item.category, modelId: item.modelId, localId: item.localId, guid: item.guid }));
   sceneState.ready = true;
   requestRender();
+  mark("scene-built");
   return result;
 }
 
 export function runIntro({ onUi, onMarkers }) {
+  mark("room-visible"); // the intro's first frame draws the room
   const preset = presetFor("home");
   return playIntro({ box: sceneState.roomBox, floorY: sceneState.floorY, home: preset, onUi, onMarkers }).then(() => startMeasuring());
 }

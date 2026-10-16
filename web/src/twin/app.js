@@ -31,6 +31,7 @@ import { initInternal } from "./ui/internal.js";
 import { initMobile, phoneQuery } from "./ui/mobile.js";
 import { initFeedback } from "./ui/today.js";
 import { initMepToggle } from "./ui/mep-toggle.js";
+import { mark, reportTimings } from "./perf.js";
 import { $, $$, toast, closePopover, popoverOpen } from "./ui/dom.js";
 
 const root = document.documentElement;
@@ -252,6 +253,7 @@ async function boot() {
 }
 
 async function startScene() {
+  mark("scene-start");
   const percent = $("#intro-percent");
   try {
     await initScene({ canvas: $("#twin-canvas"), markerLayer: $("#marker-layer"), onProgress: (value) => { percent.textContent = `${Math.round(value * 100)}%`; $("#intro-bar").style.width = `${Math.round(value * 100)}%`; } });
@@ -279,6 +281,8 @@ async function startScene() {
       $("#intro").hidden = true;
     },
   });
+  mark("intro-done");
+  reportTimings(settings.internal);
   emit("scene-ready");
   if (settings.internal) window.__twin = { sceneState, ui, data, registry, shared: (await import("./scene/materials.js")).shared, requestRender };
   // Deep links: twin.html#environment, twin.html#sensor=AM103-05 (device.html and overview.html land here too).

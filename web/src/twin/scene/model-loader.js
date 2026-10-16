@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { camera } from "./viewer.js";
 import { materialFor, materialKeyFor, UV_SCALE } from "./materials.js";
+import { mark } from "../perf.js";
 
 export const MODELS = [
   { id: "archi", url: "./models/fragments/Lab-archi.frag", label: "Lab Architecture", weight: 0.62 },
@@ -87,12 +88,14 @@ function splitLampLens(geometry) {
 
 export async function loadModels({ onProgress }) {
   await ensureFragments();
+  mark("fragments-ready");
   const result = { models: new Map(), items: new Map(), groups: {}, box: new THREE.Box3(), byCategory: new Map(), lamps: [], walls: [], gratings: [] };
   let done = 0;
   for (const spec of MODELS) {
     const response = await fetch(spec.url, { signal: AbortSignal.timeout(60000) });
     if (!response.ok) throw new Error(`HTTP ${response.status} for ${spec.url}`);
     const buffer = await response.arrayBuffer();
+    mark(`${spec.id}-downloaded`);
     const model = await fragments.load(buffer, {
       modelId: spec.id,
       camera,
@@ -100,8 +103,10 @@ export async function loadModels({ onProgress }) {
     });
     result.models.set(spec.id, model);
     await fragments.update(true);
+    mark(`${spec.id}-parsed`);
     onProgress?.(done + spec.weight * 0.65, spec);
     await buildDisplayLayer(spec.id, model, result);
+    mark(`${spec.id}-displayed`);
     done += spec.weight;
     onProgress?.(Math.min(0.99, done), spec);
   }
