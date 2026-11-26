@@ -116,7 +116,7 @@ function updateSceneBindings() {
       label = markerReadout("energy", device.id);
       stale = Boolean(label?.stale) || !state.online;
       const info = socketInfo(device.id);
-      powered = !stale && info.on !== false && info.power > 0.5;
+      powered = !stale && info.on === true;
       if (label) label = { ...label, level: powered ? "power" : null };
     }
     updateMarker(device.id, { status: markerStatus, label, halo, stale, powered, selected: ui.selection?.kind === "sensor" && ui.selection.id === device.id });

@@ -68,10 +68,11 @@ export function deviceState(id) {
   if (!ui.replay && device && Date.now() - lastAt > silenceLimitMs(device)) return { ...base, level: "offline", key: "statusSilent", online: false };
   if (isSuspect(id)) return { ...base, level: "caution", key: "readingSuspect", online: true };
   if (device?.model === "WS523") {
+    // Green only when the socket's own latest report in InfluxDB (socketStatus) says its relay is on.
     const relay = data().snapshots.get(id)?.values.socketStatus;
     const on = Number.isFinite(relay) ? relay > 0 : null;
-    if (on === false) return { ...base, level: "idle", key: "socketOffState", online: true, on };
-    return { ...base, level: "good", key: on ? "socketOnState" : "statusNormal", online: true, on };
+    if (on !== true) return { ...base, level: "idle", key: on === false ? "socketOffState" : "statusNormal", online: true, on };
+    return { ...base, level: "good", key: "socketOnState", online: true, on };
   }
   return { ...base, level: "good", key: "statusNormal", online: true };
 }
@@ -166,7 +167,10 @@ export function socketInfo(id) {
   const relay = sensorReading(id, "socketStatus");
   const state = ui.replay ? { online: true, level: "good", key: "statusNormal" } : deviceState(id);
   const lastOn = relay.value === null ? null : relay.value > 0;
-  return { id, power: power.value, powerAt: power.at, stale: power.stale || !state.online, online: state.online, state, on: state.online ? lastOn : null, lastOn, hasData: power.value !== null || relay.value !== null };
+  // Freshness follows the socket's own reporting interval (most report every 20 minutes), not the
+  // 15-minute rule for room readings, so a socket does not flicker to "stale" between reports.
+  const stale = ui.replay ? power.stale : !state.online;
+  return { id, power: power.value, powerAt: power.at, relayAt: relay.at, stale, online: state.online, state, on: state.online ? lastOn : null, lastOn, hasData: power.value !== null || relay.value !== null };
 }
 
 // Total demand of the sockets reporting now; only when none is, the last known total (shown as stale).

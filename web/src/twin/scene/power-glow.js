@@ -1,5 +1,5 @@
-// Energy theme: no wiring is drawn (the real circuits are not modelled). Each socket that is drawing
-// power glows instead: a soft warm light around the socket and a ring on the surface below it that
+// Energy theme: no wiring is drawn (the real circuits are not modelled). Each socket that is switched
+// on glows instead: a soft warm light around the socket and a ring on the surface below it that
 // breathes slowly. Brightness follows the socket's active power; a socket with no fresh reading or
 // no load stays dark.
 import * as THREE from "three";
@@ -82,12 +82,14 @@ export function initPowerGlow({ sockets, color = 0xff9f1c }) {
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const anyLit = () => [...glows.values()].some((glow) => glow.target > 0);
 
-// power in watts. A stale reading or no load: dark. Otherwise 0.45 (a phone charger) to 1 (≥ 600 W).
+// Lit exactly while the socket's latest report says its relay is on (socketStatus in InfluxDB);
+// brightness grows with the load: 0.45 with nothing plugged in, up to 1 at 600 W and more.
 export function updatePowerGlow(id, power, stale, on) {
   const glow = glows.get(id);
   if (!glow) return;
-  const drawing = Number.isFinite(power) && power > 0.5 && !stale && on !== false;
-  glow.target = drawing ? 0.45 + 0.55 * Math.min(1, Math.sqrt(power / 600)) : 0;
+  const lit = on === true && !stale;
+  const watts = Number.isFinite(power) ? Math.max(0, power) : 0;
+  glow.target = lit ? 0.45 + 0.55 * Math.min(1, Math.sqrt(watts / 600)) : 0;
   sync();
 }
 
