@@ -1,0 +1,77 @@
+/* Data panels: reading chips in the device list, socket bulk switching, and the environment panel. */
+
+/* ---- Device list: every reading of a multi-sensor ---- */
+.tw-device-readings { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: -0.125rem; }
+.tw-reading { display: inline-flex; align-items: baseline; gap: 0.3125rem; padding: 0.125rem 0.5rem; border-radius: 62.4375rem; background: var(--surface-sunken); font-size: var(--fs-caption); line-height: 1.5; white-space: nowrap; }
+.tw-device .tw-reading small { display: inline; color: var(--text-3); }
+.tw-reading .tw-num { font-weight: 600; color: var(--text); }
+.tw-reading .tw-unit { margin-left: 0.125rem; color: var(--text-3); }
+.tw-device.is-selected .tw-reading { background: var(--surface-raised); }
+
+/* ---- Sockets: all on / all off ---- */
+.tw-bulk { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.tw-bulk[hidden] { display: none; }
+.tw-bulk .tw-button:disabled { opacity: 0.45; cursor: default; }
+.tw-card .tw-bulk { margin-top: 0.5rem; }
+.tw-card .tw-bulk .tw-button { flex: 1 1 0; justify-content: center; }
+
+/* ---- Environment: indoor beside outdoor ---- */
+.tw-env-compare { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: stretch; gap: 0.375rem; }
+.tw-env-side { display: grid; align-content: start; gap: 0.125rem; min-width: 0; padding: 0.625rem 0.75rem; border-radius: var(--r-small); background: var(--surface-sunken); }
+.tw-env-side small { font-size: var(--fs-caption); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-env-side strong { font-size: 1.75rem; font-weight: 300; letter-spacing: -0.02em; line-height: 1.1; white-space: nowrap; }
+.tw-env-side strong .tw-unit { margin-left: 0.1875rem; font-size: 0.8125rem; font-weight: 400; letter-spacing: 0; color: var(--text-3); }
+.tw-env-side.is-stale strong, .tw-env-side.is-empty strong { color: var(--text-3); }
+.tw-env-side.is-outdoor strong { color: var(--text-2); }
+.tw-env-status { display: inline-flex; align-items: center; gap: 0.3125rem; min-height: 1.125rem; font-size: var(--fs-caption); color: var(--text-2); }
+.tw-env-vs { align-self: center; justify-self: center; min-width: 2.75rem; padding: 0.1875rem 0.4375rem; border-radius: 62.4375rem; background: var(--surface-raised); box-shadow: 0 0 0 1px var(--line); text-align: center; font-size: var(--fs-caption); font-weight: 600; color: var(--text-3); white-space: nowrap; }
+.tw-env-delta[data-sign="1"] { color: var(--caution); }
+.tw-env-delta[data-sign="-1"] { color: var(--accent-strong); }
+.tw-env-sentence { margin: 0.5rem 0.25rem 0; font-size: 0.8125rem; color: var(--text-2); }
+.tw-env-now .tw-halo-legend { margin-top: 0.375rem; }
+
+/* ---- Environment: the chosen range at a glance ---- */
+.tw-env-stats { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.375rem; margin-top: 0.625rem; }
+.tw-env-stats[hidden] { display: none; }
+.tw-env-stat { display: grid; gap: 0.0625rem; padding: 0.5rem 0.625rem; border-radius: var(--r-small); background: var(--surface-sunken); min-width: 0; }
+.tw-env-stat small { font-size: var(--fs-caption); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-env-stat strong { font-size: 1.0625rem; font-weight: 500; white-space: nowrap; }
+.tw-env-stat strong .tw-unit { margin-left: 0.125rem; font-size: 0.6875rem; font-weight: 400; color: var(--text-3); }
+.tw-env-stat span:last-child { font-size: 0.6875rem; color: var(--text-3); min-height: 0.875rem; }
+.tw-env-stat[data-level="good"] strong { color: var(--good); }
+.tw-env-stat[data-level="caution"] strong { color: var(--caution); }
+.tw-env-stat[data-level="poor"] strong { color: var(--poor); }
+
+/* ---- Environment: each sensor on one scale ---- */
+.tw-env-spots { display: grid; gap: 2px; }
+.tw-env-spot { display: grid; grid-template-columns: 5.25rem minmax(0, 1fr) 4.75rem; align-items: center; gap: 0.625rem; width: 100%; min-height: 2.25rem; padding: 0.25rem 0.625rem; border: 0; border-radius: var(--r-small); background: transparent; text-align: left; transition: background 150ms ease; }
+.tw-env-spot:hover, .tw-env-spot:focus-visible { background: var(--surface-sunken); }
+.tw-env-spot.is-selected { background: var(--accent-soft); }
+.tw-env-spot-id { font-size: 0.8125rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-env-spot-id small { font-size: 0.6875rem; font-weight: 400; color: var(--caution); }
+.tw-env-spot-value { text-align: right; font-size: 0.875rem; font-weight: 500; white-space: nowrap; }
+.tw-env-spot-value .tw-unit { margin-left: 0.125rem; font-size: 0.6875rem; font-weight: 400; color: var(--text-3); }
+.tw-env-spot.is-stale .tw-env-spot-value { color: var(--text-3); }
+.tw-env-track { position: relative; height: 0.875rem; }
+.tw-env-track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; border-radius: 1px; background: var(--line-strong); }
+.tw-env-band { position: absolute; top: 50%; height: 0.5rem; margin-top: -0.25rem; border-radius: 62.4375rem; background: color-mix(in srgb, var(--good) 22%, transparent); }
+.tw-env-median { position: absolute; top: 0; bottom: 0; width: 0; margin-left: -1px; border-left: 2px dotted var(--text-3); }
+.tw-env-dot { position: absolute; top: 50%; width: 0.75rem; height: 0.75rem; margin: -0.375rem 0 0 -0.375rem; border-radius: 50%; background: var(--text-3); box-shadow: 0 0 0 2px var(--surface-raised); transition: left 400ms var(--ease-spring, ease); }
+.tw-env-dot[data-level="good"] { background: var(--good); }
+.tw-env-dot[data-level="caution"] { background: var(--caution); }
+.tw-env-dot[data-level="poor"] { background: var(--poor); }
+.tw-env-spot:hover .tw-env-dot { transform: scale(1.25); }
+.tw-env-spots-key { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; margin: 0.375rem 0.625rem 0; }
+.tw-env-key-band { display: inline-block; width: 1rem; height: 0.5rem; border-radius: 62.4375rem; background: color-mix(in srgb, var(--good) 22%, transparent); }
+.tw-env-key-median { display: inline-block; height: 0.75rem; margin-left: 0.5rem; border-left: 2px dotted var(--text-3); }
+
+/* ---- Environment: all readings, each can be charted ---- */
+.tw-row.is-chartable { display: grid; grid-template-columns: minmax(0, 1fr) 4.5rem auto; width: 100%; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; transition: background 150ms ease, box-shadow 150ms ease; }
+.tw-row.is-chartable:hover, .tw-row.is-chartable:focus-visible { box-shadow: inset 0 0 0 1px var(--line-strong); }
+.tw-row.is-chartable[aria-pressed="true"] { background: var(--accent-soft); }
+.tw-row.is-chartable:not(:has(.tw-row-spark)) { grid-template-columns: minmax(0, 1fr) auto; }
+.tw-row-spark { display: block; height: 1.25rem; }
+.tw-row-spark svg { display: block; width: 100%; height: 100%; }
+.tw-row-spark .tw-spark-line { fill: none; stroke: var(--series-1); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.tw-row-spark .tw-spark-limit { stroke: var(--poor); stroke-dasharray: 3 3; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.tw-row strong { text-align: right; }

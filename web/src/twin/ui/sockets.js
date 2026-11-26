@@ -73,3 +73,23 @@ export function confirmSwitch(trigger, ids, desired, question, { status, onClose
 }
 
 export const confirmOpen = () => !document.getElementById("confirm-popover").hidden;
+
+// "Turn all on" / "Turn all off" for every socket at once. Always visible with two or more sockets;
+// greyed out (with the reason as a tooltip) while control is unavailable. A visitor is asked to log
+// in first, and the switch is still confirmed like a single socket.
+export function renderBulkButtons(host, infos, { status, onClose } = {}) {
+  if (!host) return;
+  host.hidden = infos.length < 2;
+  if (host.hidden) { host.innerHTML = ""; return; }
+  const pending = pendingSocketIds();
+  const availability = controlAvailability();
+  const reason = availability.ok ? "" : settings.internal ? availability.reason : t("controlViewOnly");
+  const targets = (desired) => infos.filter(({ info }) => info.on !== desired && info.on !== null).map(({ device }) => device.id);
+  host.innerHTML = [true, false].map((desired) => `<button type="button" class="tw-button tw-button-small" data-bulk="${desired ? "on" : "off"}" ${!availability.ok || pending.size || !targets(desired).length ? "disabled" : ""}${reason ? ` title="${escapeHtml(reason)}"` : ""}>${icon(desired ? "ph-power" : "ph-prohibit")}<span>${escapeHtml(t(desired ? "allOn" : "allOff"))}</span></button>`).join("");
+  host.querySelectorAll("[data-bulk]").forEach((button) => button.addEventListener("click", async () => {
+    if (!controlUnlocked() && !(await unlockControl())) return;
+    const desired = button.dataset.bulk === "on";
+    const trigger = host.querySelector(`[data-bulk="${button.dataset.bulk}"]`) || button; // logging in redraws the buttons
+    confirmSwitch(trigger, targets(desired), desired, t(desired ? "confirmAllOn" : "confirmAllOff"), { status, onClose });
+  }));
+}
