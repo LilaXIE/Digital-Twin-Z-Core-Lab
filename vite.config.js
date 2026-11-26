@@ -4,13 +4,22 @@ import { resolve } from "node:path";
 export default defineConfig({
   root: "web",
   base: "./",
-  // Same paths as the rewrites in vercel.json (outdoor curves, data/outdoor-history.js).
-  server: {
-    proxy: {
-      "/api/open-meteo/weather": { target: "https://api.open-meteo.com", changeOrigin: true, rewrite: (path) => path.replace(/^\/api\/open-meteo\/weather/, "/v1") },
-      "/api/open-meteo/air": { target: "https://air-quality-api.open-meteo.com", changeOrigin: true, rewrite: (path) => path.replace(/^\/api\/open-meteo\/air/, "/v1") },
+  // The outdoor-curve relay (api/open-meteo.js, a Vercel function) served by the dev server too.
+  plugins: [{
+    name: "open-meteo-relay",
+    configureServer(server) {
+      server.middlewares.use("/api/open-meteo", async (req, res) => {
+        const { default: handler } = await import("./api/open-meteo.js");
+        const reply = {
+          status(code) { res.statusCode = code; return reply; },
+          setHeader: (key, value) => res.setHeader(key, value),
+          json(value) { res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify(value)); },
+          send(body) { res.end(body); },
+        };
+        await handler({ url: req.originalUrl }, reply);
+      });
     },
-  },
+  }],
   build: {
     outDir: "../dist",
     emptyOutDir: true,

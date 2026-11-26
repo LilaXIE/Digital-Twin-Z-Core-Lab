@@ -33,15 +33,5 @@
         }
       ]
     }
-  ],
-  "rewrites": [
-    {
-      "source": "/api/open-meteo/weather/:path*",
-      "destination": "https://api.open-meteo.com/v1/:path*"
-    },
-    {
-      "source": "/api/open-meteo/air/:path*",
-      "destination": "https://air-quality-api.open-meteo.com/v1/:path*"
-    }
   ]
 }
