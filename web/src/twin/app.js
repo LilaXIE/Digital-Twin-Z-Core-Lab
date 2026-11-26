@@ -31,6 +31,7 @@ import { initInternal } from "./ui/internal.js";
 import { initMobile, phoneQuery } from "./ui/mobile.js";
 import { initFeedback } from "./ui/today.js";
 import { initMepToggle } from "./ui/mep-toggle.js";
+import { initAssistant } from "./ui/assistant.js";
 import { mark, reportTimings } from "./perf.js";
 import { $, $$, toast, closePopover, popoverOpen } from "./ui/dom.js";
 
@@ -212,6 +213,7 @@ async function boot() {
   initMobile();
   initFeedback();
   initMepToggle();
+  initAssistant();
 
   on("setting:lang", (lang) => applyLanguage(lang));
   on("setting:theme", () => applyTheme());

@@ -80,6 +80,33 @@
   --glass-sheen: rgba(255, 255, 255, 0.18);
   --opaque-bg: #f6f7f9;
 
+  /* ---- Elevation design system (styles/elevation.css) ----
+     Two accents: the primary carries focus (active states, key numbers, the assistant), the
+     secondary only supports it (gradients, a second series). Swap these two values to retheme. */
+  --brand: #2f6bff;
+  --brand-2: #10b5a6;
+  --brand-ink: color-mix(in oklab, var(--brand) 78%, #0b1220);
+  --brand-50: color-mix(in oklab, var(--brand) 7%, white);
+  --brand-100: color-mix(in oklab, var(--brand) 13%, white);
+  --brand-200: color-mix(in oklab, var(--brand) 24%, white);
+  --brand-2-50: color-mix(in oklab, var(--brand-2) 9%, white);
+  --brand-grad: linear-gradient(135deg, var(--brand) 0%, color-mix(in oklab, var(--brand) 55%, var(--brand-2)) 60%, var(--brand-2) 100%);
+  --brand-grad-soft: linear-gradient(135deg, color-mix(in oklab, var(--brand) 12%, transparent), color-mix(in oklab, var(--brand-2) 10%, transparent));
+  --brand-glow: color-mix(in oklab, var(--brand) 28%, transparent);
+  /* Depth: soft, layered shadows (ambient + key), no outlines. */
+  --elev-1: 0 1px 2px rgba(15, 23, 42, 0.04), 0 0.25rem 0.75rem rgba(15, 23, 42, 0.05);
+  --elev-2: 0 0.125rem 0.375rem rgba(15, 23, 42, 0.04), 0 0.75rem 2rem rgba(15, 23, 42, 0.08);
+  --elev-3: 0 0.25rem 0.75rem rgba(15, 23, 42, 0.05), 0 1.5rem 3.5rem rgba(15, 23, 42, 0.13);
+  /* Layers, back to front: cards float over the scene; panels sit nearer; the chrome (top bar,
+     tab bar) is nearest and most opaque. */
+  --layer-card: rgba(255, 255, 255, 0.56);
+  --layer-panel: rgba(248, 250, 253, 0.84);
+  --layer-chrome: rgba(255, 255, 255, 0.8);
+  --wash: rgba(15, 23, 42, 0.035);
+  --wash-strong: rgba(15, 23, 42, 0.06);
+  --tile: rgba(255, 255, 255, 0.62);
+  --tile-hover: rgba(255, 255, 255, 0.86);
+
   /* Spacing (4 px base), radii (concentric), type scale */
   --s1: 0.25rem; --s2: 0.5rem; --s3: 0.75rem; --s4: 1rem; --s6: 1.5rem; --s8: 2rem;
   --r-panel: 1.75rem;
@@ -155,6 +182,24 @@
   --glass-shadow: 0 0.5rem 2rem rgba(0, 0, 0, 0.35);
   --glass-sheen: rgba(255, 255, 255, 0.08);
   --opaque-bg: #16181c;
+  --brand: #5b8cff;
+  --brand-2: #2dd4bf;
+  --brand-ink: color-mix(in oklab, var(--brand) 70%, white);
+  --brand-50: color-mix(in oklab, var(--brand) 12%, #16181c);
+  --brand-100: color-mix(in oklab, var(--brand) 20%, #16181c);
+  --brand-200: color-mix(in oklab, var(--brand) 32%, #16181c);
+  --brand-2-50: color-mix(in oklab, var(--brand-2) 14%, #16181c);
+  --brand-glow: color-mix(in oklab, var(--brand) 40%, transparent);
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 0.25rem 0.75rem rgba(0, 0, 0, 0.22);
+  --elev-2: 0 0.125rem 0.375rem rgba(0, 0, 0, 0.3), 0 0.75rem 2rem rgba(0, 0, 0, 0.35);
+  --elev-3: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.35), 0 1.5rem 3.5rem rgba(0, 0, 0, 0.5);
+  --layer-card: rgba(28, 31, 37, 0.58);
+  --layer-panel: rgba(24, 27, 32, 0.86);
+  --layer-chrome: rgba(30, 33, 40, 0.84);
+  --wash: rgba(255, 255, 255, 0.04);
+  --wash-strong: rgba(255, 255, 255, 0.07);
+  --tile: rgba(255, 255, 255, 0.06);
+  --tile-hover: rgba(255, 255, 255, 0.1);
 }
 
 :root[data-touch="true"] { --tap: 3rem; }

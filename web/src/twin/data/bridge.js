@@ -25,6 +25,9 @@ function send(message) {
   return true;
 }
 
+// AI assistant: one listener per question; the bridge streams its answer as assistant-event messages.
+const assistantListeners = new Map();
+
 function settleReply(message) {
   const pending = pendingReplies.get(message.requestId);
   if (!pending) return;
@@ -58,7 +61,15 @@ function handle(message) {
       emit("data", { kind: "telemetry", deviceId: result.device.id, changed: result.changed, sampleTime: result.sampleTime });
       return;
     }
+    case "assistant-event": {
+      const listener = assistantListeners.get(message.requestId);
+      if (!listener) return;
+      if (message.event?.kind === "done" || message.event?.kind === "error") assistantListeners.delete(message.requestId);
+      listener(message.event || {});
+      return;
+    }
     case "bridge-status":
+      live.assistantReady = Boolean(message.features?.assistant); // set by a bridge that has a model connected
       live.connection = { ...live.connection, known: true, connected: Boolean(message.connected), retryAt: null,
         diagnostic: message.error ? `Query failed (${message.error.code || message.error.name}): ${message.error.message}. Last success: ${message.lastSuccessAt || "none"}` : "" };
       emit("data", { kind: "connection" });
@@ -228,6 +239,18 @@ window.addEventListener("beforeunload", () => { closing = true; window.clearTime
 export const bridgeApi = {
   kind: "live",
   isOpen,
+  // Returns the request id, or null when no assistant is connected (the UI then says so).
+  askAssistant(question, context, onEvent) {
+    if (!live.assistantReady || !isOpen()) return null;
+    const id = requestId("assistant");
+    assistantListeners.set(id, onEvent);
+    send({ type: "assistant-ask", requestId: id, question, ...context });
+    return id;
+  },
+  cancelAssistant(id) {
+    if (!assistantListeners.delete(id)) return;
+    send({ type: "assistant-cancel", requestId: id });
+  },
   requestSensorHistory(deviceId, hours) {
     const device = deviceById(deviceId);
     if (!device || !isOpen()) return;

@@ -1,0 +1,147 @@
+/* Elevation: the interface's visual system, loaded last.
+   1. One primary accent carries focus; a secondary accent only supports it (tints, gradients).
+   2. No outlines: cards, glass, tiles, tags and controls separate by type, space, tinted washes
+      and soft shadows, never by hairlines.
+   3. Depth: the chrome (top bar, tab bar) is nearest and most opaque, panels sit in the middle,
+      the Overview cards float lightest over the model.
+   4. Motion: spring curves for things that arrive (panels, cards, chips, the assistant), quiet
+      fades for things that update; nothing loops, nothing competes with the data. */
+
+/* ---------- 1. Accent: everything that used the old accent now follows the brand pair ---------- */
+:root, :root[data-theme="dark"] {
+  --accent: var(--brand);
+  --accent-strong: var(--brand-ink);
+  --accent-soft: color-mix(in oklab, var(--brand) 13%, transparent);
+  --series-1: var(--brand);
+  --glass-shadow: var(--elev-2);
+  --glass-edge-dark: 0 0 0 0 transparent;
+  --card-inset-rim: 0 0 0 0 transparent;
+  --card-inset: var(--tile);
+  --card-inset-hover: var(--tile-hover);
+}
+
+/* ---------- 2. Surfaces and depth ---------- */
+/* Glass keeps its blur, light and press effects, but loses the specular rim line. */
+.glass-thin::before, .glass-thick::before { display: none !important; }
+.glass-thin, .glass-thick { box-shadow: var(--elev-2); }
+
+/* Overview cards: the lightest layer, floating over the model. */
+.tw-dock > .glass-thick, .tw-identity.glass-thin {
+  background: var(--layer-card);
+  box-shadow: var(--elev-2);
+  -webkit-backdrop-filter: blur(1.375rem) saturate(1.8) brightness(1.05);
+  backdrop-filter: blur(1.375rem) saturate(1.8) brightness(1.05);
+}
+.tw-dock > .glass-thick.is-lit, .tw-identity.glass-thin.is-lit { box-shadow: var(--elev-3); }
+
+/* Chrome: top-bar controls and the tab bar are nearest — more opaque, deeper shadow. */
+.tw-tabbar.glass-thin, .tw-segmented.glass-thin, .tw-toolgroup.glass-thin, .tw-alarm-capsule.glass-thin, .tw-capsule.glass-thin {
+  background: var(--layer-chrome);
+  box-shadow: var(--elev-3);
+  -webkit-backdrop-filter: blur(1.75rem) saturate(1.9);
+  backdrop-filter: blur(1.75rem) saturate(1.9);
+}
+.tw-identity.glass-thin { background: var(--layer-chrome); box-shadow: var(--elev-3); }
+
+/* Panels, sheets and popovers: the middle layer, dense data on a calm, near-opaque surface. */
+.tw-panel.glass-thick, .tw-popover.glass-thick, .tw-chart-tip.glass-thick, .tw-replay-bar.glass-thick, .tw-banner.glass-thick {
+  background: var(--layer-panel);
+  box-shadow: var(--elev-3);
+}
+:root[data-transparency="reduced"] .glass-thin, :root[data-transparency="reduced"] .glass-thick { box-shadow: var(--elev-2); }
+
+/* ---------- Typography: hierarchy by size and weight, not lines ---------- */
+.tw-card-head { font-size: 0.8125rem; color: var(--text); font-weight: 600; letter-spacing: -0.005em; }
+.tw-card-head h2 i, .tw-ai-card header i {
+  display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 0.5rem;
+  background: var(--brand-50); color: var(--brand); font-size: 0.875rem;
+}
+.tw-ai-card header { color: var(--text); font-size: 0.8125rem; font-weight: 600; }
+.tw-hero-value, .tw-ai-value { font-weight: 300; letter-spacing: -0.03em; }
+.tw-panel-head h2 { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.015em; }
+.tw-section > h3 { font-size: 0.8125rem; font-weight: 600; color: var(--text); letter-spacing: -0.005em; }
+.tw-section > h3 small { font-weight: 400; }
+
+/* Focus: the one number each card is about takes the accent. */
+.tw-ai-value .tw-num, .tw-ai-value:not(.tw-ai-off) {
+  background: var(--brand-grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.tw-ai-value .tw-unit { -webkit-text-fill-color: var(--text-3); }
+.tw-ai-card { background-image: radial-gradient(120% 80% at 0% 0%, var(--brand-50), transparent 60%); }
+
+/* ---------- Sections without dividers: each sits on its own soft wash ---------- */
+.tw-panel-body { padding: 0.25rem 0.75rem 1rem; }
+.tw-section { padding: 0.875rem 0.875rem 0.875rem; border-radius: 1.125rem; background: var(--wash); }
+.tw-section + .tw-section { border-top: 0; margin-top: 0.625rem; }
+.tw-section:first-child { background: transparent; padding-top: 0.25rem; }
+.tw-rows { gap: 3px; }
+.tw-row:nth-child(odd) { background: var(--tile); }
+.tw-socket:nth-child(odd) { background: var(--tile); }
+.tw-socket.is-all { border-bottom: 0; }
+
+/* Tiles inside cards: a lifted wash instead of a rim. */
+.tw-stat, .tw-socket-tile, .tw-today-grid > div, .tw-feedback-buttons button { box-shadow: none; background: var(--tile); }
+.tw-stat:hover, .tw-feedback-buttons button:hover { background: var(--tile-hover); }
+.tw-env-side, .tw-env-stat, .tw-metric, details.tw-collapse, .tw-alarm-item, .tw-meetings li, .tw-note { background: var(--tile); }
+
+/* ---------- Controls without outlines ---------- */
+.tw-button { border: 0; background: var(--tile-hover); box-shadow: var(--elev-1); }
+.tw-button:hover:not(:disabled) { background: var(--surface-raised); }
+.tw-button-primary { background: var(--brand-grad); color: #fff; box-shadow: 0 0.375rem 1rem var(--brand-glow); }
+.tw-tag { border: 0; background: var(--wash-strong); }
+.tw-tag[aria-pressed="true"] { background: var(--brand-100); color: var(--brand-ink); }
+.tw-seg { background: var(--wash-strong); }
+.tw-seg button[aria-pressed="true"], .tw-seg button.is-active { box-shadow: var(--elev-1); color: var(--brand-ink); }
+.tw-search input, .tw-custom-hours input, .tw-calendar-form input, .tw-note-form textarea {
+  border: 0; background: var(--wash-strong); box-shadow: none; transition: box-shadow 200ms ease, background 200ms ease;
+}
+.tw-search input:focus, .tw-custom-hours input:focus, .tw-note-form textarea:focus { outline: none; background: var(--surface-raised); box-shadow: 0 0 0 3px var(--brand-100); }
+.tw-switch input:checked + span { background: var(--brand); }
+.tw-link { color: var(--brand-ink); }
+
+/* Selected tab and language: the lens carries a hint of the accent. */
+.tw-tab[aria-selected="true"] { color: var(--brand-ink); }
+.tw-tab[aria-selected="true"] i { color: var(--brand); }
+.tw-tab-thumb, .tw-seg-thumb { box-shadow: var(--elev-1) !important; background: var(--surface-raised); }
+.tw-tab-thumb { background: linear-gradient(180deg, var(--surface-raised), var(--brand-50)); }
+
+/* Lists and tables: zebra washes, no rules. */
+table.tw-table th, table.tw-table td, table.tw-energy th, table.tw-energy td, .tw-table-view td, .tw-table-view th { border-bottom: 0; }
+table.tw-table tbody tr:nth-child(odd) td { background: var(--wash); }
+table.tw-table tbody tr td:first-child { border-radius: 0.5rem 0 0 0.5rem; }
+table.tw-table tbody tr td:last-child { border-radius: 0 0.5rem 0.5rem 0; }
+.tw-menu-row { border-bottom: 0; border-radius: 0.75rem; padding: 0.25rem 0.5rem; }
+.tw-menu-row:nth-child(odd) { background: var(--wash); }
+#alarm-popover .tw-today { border-top: 0; padding-top: 0.25rem; }
+
+/* Labels and banners: shadow, not borders. */
+.tw-marker-label { border: 0; background: var(--layer-chrome); box-shadow: var(--elev-1); -webkit-backdrop-filter: blur(0.75rem); backdrop-filter: blur(0.75rem); }
+.tw-banner { border-left: 0; background-image: linear-gradient(90deg, var(--caution-soft), transparent 55%); }
+.tw-banner.is-critical { background-image: linear-gradient(90deg, var(--poor-soft), transparent 55%); }
+.tw-marker-dot { border: 0; }
+body[data-view="home"] .tw-sentence { box-shadow: var(--elev-1); background: var(--layer-chrome); }
+
+/* ---------- 4. Motion: things that arrive spring in; data draws itself ---------- */
+@keyframes tw-spring-in { from { opacity: 0; transform: translateY(0.625rem) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes tw-pop-in { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
+.tw-panel:not([hidden]) .tw-panel-body > .tw-section { animation: tw-spring-in 560ms var(--ease-liquid) both; }
+.tw-panel:not([hidden]) .tw-panel-body > .tw-section:nth-child(2) { animation-delay: 40ms; }
+.tw-panel:not([hidden]) .tw-panel-body > .tw-section:nth-child(3) { animation-delay: 80ms; }
+.tw-panel:not([hidden]) .tw-panel-body > .tw-section:nth-child(4) { animation-delay: 120ms; }
+.tw-panel:not([hidden]) .tw-panel-body > .tw-section:nth-child(n + 5) { animation-delay: 160ms; }
+.tw-popover:not([hidden]) { animation: tw-pop-in 380ms var(--ease-liquid) both; }
+
+/* Charts: lines draw on arrival, areas fade up under them. */
+@keyframes tw-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes tw-area-in { from { opacity: 0; } }
+.tw-chart.is-entering .line:not(.dashed) { stroke-dasharray: 1; stroke-dashoffset: 1; animation: tw-draw 900ms var(--ease-out) forwards; }
+.tw-chart.is-entering .line.dashed { animation: tw-area-in 700ms ease 300ms both; }
+.tw-chart.is-entering .area { animation: tw-area-in 900ms ease 200ms both; }
+.tw-chart .area { opacity: 1; }
+/* Bars and dots glide to new values. */
+.tw-dist-bar i, .tw-standby-bar i { transition: width 700ms var(--ease-liquid); }
+.tw-env-dot { transition: left 700ms var(--ease-liquid); }
+@media (prefers-reduced-motion: reduce) {
+  .tw-chart.is-entering .line, .tw-chart.is-entering .area { animation: none; stroke-dasharray: none; }
+  .tw-panel-body > .tw-section, .tw-popover { animation: none !important; }
+}

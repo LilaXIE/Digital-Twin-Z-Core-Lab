@@ -28,6 +28,8 @@ function segments(points, gapMs) {
   return result;
 }
 
+let gradientSeq = 0;
+
 // Runs of data separated by more than gapMs: [[from, to], …].
 function timeBlocks(points, gapMs) {
   const times = [...new Set(points.map((p) => p.t))].sort((a, b) => a - b);
@@ -154,6 +156,15 @@ export function lineChart(container, spec) {
     }
   }
   const usedLabelY = [];
+  // Areas fade from the series colour at the line to nothing at the axis.
+  const gradients = [];
+  spec.series.forEach((series, index) => {
+    if (!series.area) return;
+    const id = `tw-g${(gradientSeq += 1)}`;
+    gradients.push(`<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${series.color}" stop-opacity="0.26"></stop><stop offset="1" stop-color="${series.color}" stop-opacity="0.02"></stop></linearGradient>`);
+    spec.series[index] = { ...series, areaFill: `url(#${id})` };
+  });
+  if (gradients.length) parts.unshift(`<defs>${gradients.join("")}</defs>`);
   for (const series of spec.series) {
     const pieces = segments(series.points, series.gapMs);
     for (const piece of pieces) {
@@ -163,8 +174,8 @@ export function lineChart(container, spec) {
         if (!index) return `M${px},${py}`;
         return series.step ? `H${px}V${py}` : `L${px},${py}`;
       }).join("");
-      if (series.area && piece.length > 1) parts.push(`<path class="area" fill="${series.color}" d="${d}L${x(piece.at(-1).t).toFixed(1)},${margin.top + plotH}L${x(piece[0].t).toFixed(1)},${margin.top + plotH}Z"></path>`);
-      parts.push(`<path class="line${series.dashed ? " dashed" : ""}" stroke="${series.color}" d="${d}"></path>`);
+      if (series.area && piece.length > 1) parts.push(`<path class="area" fill="${series.areaFill || series.color}" d="${d}L${x(piece.at(-1).t).toFixed(1)},${margin.top + plotH}L${x(piece[0].t).toFixed(1)},${margin.top + plotH}Z"></path>`);
+      parts.push(`<path class="line${series.dashed ? " dashed" : ""}" stroke="${series.color}" d="${d}" pathLength="1"></path>`);
       if (piece.length === 1) parts.push(`<circle cx="${x(piece[0].t)}" cy="${y(piece[0].v)}" r="2.5" fill="${series.color}"></circle>`);
     }
     const last = pieces.at(-1)?.at(-1);
@@ -181,6 +192,15 @@ export function lineChart(container, spec) {
   parts.push(`<line class="crosshair" x1="0" x2="0" y1="${margin.top}" y2="${margin.top + plotH}" visibility="hidden"></line><g class="dots"></g>`);
   parts.push(`<rect class="hit" x="${margin.left}" y="${margin.top}" width="${plotW}" height="${plotH}" fill="transparent" tabindex="0" aria-label="${escapeHtml(spec.label || "")}"></rect>`);
   container.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(spec.label || "")}">${parts.join("")}</svg>`;
+  // The lines draw themselves the first time a chart shows something (or shows something new),
+  // not on every data refresh.
+  const drawKey = `${spec.label || ""}|${spec.series.map((s) => s.label).join(",")}`;
+  if (container.dataset.drawn !== drawKey) {
+    container.dataset.drawn = drawKey;
+    container.classList.add("is-entering");
+    clearTimeout(container._enterTimer);
+    container._enterTimer = setTimeout(() => container.classList.remove("is-entering"), 1300);
+  }
 
   const svg = container.querySelector("svg");
   const crosshair = svg.querySelector(".crosshair");
