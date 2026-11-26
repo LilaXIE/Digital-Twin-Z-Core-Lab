@@ -419,8 +419,9 @@ body:not([data-view="home"]) .tw-details-toggle, body[data-replay] .tw-details-t
 .tw-caption.is-error { color: var(--poor); }
 .tw-caption.is-success { color: var(--good); }
 .tw-caption.is-pending { color: var(--caution); }
-.tw-metric-switch { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); width: 100%; }
-.tw-metric-switch button { min-width: 0; padding: 0 0.375rem; overflow: hidden; text-overflow: ellipsis; }
+/* Every metric name in full: columns size to their label and share what is left. */
+.tw-metric-switch { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(max-content, 1fr); width: 100%; }
+.tw-metric-switch button { min-width: 0; padding: 0 0.5rem; }
 
 .tw-metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
 .tw-metric { padding: 0.625rem 0.75rem; border-radius: var(--r-inner); background: var(--surface-sunken); min-width: 0; }
