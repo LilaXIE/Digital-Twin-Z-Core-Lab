@@ -24,7 +24,7 @@ export class StrategyService {
     this.writePoint = writePoint;
     this.logger = logger;
     this.shadowLogFile = path.join(dataDir, "shadow-log.jsonl");
-    this.calendar = new Calendar(path.join(dataDir, "calendar.json"), { maxOccupancy: config.room.maxOccupancy });
+    this.calendar = new Calendar(path.join(dataDir, "calendar.json"), { maxOccupancy: config.room.maxOccupancy, now: () => this.now() });
     this.estimator = new OccupancyEstimator(config);
     this.controller = new Controller(config, { writer, log: (entry) => this.appendLog({ kind: "control", t: new Date(this.now()).toISOString(), ...entry }) });
     this.co2Readings = new Map();
