@@ -19,9 +19,10 @@ export function validateMeeting(input, maxOccupancy = 10) {
 }
 
 export class Calendar {
-  constructor(file, { maxOccupancy = 10 } = {}) {
+  constructor(file, { maxOccupancy = 10, now = () => Date.now() } = {}) {
     this.file = file;
     this.maxOccupancy = maxOccupancy;
+    this.now = now;
     this.meetings = [];
   }
 
@@ -62,7 +63,7 @@ export class Calendar {
       throw new Error("Unsupported calendar action");
     }
     // Drop meetings that ended more than 30 days ago.
-    const cutoff = Date.now() - 30 * 86400000;
+    const cutoff = this.now() - 30 * 86400000;
     this.meetings = this.meetings.filter((meeting) => Date.parse(meeting.end) > cutoff).sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
     await this.save();
     return this.meetings;
