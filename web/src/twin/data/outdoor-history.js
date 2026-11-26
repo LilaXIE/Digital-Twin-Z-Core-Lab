@@ -6,15 +6,15 @@ import { SITE } from "../config/site.js";
 import { emit } from "../state.js";
 
 const REFRESH_MS = 30 * 60000;
-// Asked through our own site first (/api/open-meteo/…, a rewrite in vercel.json and a proxy in
-// vite.config.js), so a network or browser extension that blocks third-party requests does not
+// Asked through our own site first (/api/open-meteo, the function in api/open-meteo.js, also served
+// by the Vite dev server), so a network or browser extension that blocks third-party requests does not
 // lose the outdoor curves; straight from Open-Meteo when the page is served without the rewrite.
 // Temperature and humidity in 15-minute steps (hourly as a fallback) so short ranges get a curve.
-const WEATHER_QUERY = `forecast?latitude=${SITE.latitude}&longitude=${SITE.longitude}&minutely_15=temperature_2m,relative_humidity_2m&hourly=temperature_2m,relative_humidity_2m&past_days=2&forecast_days=1&timeformat=unixtime`;
-const AIR_QUERY = `air-quality?latitude=${SITE.latitude}&longitude=${SITE.longitude}&hourly=pm2_5&past_days=2&forecast_days=1&timeformat=unixtime`;
+const WEATHER_QUERY = `latitude=${SITE.latitude}&longitude=${SITE.longitude}&minutely_15=temperature_2m,relative_humidity_2m&hourly=temperature_2m,relative_humidity_2m&past_days=2&forecast_days=1&timeformat=unixtime`;
+const AIR_QUERY = `latitude=${SITE.latitude}&longitude=${SITE.longitude}&hourly=pm2_5&past_days=2&forecast_days=1&timeformat=unixtime`;
 const SOURCES = {
-  weather: [`api/open-meteo/weather/${WEATHER_QUERY}`, `https://api.open-meteo.com/v1/${WEATHER_QUERY}`],
-  air: [`api/open-meteo/air/${AIR_QUERY}`, `https://air-quality-api.open-meteo.com/v1/${AIR_QUERY}`],
+  weather: [`api/open-meteo?source=weather&${WEATHER_QUERY}`, `https://api.open-meteo.com/v1/forecast?${WEATHER_QUERY}`],
+  air: [`api/open-meteo?source=air&${AIR_QUERY}`, `https://air-quality-api.open-meteo.com/v1/air-quality?${AIR_QUERY}`],
 };
 
 async function fetchJson(urls) {
