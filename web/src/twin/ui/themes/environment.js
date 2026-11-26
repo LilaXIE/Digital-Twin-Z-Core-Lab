@@ -58,7 +58,17 @@ function historyPoints(metricKey, hours) {
 function outdoorFor(key, hours) {
   const dataset = data();
   const now = ui.replay ? ui.replay.stop : Date.now();
-  const recent = (points) => points.filter((p) => p.t >= now - hours * 3600000 && p.t <= now);
+  const from = now - hours * 3600000;
+  // The points inside the range, with the curve carried to the range's left edge (interpolated from
+  // the sample before it), so even a 1-hour range shows the outdoor line across the chart.
+  const recent = (all) => {
+    const inside = all.filter((p) => p.t >= from && p.t <= now);
+    const before = all.filter((p) => p.t < from).at(-1);
+    const next = inside[0] || all.find((p) => p.t > now);
+    if (before && next) inside.unshift({ t: from, v: before.v + ((next.v - before.v) * (from - before.t)) / Math.max(1, next.t - before.t) });
+    else if (before) inside.unshift({ t: from, v: before.v });
+    return inside;
+  };
   if (key === "temperature" || key === "humidity") {
     const live = dataset.outdoor?.[key];
     const points = dataset.kind === "demo" ? [] : recent(outdoorHistory(key));
@@ -69,7 +79,8 @@ function outdoorFor(key, hours) {
   }
   if (key === "co2") {
     const ppm = dataset.calibration?.outdoorPpm ?? dataset.sensorHealth?.outdoorPpm;
-    return Number.isFinite(ppm) ? { value: ppm, label: t("outdoorBaseline"), note: t("outdoorBaselineNote"), points: [], baseline: true } : null;
+    // Outdoor CO₂ is steady at the calibrated baseline: drawn as the outdoor line across the range.
+    return Number.isFinite(ppm) ? { value: ppm, label: t("outdoorBaseline"), note: t("outdoorBaselineNote"), points: [{ t: from, v: ppm }, { t: now, v: ppm }], baseline: true } : null;
   }
   if (key === "pm25" && dataset.kind !== "demo") {
     const points = recent(outdoorHistory("pm25"));
@@ -227,12 +238,11 @@ function renderTimeline() {
     ? (rec.co2.forecastRecommended || []).map((p) => ({ t: Date.parse(p.t), v: p.ppm })) : [];
   const series = [
     { label: t("indoorShort"), color: cssVar("--series-1"), points: history.map((p) => ({ t: p.t, v: p.v })), area: true, gapMs: 25 * 60000, digits: metric.digits },
-    ...(outside?.points.length ? [{ label: t("outdoorCurve"), color: cssVar("--series-3"), points: outside.points, gapMs: 2.5 * 3600000, digits: metric.digits, directLabel: t("outdoorShort") }] : []),
+    ...(outside?.points.length ? [{ label: outside.baseline ? `${t("outdoorShort")} · ${t("outdoorBaseline")}` : t("outdoorCurve"), color: cssVar("--series-3"), points: outside.points, gapMs: 2.5 * 3600000, digits: metric.digits, directLabel: `${t("outdoorShort")}${outside.baseline ? ` ${Math.round(outside.value)}` : ""}` }] : []),
     ...(forecast.length ? [{ label: t("forecast"), color: cssVar("--series-2"), points: forecast, dashed: true, directLabel: t("forecast"), digits: 0 }] : []),
   ];
   const refs = [];
   if (metric.key === "co2") refs.push({ v: thresholds.co2.goodBelow, label: t("limitLine", { v: thresholds.co2.goodBelow }), color: cssVar("--poor"), include: false });
-  if (metric.key === "co2" && outside?.baseline) refs.push({ v: outside.value, label: t("outdoorRef", { v: Math.round(outside.value) }), color: cssVar("--series-3"), include: true });
   if (metric.key === "temperature" || metric.key === "humidity") thresholds[metric.key].comfort.forEach((v) => refs.push({ v, label: `${v}${metric.unit === "%" ? "%" : "°"}`, color: cssVar("--text-3"), include: false }));
   const end = ui.replay ? ui.replay.stop : forecast.length ? forecast.at(-1).t : Date.now();
   const start = (ui.replay ? ui.replay.stop : Date.now()) - hours * 3600000;
