@@ -61,8 +61,7 @@ function renderStandby() {
       <div class="tw-standby-row"><span>${escapeHtml(item.id)}</span>
         <span class="tw-standby-bar" aria-hidden="true"><i style="width:${(((item.yearKwh || 0) / max) * 100).toFixed(1)}%"></i></span>
         <strong>${escapeHtml(t("standbyRow", { w: formatNumber(item.standbyW ?? 0, 1), kwh: item.yearKwh ?? 0 }))}</strong></div>`).join("")}</div>
-    <p class="tw-energy-total">${escapeHtml(t("standbyTotal", { kwh: report.totalYearKwh, kg: Math.round(report.totalYearKwh * SITE.carbonKgPerKwh) }))}</p>
-    <p class="tw-caption">${escapeHtml(t("standbyNote", { h: report.standbyHoursPerYear }))}</p>`;
+    <p class="tw-energy-total">${escapeHtml(t("standbyTotal", { kwh: report.totalYearKwh, kg: Math.round(report.totalYearKwh * SITE.carbonKgPerKwh) }))}</p>`;
 }
 
 // kWh between two times from kW samples (trapezoids; gaps over an hour are not bridged).

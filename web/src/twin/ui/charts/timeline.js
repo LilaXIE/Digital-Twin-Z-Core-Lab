@@ -28,12 +28,49 @@ function segments(points, gapMs) {
   return result;
 }
 
+// Runs of data separated by more than gapMs: [[from, to], …].
+function timeBlocks(points, gapMs) {
+  const times = [...new Set(points.map((p) => p.t))].sort((a, b) => a - b);
+  const blocks = [[times[0], times[0]]];
+  for (const time of times.slice(1)) {
+    if (time - blocks.at(-1)[1] > gapMs) blocks.push([time, time]);
+    else blocks.at(-1)[1] = time;
+  }
+  return blocks;
+}
+
+// Time ↔ pixel for blocks laid side by side, each as wide as its share of the covered time.
+function blockScale(blocks, left, width, gutter) {
+  const total = blocks.reduce((sum, [from, to]) => sum + Math.max(to - from, 1), 0);
+  const usable = width - gutter * (blocks.length - 1);
+  const starts = [];
+  let offset = left;
+  for (const [from, to] of blocks) { starts.push(offset); offset += (Math.max(to - from, 1) / total) * usable + gutter; }
+  const widthOf = (index) => (Math.max(blocks[index][1] - blocks[index][0], 1) / total) * usable;
+  const x = (time) => {
+    let index = blocks.findIndex(([, to]) => time <= to);
+    if (index < 0) index = blocks.length - 1;
+    const [from, to] = blocks[index];
+    const clamped = Math.min(Math.max(time, from), to);
+    return starts[index] + ((clamped - from) / Math.max(to - from, 1)) * widthOf(index);
+  };
+  const time = (px) => {
+    let index = starts.findIndex((start, i) => px < start + widthOf(i) + gutter / 2);
+    if (index < 0) index = blocks.length - 1;
+    const [from, to] = blocks[index];
+    return from + Math.min(Math.max((px - starts[index]) / (widthOf(index) || 1), 0), 1) * (to - from);
+  };
+  return { x, time };
+}
+
 export function lineChart(container, spec) {
   const width = Math.max(240, container.clientWidth || 320);
   const height = container.clientHeight || 160;
   // Margins scale with the interface's base size (1 rem), like the axis labels inside them.
   const k = (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16) / 16;
-  const margin = { top: 10 * k, right: (spec.rightMargin ?? (spec.series.some((s) => s.directLabel) || spec.refs?.length ? 70 : 10)) * k, bottom: 22 * k, left: 38 * k };
+  // Every chart names its unit above the value axis (yTitle overrides the unit; "" hides it).
+  const yTitle = spec.yTitle ?? spec.unit ?? "";
+  const margin = { top: (yTitle ? 20 : 10) * k, right: (spec.rightMargin ?? (spec.series.some((s) => s.directLabel) || spec.refs?.length ? 70 : 10)) * k, bottom: 22 * k, left: 38 * k };
   const plotW = width - margin.left - margin.right;
   const plotH = height - margin.top - margin.bottom;
   const all = spec.series.flatMap((series) => series.points.filter((point) => Number.isFinite(point.v)));
@@ -41,8 +78,11 @@ export function lineChart(container, spec) {
     container.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(spec.label || "")}"><text class="empty" x="${width / 2}" y="${height / 2}" text-anchor="middle">${escapeHtml(spec.emptyText || t("noRecords"))}</text></svg>`;
     return;
   }
-  const xMin = spec.xMin ?? Math.min(...all.map((p) => p.t));
-  const xMax = spec.xMax ?? Math.max(...all.map((p) => p.t));
+  // compressGapsMs: stretches of time with no data longer than this (nights, weekends) are cut out;
+  // the remaining blocks sit side by side, separated by a dashed divider and labelled by date.
+  const blocks = spec.compressGapsMs ? timeBlocks(all, spec.compressGapsMs) : null;
+  const xMin = blocks ? blocks[0][0] : spec.xMin ?? Math.min(...all.map((p) => p.t));
+  const xMax = blocks ? blocks.at(-1)[1] : spec.xMax ?? Math.max(...all.map((p) => p.t));
   const values = [...all.map((p) => p.v), ...(spec.refs || []).filter((ref) => ref.include !== false).map((ref) => ref.v)];
   let yMin = spec.yMin ?? Math.min(...values);
   let yMax = spec.yMax ?? Math.max(...values);
@@ -52,7 +92,10 @@ export function lineChart(container, spec) {
   yMax = Math.ceil(yMax / step) * step;
   if (yMax === yMin) yMax = yMin + step;
   const digits = step < 1 ? (step < 0.1 ? 2 : 1) : 0;
-  const x = (time) => margin.left + ((time - xMin) / (xMax - xMin || 1)) * plotW;
+  const gutter = 14 * k;
+  const scale = blocks ? blockScale(blocks, margin.left, plotW, gutter) : null;
+  const x = scale ? scale.x : (time) => margin.left + ((time - xMin) / (xMax - xMin || 1)) * plotW;
+  const timeAt = scale ? scale.time : (px) => xMin + ((px - margin.left) / plotW) * (xMax - xMin);
   const y = (value) => margin.top + (1 - (value - yMin) / (yMax - yMin)) * plotH;
 
   const ticksY = [];
@@ -63,8 +106,9 @@ export function lineChart(container, spec) {
   const ticksX = [];
   // Align ticks to Hong Kong time.
   const hk = 8 * hour;
-  for (let tick = Math.ceil((xMin + hk) / xStep) * xStep - hk; tick <= xMax; tick += xStep) ticksX.push(tick);
-  const tickLabel = (tick) => (xStep >= 24 * hour ? new Date(tick).toLocaleDateString(locale(), { month: "numeric", day: "numeric", timeZone: "Asia/Hong_Kong" }) : clockTime(tick));
+  const dayLabel = (time) => new Date(time).toLocaleDateString(locale(), { month: "numeric", day: "numeric", timeZone: "Asia/Hong_Kong" });
+  if (!blocks) for (let tick = Math.ceil((xMin + hk) / xStep) * xStep - hk; tick <= xMax; tick += xStep) ticksX.push(tick);
+  const tickLabel = (tick) => (xStep >= 24 * hour ? dayLabel(tick) : clockTime(tick));
 
   const parts = [];
   for (const band of spec.bands || []) {
@@ -74,7 +118,21 @@ export function lineChart(container, spec) {
     parts.push(`<rect class="band" x="${x(from)}" y="${margin.top}" width="${x(to) - x(from)}" height="${plotH}"></rect><text class="band-label" x="${x(from) + 4}" y="${margin.top + 11}">${escapeHtml(band.label)}</text>`);
   }
   parts.push(`<g class="grid">${ticksY.map((v) => `<line x1="${margin.left}" x2="${margin.left + plotW}" y1="${y(v)}" y2="${y(v)}"></line>`).join("")}</g>`);
-  parts.push(`<g class="axis">${ticksY.map((v) => `<text x="${margin.left - 6}" y="${y(v) + 3.5}" text-anchor="end">${spec.tickFormat ? escapeHtml(spec.tickFormat(v)) : fmt(v, digits)}</text>`).join("")}${ticksX.map((tick) => `<text x="${x(tick)}" y="${height - 5}" text-anchor="middle">${tickLabel(tick)}</text>`).join("")}</g>`);
+  // Axis lines: value axis on the left, time axis along the bottom.
+  parts.push(`<g class="axis-line"><line x1="${margin.left}" x2="${margin.left}" y1="${margin.top}" y2="${margin.top + plotH}"></line><line x1="${margin.left}" x2="${margin.left + plotW}" y1="${margin.top + plotH}" y2="${margin.top + plotH}"></line></g>`);
+  // Compressed time: a dashed divider in each gutter and the date under each block (with its first
+  // and last hour when there is room).
+  const blockLabels = [];
+  if (blocks) {
+    blocks.forEach(([from, to], index) => {
+      const left = x(from);
+      const right = x(to);
+      if (index > 0) parts.push(`<line class="divider" x1="${left - gutter / 2}" x2="${left - gutter / 2}" y1="${margin.top}" y2="${margin.top + plotH}"></line>`);
+      blockLabels.push(`<text x="${(left + right) / 2}" y="${height - 5}" text-anchor="middle">${dayLabel(from)}</text>`);
+      if (right - left > 120 * k) blockLabels.push(`<text class="minor" x="${left}" y="${height - 5}" text-anchor="start">${clockTime(from)}</text><text class="minor" x="${right}" y="${height - 5}" text-anchor="end">${clockTime(to)}</text>`);
+    });
+  }
+  parts.push(`<g class="axis">${ticksY.map((v) => `<text x="${margin.left - 6}" y="${y(v) + 3.5}" text-anchor="end">${spec.tickFormat ? escapeHtml(spec.tickFormat(v)) : fmt(v, digits)}</text>`).join("")}${ticksX.map((tick) => `<text x="${x(tick)}" y="${height - 5}" text-anchor="middle">${tickLabel(tick)}</text>`).join("")}${blockLabels.join("")}${yTitle ? `<text class="axis-title" x="${margin.left - 6}" y="${margin.top - 8 * k}" text-anchor="end">${escapeHtml(yTitle)}</text>` : ""}</g>`);
   for (const ref of spec.refs || []) {
     if (ref.v < yMin || ref.v > yMax) continue;
     parts.push(`<line class="ref" x1="${margin.left}" x2="${margin.left + plotW}" y1="${y(ref.v)}" y2="${y(ref.v)}" stroke="${ref.color}"></line><text class="ref-label" x="${margin.left + plotW + 4}" y="${y(ref.v) + 3.5}" fill="${ref.color}">${escapeHtml(ref.label)}</text>`);
@@ -130,7 +188,7 @@ export function lineChart(container, spec) {
   const times = [...new Set(all.map((p) => p.t))].sort((a, b) => a - b);
   const show = (clientX, clientY) => {
     const box = svg.getBoundingClientRect();
-    const tAt = xMin + (((clientX - box.left) * (width / box.width) - margin.left) / plotW) * (xMax - xMin);
+    const tAt = timeAt((clientX - box.left) * (width / box.width));
     let nearest = times[0];
     for (const time of times) if (Math.abs(time - tAt) < Math.abs(nearest - tAt)) nearest = time;
     crosshair.setAttribute("x1", x(nearest));
@@ -174,10 +232,21 @@ export function lineChart(container, spec) {
 }
 
 export function legend(items) {
-  return `<ul class="tw-legend">${items.map((item) => `<li><i class="${item.dashed ? "dashed" : ""}" style="color:${item.color}"></i>${escapeHtml(item.label)}</li>`).join("")}</ul>`;
+  return `<ul class="tw-legend">${items.map((item) => `<li><i class="${item.area ? "area" : item.dashed ? "dashed" : ""}" style="color:${item.color}"></i>${escapeHtml(item.label)}</li>`).join("")}</ul>`;
 }
 
 export const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+// A compact trend for cards and popovers: one series with its time axis, value axis and unit, and an
+// optional limit line (e.g. CO₂ 800 ppm). Replaces the old axis-less sparklines.
+export function miniChart(container, points, { label = "", unit = "", limit = null, digits = 0, cursorT = null, xMin, xMax, minSpan } = {}) {
+  if (!container) return;
+  lineChart(container, {
+    label, unit, rightMargin: limit !== null ? 34 : 10, xMin, xMax, cursorT, minSpan,
+    series: [{ label, color: cssVar("--series-1"), points, area: true, gapMs: 25 * 60000, digits }],
+    refs: limit !== null ? [{ v: limit, label: String(limit), color: cssVar("--poor"), include: false }] : [],
+  });
+}
 
 // Small sparkline for capsules (no axes).
 export function sparkline(points, { width = 220, height = 56, limit = null } = {}) {

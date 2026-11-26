@@ -150,7 +150,7 @@ function renderCharts() {
   root.querySelector('[data-part="occ-title"]').textContent = t("occupancyChart");
   root.querySelector('[data-part="occ-sub"]').textContent = t("occupancySub");
   root.querySelector('[data-part="occ-legend"]').innerHTML = legend(occSeries);
-  lineChart(root.querySelector('[data-part="occ-chart"]'), { label: t("occupancyChart"), series: occSeries, nowT, xMin: nowT - 6 * 3600000, xMax: forecast.length ? forecast.at(-1).t : nowT + 3600000, yMin: 0, yMax: Math.max(4, ...history.map((p) => p.v), ...forecast.map((p) => p.v)), bands: meetingBands(), emptyText: t("noData") });
+  lineChart(root.querySelector('[data-part="occ-chart"]'), { label: t("occupancyChart"), yTitle: t("axisPeople"), series: occSeries, nowT, xMin: nowT - 6 * 3600000, xMax: forecast.length ? forecast.at(-1).t : nowT + 3600000, yMin: 0, yMax: Math.max(4, ...history.map((p) => p.v), ...forecast.map((p) => p.v)), bands: meetingBands(), emptyText: t("noData") });
   table(root.querySelector('[data-part="occ-table"]'), [t("time"), t("occupancyEstimated")], [...history, ...forecast].map((p) => [dateTime(p.t), number(p.v, 0)]));
   // Recommended airflow, past 24 hours (hover shows the damper position).
   const entries = dataset.recHistory;
@@ -169,14 +169,13 @@ function renderCharts() {
   table(root.querySelector('[data-part="air-table"]'), [t("time"), `${t("recommendedLps")} (L/s)`, "%", `${t("baselineLps")} (L/s)`], entries.map((e) => [dateTime(Date.parse(e.t)), e.recommendedLps, e.damperPct, e.baselineLps]));
 }
 
-// Savings proof (section C1): baseline and recommended operation as two curves, the shaded gap is the
-// saving; totals with a range for the uncalibrated assumptions; today and this week from the bridge.
+// Savings (section C1): baseline and recommended operation as two curves, the shaded gap is the saving;
+// totals; today and this week from the bridge. How the saving is calculated is not shown on the page.
 function renderEnergy() {
   const energy = recommendationState().rec?.energy;
   const review = data().aiReview?.savings;
   const host = page().querySelector('[data-part="energy"]');
   const cell = (value, unit, digits) => (energy && Number.isFinite(value) ? `<span class="tw-num">${number(value, digits)}</span> <span class="tw-unit">${unit}</span>` : `<span class="tw-unit">${escapeHtml(t("noData"))}</span>`);
-  const source = energy ? ({ "hko-kings-park": t("sourceHko"), "weather-station": t("sourceStation"), assumed: t("sourceAssumed") }[energy.outdoorSource] || energy.outdoorSource) : "";
   // A week that started before the bridge's history says from which day it counts.
   const since = energy?.coveredSince ? Date.parse(energy.coveredSince) : NaN;
   const partial = Number.isFinite(since) && energy.weekStart && since - Date.parse(energy.weekStart) > 12 * 3600000;
@@ -184,34 +183,37 @@ function renderEnergy() {
   const totals = review?.totals;
   const headline = totals && totals.baselineKwh > 0 ? `
     <div class="tw-proof-head">
-      <div><small>${escapeHtml(t("proofSaved", { d: review.days.length || 7 }))}</small><strong><span class="tw-num">${number(totals.savedKwh, 1)}</span><span class="tw-unit">kWh</span></strong>
-        <span>${escapeHtml(t("proofRange", { low: number(totals.savedKwhLow, 1), high: number(totals.savedKwhHigh, 1) }))}</span></div>
+      <div><small>${escapeHtml(t("proofSaved", { d: review.days.length || 7 }))}</small><strong><span class="tw-num">${number(totals.savedKwh, 1)}</span><span class="tw-unit">kWh</span></strong></div>
       <div><small>${escapeHtml(t("proofShare"))}</small><strong><span class="tw-num">${totals.savedSharePct ?? ""}</span><span class="tw-unit">%</span></strong><span>${escapeHtml(t("proofOfBaseline", { v: number(totals.baselineKwh, 1) }))}</span></div>
-      <div><small>${escapeHtml(t("proofCarbon"))}</small><strong><span class="tw-num">${number(totals.savedKwh * SITE.carbonKgPerKwh, 1)}</span><span class="tw-unit">kg CO₂e</span></strong><span>${escapeHtml(t("proofCarbonBasis", { f: SITE.carbonKgPerKwh }))}</span></div>
+      <div><small>${escapeHtml(t("proofCarbon"))}</small><strong><span class="tw-num">${number(totals.savedKwh * SITE.carbonKgPerKwh, 1)}</span><span class="tw-unit">kg CO₂e</span></strong></div>
     </div>
-    <div class="tw-chart" style="height:180px" data-part="proof-chart"></div>` : `<p class="tw-caption">${escapeHtml(t(review ? "proofNoHours" : "loading"))}</p>`;
-  host.innerHTML = `<header><div><h2>${escapeHtml(t("energySaved"))}</h2><p>${energy ? escapeHtml(t("energySub", { source, cop: energy.plantCop })) : ""}</p></div>
+    <div data-part="proof-legend"></div>
+    <div class="tw-chart" style="height:200px" data-part="proof-chart"></div>
+    <p class="tw-caption" data-part="proof-note"></p>` : `<p class="tw-caption">${escapeHtml(t(review ? "proofNoHours" : "loading"))}</p>`;
+  host.innerHTML = `<header><div><h2>${escapeHtml(t("energySaved"))}</h2></div>
       <span class="tw-h3-actions"><button type="button" class="tw-button tw-button-small" data-action="savings-csv">${icon("ph-download-simple")}<span>CSV</span></button><button type="button" class="tw-button tw-button-small" data-action="report">${icon("ph-printer")}<span>${escapeHtml(t("weeklyReport"))}</span></button></span></header>
     ${headline}
     <table class="tw-energy"><thead><tr><th></th><th>${escapeHtml(t("today"))}</th><th>${escapeHtml(weekLabel)}</th></tr></thead><tbody>
       <tr><th>${escapeHtml(t("savedAir"))}</th><td>${cell(energy?.savedTodayM3, "m³", 0)}</td><td>${cell(energy?.savedWeekM3, "m³", 0)}</td></tr>
       <tr><th>${escapeHtml(t("savedCooling"))}</th><td>${cell(energy?.savedTodayKwhCooling, "kWh", 1)}</td><td>${cell(energy?.savedWeekKwhCooling, "kWh", 1)}</td></tr>
       <tr><th>${term("power", t("savedElectric"))}</th><td>${cell(energy?.savedTodayKwhElectric, "kWh", 2)}</td><td>${cell(energy?.savedWeekKwhElectric, "kWh", 2)}</td></tr>
-    </tbody></table>
-    <details class="tw-table-view"><summary>${escapeHtml(t("proofMethodTitle"))}</summary><p class="tw-caption">${escapeHtml(t("proofMethod", { pct: review?.assumptions?.baselineDamperPct ?? 30, cop: review?.assumptions?.plantCop ?? 4.5 }))}</p></details>`;
+    </tbody></table>`;
   host.querySelector('[data-action="savings-csv"]').addEventListener("click", () => exportSavingsCsv());
   host.querySelector('[data-action="report"]').addEventListener("click", () => void printWeeklyReport());
   const chart = host.querySelector('[data-part="proof-chart"]');
   if (chart) {
     const toPoints = (key) => review.hours.map((h) => ({ t: Date.parse(h.t), v: h[key] }));
+    const series = [
+      { label: t("baselineSeries"), color: cssVar("--series-2"), points: toPoints("baselineKwh"), dashed: true, gapMs: 70 * 60000, digits: 2 },
+      { label: t("recommendedSeries"), color: cssVar("--series-1"), points: toPoints("recommendedKwh"), gapMs: 70 * 60000, digits: 2 },
+    ];
+    host.querySelector('[data-part="proof-legend"]').innerHTML = legend([...series, { label: t("proofShare"), color: cssVar("--good"), area: true }]);
+    // Only AHU working hours have a saving: the nights and weekends between them are cut out.
     lineChart(chart, {
-      label: t("energySaved"), unit: "kWh", yMin: 0, rightMargin: 10,
-      series: [
-        { label: t("baselineSeries"), color: cssVar("--series-2"), points: toPoints("baselineKwh"), dashed: true, gapMs: 70 * 60000, digits: 2 },
-        { label: t("recommendedSeries"), color: cssVar("--series-1"), points: toPoints("recommendedKwh"), gapMs: 70 * 60000, digits: 2 },
-      ],
+      label: t("energySaved"), unit: "kWh", yTitle: t("proofUnit"), yMin: 0, rightMargin: 10, series, compressGapsMs: 3 * 3600000,
       fillBetween: { from: 0, to: 1, color: cssVar("--good"), gapMs: 70 * 60000 },
     });
+    host.querySelector('[data-part="proof-note"]').textContent = t("dayBreak");
   }
 }
 
@@ -223,6 +225,7 @@ function renderReview() {
   const ppm = (value, signed = false) => (value === null || value === undefined ? "" : `${signed && value > 0 ? "+" : ""}${value} ppm`);
   host.innerHTML = `<header><div><h2>${escapeHtml(t("reviewTitle"))}</h2><p>${escapeHtml(t("reviewSub", { h: review?.hours ?? 24 }))}</p></div></header>
     ${review ? `<div class="tw-today-grid">${stat(t("reviewMae60"), ppm(review.mae60))}${stat(t("reviewMae30"), ppm(review.mae30))}${stat(t("reviewBias"), ppm(review.bias60, true))}</div>
+      <div data-part="review-legend"></div>
       <div class="tw-chart" style="height:180px" data-part="review-chart"></div>
       <p class="tw-caption">${escapeHtml(t("reviewNote", { n: review.samples60 }))}</p>` : `<p class="tw-caption">${escapeHtml(t("loading"))}</p>`}`;
   const chart = host.querySelector('[data-part="review-chart"]');
@@ -232,6 +235,7 @@ function renderReview() {
       { label: t("measured"), color: cssVar("--series-3"), points: points.map((p) => ({ t: p.t, v: p.actual })), gapMs: 25 * 60000 },
       { label: t("reviewPredicted"), color: cssVar("--series-1"), points: points.map((p) => ({ t: p.t, v: p.predicted })), dashed: true, gapMs: 25 * 60000 },
     ];
+    host.querySelector('[data-part="review-legend"]').innerHTML = legend(series);
     lineChart(chart, { label: t("reviewTitle"), unit: "ppm", series, minSpan: 40, rightMargin: 10, emptyText: t("reviewEmpty") });
   }
 }
@@ -272,7 +276,7 @@ function renderCalendar() {
     });
   }
   const list = host.querySelector('[data-part="meetings"]');
-  list.innerHTML = meetings.length ? meetings.map((meeting) => `<li class="${Date.parse(meeting.end) <= Date.now() ? "is-past" : ""}"><span>${escapeHtml(`${dateTime(Date.parse(meeting.start))}–${clockTime(Date.parse(meeting.end))} · ${meeting.title || t("meetingDefault")} · ${meeting.people} ${getLang() === "en" ? "people" : "人"}`)}</span>${unlocked ? `<button type="button" class="tw-icon-button" data-delete="${escapeHtml(meeting.id)}" aria-label="${escapeHtml(t("deleteMeeting"))}" title="${escapeHtml(t("deleteMeeting"))}">${icon("ph-trash")}</button>` : ""}</li>`).join("")
+  list.innerHTML = meetings.length ? meetings.map((meeting) => `<li class="${Date.parse(meeting.end) <= Date.now() ? "is-past" : ""}"><span>${escapeHtml(`${dateTime(Date.parse(meeting.start))}–${clockTime(Date.parse(meeting.end))} · ${meeting.title || t("meetingDefault")} · ${meeting.people} ${t("axisPeople")}`)}</span>${unlocked ? `<button type="button" class="tw-icon-button" data-delete="${escapeHtml(meeting.id)}" aria-label="${escapeHtml(t("deleteMeeting"))}" title="${escapeHtml(t("deleteMeeting"))}">${icon("ph-trash")}</button>` : ""}</li>`).join("")
     : `<li>${escapeHtml(t("noMeetings"))}</li>`;
   list.querySelectorAll("[data-delete]").forEach((button) => button.addEventListener("click", async () => {
     const result = await provider().writeRequest({ type: "calendar-update", action: "delete", meeting: { id: button.dataset.delete } });
@@ -281,9 +285,12 @@ function renderCalendar() {
   }));
 }
 
+// The formulas and assumptions behind a recommendation are for the team (internal mode) only.
 function renderBasis() {
   const { rec, valid } = recommendationState();
   const host = page().querySelector('[data-part="basis"]');
+  host.hidden = !settings.internal;
+  if (!settings.internal) return;
   if (!rec || !valid) { host.innerHTML = `<header><div><h2>${escapeHtml(t("basis"))}</h2></div></header><p class="tw-caption">${escapeHtml(t("noData"))}</p>`; return; }
   // The templates are local; bridge values are coerced to numbers before insertion.
   const n = Number;
