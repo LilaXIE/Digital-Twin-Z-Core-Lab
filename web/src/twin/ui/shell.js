@@ -7,7 +7,7 @@ import { roomMetric, metricStatus, occupancyInfo, lastReadingAt, alarms, socketD
 import { SITE, isWorkingTime, thresholds } from "../config/site.js";
 import { roomState, sentenceText } from "./room-state.js";
 import { $, $$, escapeHtml, rollNumber, term } from "./dom.js";
-import { sparkline } from "./charts/timeline.js";
+import { miniChart } from "./charts/timeline.js";
 import { daylightState } from "../scene/daylight.js";
 import { startReplay } from "../data/replay.js";
 import { renderMobile } from "./mobile.js";
@@ -77,8 +77,10 @@ function renderCapsuleDetail(element, spec, info) {
   const title = spec.glossary ? term(spec.key === "occupancy" && info.measured ? null : spec.glossary, info.label) : escapeHtml(info.label);
   element.innerHTML = `
     <header><span>${title}</span><span>${points.length ? escapeHtml(t("last24h")) : ""}</span></header>
-    ${points.length ? sparkline(points, { limit }) : ""}
+    ${points.length > 1 ? '<div class="tw-chart tw-capsule-chart" data-part="chart"></div>' : ""}
     <p>${escapeHtml(info.at ? ago(info.at) : "")}</p>`;
+  const now = Date.now();
+  miniChart(element.querySelector('[data-part="chart"]'), points.filter((p) => p.t >= now - 24 * 3600000), { label: info.label, unit: spec.unit === "°" ? "°C" : spec.unit, limit, digits: spec.digits, xMin: now - 24 * 3600000, xMax: now, minSpan: spec.key === "co2" ? 80 : spec.key === "temperature" ? 1 : 4 });
 }
 
 let openDetail = null;

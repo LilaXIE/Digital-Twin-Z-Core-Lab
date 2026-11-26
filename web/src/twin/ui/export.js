@@ -114,12 +114,11 @@ export async function printWeeklyReport() {
       ${summary ? row(t("todayExceed"), `${summary.events.length}${summary.events.length ? ` (${summary.events.map((e) => `${clockTime(e.start)} · ${Math.round(e.peak)} ppm`).join("; ")})` : ""}`) : ""}
     </table>
     <h2>${escapeHtml(t("energySaved"))}</h2><table>
-      ${savings?.totals ? row(t("proofSaved", { d: savings.days.length || 7 }), `${formatNumber(savings.totals.savedKwh, 1)} kWh (${t("proofRange", { low: formatNumber(savings.totals.savedKwhLow, 1), high: formatNumber(savings.totals.savedKwhHigh, 1) })})`) : ""}
+      ${savings?.totals ? row(t("proofSaved", { d: savings.days.length || 7 }), `${formatNumber(savings.totals.savedKwh, 1)} kWh`) : ""}
       ${savings?.totals ? row(t("proofShare"), `${savings.totals.savedSharePct ?? ""}%`) : ""}
       ${savings?.totals ? row(t("proofCarbon"), `${formatNumber(savings.totals.savedKwh * SITE.carbonKgPerKwh, 1)} kg CO₂e`) : ""}
       ${forecast ? row(t("reviewMae60"), forecast.mae60 === null ? "" : `${forecast.mae60} ppm (n=${forecast.samples60})`) : ""}
     </table>
-    <p class="tw-print-note">${escapeHtml(t("proofMethod", { pct: savings?.assumptions?.baselineDamperPct ?? 30, cop: savings?.assumptions?.plantCop ?? 4.5 }))}</p>
     <h2>${escapeHtml(t("standbyTitle"))}</h2><table>
       ${(standby?.sockets || []).map((item) => row(item.id, t("standbyRow", { w: formatNumber(item.standbyW ?? 0, 1), kwh: item.yearKwh ?? 0 }))).join("")}
       ${standby ? row(t("reportTotal"), t("standbyTotal", { kwh: standby.totalYearKwh, kg: Math.round(standby.totalYearKwh * SITE.carbonKgPerKwh) })) : ""}

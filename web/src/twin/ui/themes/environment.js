@@ -10,7 +10,7 @@ import { outdoorHistory } from "../../data/outdoor-history.js";
 import { SITE, thresholds } from "../../config/site.js";
 import { startReplay } from "../../data/replay.js";
 import { sceneState, hoverOutline } from "../../scene/index.js";
-import { lineChart, legend, cssVar, sparkline } from "../charts/timeline.js";
+import { lineChart, legend, cssVar } from "../charts/timeline.js";
 import { escapeHtml, icon, term, toast } from "../dom.js";
 import { exportRoomCsv } from "../export.js";
 import { compassText } from "../format.js";
@@ -295,7 +295,21 @@ function renderSpots() {
       <span class="tw-env-track" aria-hidden="true">${band ? `<i class="tw-env-band" style="${bandStyle}"></i>` : ""}${room !== null ? `<i class="tw-env-median" style="left:${at(room)}"></i>` : ""}<i class="tw-env-dot" data-level="${r.stale ? "stale" : status?.level || "neutral"}" style="left:${at(r.value)}"></i></span>
       <span class="tw-env-spot-value"><span class="tw-num">${formatNumber(r.value, metric.digits)}</span><span class="tw-unit">${escapeHtml(metric.unit)}</span></span>
     </button>`;
-  }).join("") + `<p class="tw-caption tw-env-spots-key"><i class="tw-env-key-band"></i>${escapeHtml(t(metric.key === "temperature" || metric.key === "humidity" ? "spotsComfortBand" : "spotsGoodBand"))}<i class="tw-env-key-median"></i>${escapeHtml(t("spotsRoomValue"))}</p>`;
+  }).join("") + spotsAxis(lo, hi, metric) + `<p class="tw-caption tw-env-spots-key"><i class="tw-env-key-band"></i>${escapeHtml(t(metric.key === "temperature" || metric.key === "humidity" ? "spotsComfortBand" : "spotsGoodBand"))}<i class="tw-env-key-median"></i>${escapeHtml(t("spotsRoomValue"))}</p>`;
+}
+
+// The shared value axis under the sensor rows: round ticks across the scale, and the unit.
+function spotsAxis(lo, hi, metric) {
+  const raw = (hi - lo) / 4;
+  const power = 10 ** Math.floor(Math.log10(raw || 1));
+  const step = [1, 2, 2.5, 5, 10].map((f) => f * power).find((c) => c >= raw) ?? 10 * power;
+  const ticks = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) ticks.push(v);
+  const at = (v) => `${(((v - lo) / (hi - lo)) * 100).toFixed(1)}%`;
+  const digits = step < 1 ? 1 : 0;
+  return `<div class="tw-env-spot tw-env-axis" aria-hidden="true"><span></span>
+    <span class="tw-env-axis-track">${ticks.map((v) => `<i style="left:${at(v)}"></i><b style="left:${at(v)}">${formatNumber(v, digits)}</b>`).join("")}</span>
+    <span class="tw-unit">${escapeHtml(metric.unit)}</span></div>`;
 }
 
 function row(iconName, label, html, { stale = false, chart = null, spark = "" } = {}) {
@@ -303,10 +317,9 @@ function row(iconName, label, html, { stale = false, chart = null, spark = "" } 
   return `<${tag} ${chart ? `type="button" data-chart-metric="${chart}" aria-pressed="${ui.focusMetric === chart}" ` : ""}class="tw-row${stale ? " is-stale" : ""}${chart ? " is-chartable" : ""}"><span>${icon(iconName)}${label}</span>${spark ? `<span class="tw-row-spark">${spark}</span>` : ""}<strong>${html}</strong></${tag}>`;
 }
 
-// Every indoor reading, each with its own recent curve; pressing one makes it the panel's metric.
+// Every indoor reading; pressing one makes it the panel's metric.
 function renderIndoor() {
   const rows = [];
-  const hours = ui.replay ? 24 : range.hours;
   for (const metric of METRICS) {
     const value = roomMetric(metric.key);
     if (value.value === null) { if (settings.internal) rows.push(row(metric.icon, escapeHtml(t(metric.key)), `<span class="tw-unit">${escapeHtml(t("notConnected"))}</span>`)); continue; }
@@ -314,7 +327,7 @@ function renderIndoor() {
     const label = metric.glossary ? term(metric.glossary, t(metric.key)) : escapeHtml(t(metric.key));
     rows.push(row(metric.icon, `${label}${status ? ` <span class="tw-dot" data-level="${value.stale ? "stale" : status.level}"></span>` : ""}`,
       `<span class="tw-num">${formatNumber(value.value, metric.digits)}</span><span class="tw-unit">${metric.unit}</span>`,
-      { stale: value.stale, chart: metric.key, spark: sparkline(historyPoints(metric.key, hours), { width: 120, height: 24 }) }));
+      { stale: value.stale, chart: metric.key }));
   }
   const occupancy = occupancyInfo();
   if (occupancy) {

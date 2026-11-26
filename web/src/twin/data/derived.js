@@ -91,7 +91,7 @@ export function roomMetric(key) {
     const value = ui.replay.room?.[key];
     return { value: Number.isFinite(value) ? value : null, at: ui.replay.t, stale: !Number.isFinite(value), sources: 0, replay: true };
   }
-  const ids = key === "pm25" ? ["AM308-01"] : key === "noise" ? registry.devices.filter((d) => d.model === "WS302").map((d) => d.id) : SITE.envSensors;
+  const ids = key === "pm25" || key === "pm10" ? ["AM308-01"] : key === "noise" ? registry.devices.filter((d) => d.model === "WS302").map((d) => d.id) : SITE.envSensors;
   const field = key === "noise" ? "noiseLaeq" : key;
   const readings = ids.map((id) => ({ id, ...sensorReading(id, field) })).filter((reading) => reading.value !== null);
   if (!readings.length) return { value: null, at: null, stale: true, sources: 0 };

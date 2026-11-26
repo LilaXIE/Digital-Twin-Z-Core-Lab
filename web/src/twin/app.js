@@ -38,22 +38,19 @@ const root = document.documentElement;
 
 // ---- Language, theme, transparency, layout tier ----
 let hkFonts = null;
-function applyLanguage(lang, animate = false) {
-  const apply = () => {
-    setLang(lang);
-    root.lang = htmlLang();
-    if (getLang() === "zh-Hant" && !hkFonts) hkFonts = import("./styles/fonts-hk.css");
-    $$("[data-i18n]").forEach((element) => { element.textContent = t(element.dataset.i18n); });
-    $$("[data-i18n-aria]").forEach((element) => element.setAttribute("aria-label", t(element.dataset.i18nAria)));
-    $$("[data-i18n-title]").forEach((element) => { element.title = t(element.dataset.i18nTitle); });
-    document.title = `ZB202 · ${t("appTitle")}`;
-    relabelTheme();
-    renderShell();
-    renderHomeDock();
-  };
-  // 150 ms cross-fade, no full-page flash.
-  if (animate && document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) document.startViewTransition(apply).ready.catch(() => {});
-  else apply();
+// Switches in place. (A page-wide View Transition used to cross-fade this, but snapshotting the 3D
+// canvas and the glass layers took 0.6–4 s; without it the new language shows within a frame.)
+function applyLanguage(lang) {
+  setLang(lang);
+  root.lang = htmlLang();
+  if (getLang() === "zh-Hant" && !hkFonts) hkFonts = import("./styles/fonts-hk.css");
+  $$("[data-i18n]").forEach((element) => { element.textContent = t(element.dataset.i18n); });
+  $$("[data-i18n-aria]").forEach((element) => element.setAttribute("aria-label", t(element.dataset.i18nAria)));
+  $$("[data-i18n-title]").forEach((element) => { element.title = t(element.dataset.i18nTitle); });
+  document.title = `ZB202 · ${t("appTitle")}`;
+  relabelTheme();
+  renderShell();
+  renderHomeDock();
 }
 
 let lastTheme = null;
@@ -216,7 +213,7 @@ async function boot() {
   initFeedback();
   initMepToggle();
 
-  on("setting:lang", (lang) => applyLanguage(lang, true));
+  on("setting:lang", (lang) => applyLanguage(lang));
   on("setting:theme", () => applyTheme());
   on("setting:transparency", (value) => { root.dataset.transparency = value; });
   on("setting:demo", async (enabled) => { stopReplay(); await setDemo(enabled); updateSceneBindings(); updateDaylight(); requestHistory(true); });

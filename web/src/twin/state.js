@@ -66,8 +66,9 @@ export function updateSetting(key, value) {
   if (key === "kiosk" && !settings.kioskTier) storage.set("zb202-kiosk", value ? "on" : "off");
   if (key === "quality") storage.set("zb202-quality-choice", value);
   if (key === "demo") { try { window.sessionStorage.setItem("zb202-demo", value ? "on" : "off"); } catch { /* optional */ } }
-  emit("settings", { key, value });
+  // The specific handler first (it sets the new language), then everything that redraws on any setting.
   emit(`setting:${key}`, value);
+  emit("settings", { key, value });
 }
 
 media("(prefers-color-scheme: dark)").addEventListener("change", () => { if (settings.theme === "system") emit("setting:theme", settings.theme); });
