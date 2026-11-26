@@ -1,7 +1,7 @@
 // Scene assembly and the API the UI uses (fly to a theme, focus a device, pick, layers, snapshot).
 import * as THREE from "three";
-import { initViewer, scene, camera, getControls, getCanvas, requestRender, onBeforeRender } from "./viewer.js";
-import { loadModels, itemDetails } from "./model-loader.js";
+import { initViewer, scene, camera, getControls, getCanvas, requestRender, onBeforeRender, onAfterRender } from "./viewer.js";
+import { loadModels, itemDetails, warmFragments } from "./model-loader.js";
 import { initLighting, noteCameraMotion } from "./lighting.js";
 import { initNight } from "./night.js";
 import { initPresets, flyToView, focusBox, presetFor, offPreset, startSway, stopSway, jumpToView } from "./camera-presets.js";
@@ -13,7 +13,8 @@ import { startPlan, setPlanProgress, alignPlan, failPlan, playIntro } from "./in
 import { setSelectionOutline, setHoverOutline } from "./outline.js";
 import { applyTier, initialTier, startMeasuring } from "./quality.js";
 import { registry } from "../data/devices.js";
-import { emit } from "../state.js";
+import { emit, settings } from "../state.js";
+import { mark } from "../perf.js";
 
 export const sceneState = {
   ready: false,
@@ -30,6 +31,7 @@ export const sceneState = {
 export async function initScene({ canvas, markerLayer, onProgress }) {
   initViewer(canvas);
   await startPlan(markerLayer);
+  mark("plan-ready");
   let result;
   try {
     result = await loadModels({ onProgress: (value, spec) => { setPlanProgress(value); onProgress?.(value, spec); } });
@@ -50,9 +52,20 @@ export async function initScene({ canvas, markerLayer, onProgress }) {
   initNight(result.lamps, floorY);
 
   // Bind IFC sensors (by GlobalId) to their display items; the marker sits on top of each one.
+  // The display layer already holds every item's GlobalId, so the lookup needs no round trip to the
+  // Fragments worker (getLocalIdsByGuids took ~2.3 s on a slow CPU); the worker is asked only for
+  // GUIDs that are not found here.
   const sensorModel = result.models.get("sensor");
   const sensorDevices = registry.devices.filter((device) => device.sensorGuid);
-  const localIds = sensorModel ? await sensorModel.getLocalIdsByGuids(sensorDevices.map((device) => device.sensorGuid)) : [];
+  const localIdByGuid = new Map();
+  for (const item of result.items.values()) if (item.modelId === "sensor" && item.guid) localIdByGuid.set(item.guid, item.localId);
+  const localIds = sensorDevices.map((device) => localIdByGuid.get(device.sensorGuid));
+  const missing = sensorDevices.filter((device, index) => localIds[index] === undefined);
+  if (missing.length && sensorModel) {
+    if (settings.internal) console.warn(`[Scene] ${missing.length} sensor GUID(s) not in the display layer; asking the model: ${missing.map((device) => device.id).join(", ")}`);
+    const found = await sensorModel.getLocalIdsByGuids(missing.map((device) => device.sensorGuid));
+    missing.forEach((device, index) => { localIds[sensorDevices.indexOf(device)] = found[index]; });
+  }
   sensorDevices.forEach((device, index) => {
     const localId = localIds[index];
     const item = localId == null ? null : result.items.get(`sensor:${localId}`);
@@ -67,6 +80,7 @@ export async function initScene({ canvas, markerLayer, onProgress }) {
   const tableCenter = table ? table.box.getCenter(new THREE.Vector3()).setY(table.box.max.y) : null;
   const socketAnchors = registry.devices.filter((device) => device.model === "WS523" && sceneState.anchors.has(device.id)).map((device) => ({ id: device.id, anchor: sceneState.anchors.get(device.id) }));
   const socketCenter = socketAnchors.length ? socketAnchors.reduce((sum, item) => sum.add(item.anchor), new THREE.Vector3()).multiplyScalar(1 / socketAnchors.length) : null;
+  mark("sensors-bound");
   initPresets({ box: archiBox, floorY, tableCenter, socketCenter });
   initCutaway(result.walls, archiBox.getCenter(new THREE.Vector3()));
 
@@ -102,11 +116,14 @@ export async function initScene({ canvas, markerLayer, onProgress }) {
   registry.mep = (result.byCategory.get("IFCFLOWSEGMENT") || []).concat(result.byCategory.get("IFCFLOWTERMINAL") || [], result.byCategory.get("IFCFLOWFITTING") || [], (result.byCategory.get("IFCBUILDINGELEMENTPROXY") || []).filter((item) => item.modelId === "mep"))
     .map((item) => ({ key: `${item.modelId}:${item.localId}`, name: item.name, category: item.category, modelId: item.modelId, localId: item.localId, guid: item.guid }));
   sceneState.ready = true;
+  mark("scene-built");
   requestRender();
   return result;
 }
 
 export function runIntro({ onUi, onMarkers }) {
+  mark("room-visible"); // the intro starts drawing the room
+  const off = onAfterRender(() => { off(); mark("room-drawn"); }); // its first frame is on screen
   const preset = presetFor("home");
   return playIntro({ box: sceneState.roomBox, floorY: sceneState.floorY, home: preset, onUi, onMarkers }).then(() => startMeasuring());
 }
@@ -223,4 +240,4 @@ export function detailsFor(item) {
 }
 
 export const itemByKey = (key) => sceneState.result?.items.get(key);
-export { flyToView, offPreset, startSway, stopSway, jumpToView, onBeforeRender };
+export { flyToView, offPreset, startSway, stopSway, jumpToView, onBeforeRender, warmFragments };
