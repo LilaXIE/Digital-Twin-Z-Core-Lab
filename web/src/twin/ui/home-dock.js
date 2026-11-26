@@ -16,7 +16,7 @@ import { daylightState } from "../scene/daylight.js";
 import { sparkline } from "./charts/timeline.js";
 import { compassText } from "./format.js";
 import { $, escapeHtml, icon, rollNumber } from "./dom.js";
-import { controlStatus, confirmSwitch, confirmOpen, pendingSocketIds, socketStateHtml, switchesInteractive } from "./sockets.js";
+import { controlStatus, confirmSwitch, confirmOpen, pendingSocketIds, renderBulkButtons, socketStateHtml, switchesInteractive } from "./sockets.js";
 import { toggleAlarmPopover } from "./alarms.js";
 import { feedbackHtml, todayHtml } from "./today.js";
 
@@ -212,19 +212,14 @@ function renderSocketCard() {
   if (needsBuild(card)) {
     card.innerHTML = `
       <header class="tw-card-head"><h2 id="socket-card-title">${icon("ph-plug")}<span>${escapeHtml(t("sockets"))}</span></h2>
-        <span class="tw-card-head-actions"><button type="button" class="tw-link" data-action="all-sockets"></button>${openButton("energy", t("openEnergy"))}</span></header>
+        <span class="tw-card-head-actions">${openButton("energy", t("openEnergy"))}</span></header>
       <div class="tw-card-hero is-static" data-part="hero">
         <span class="tw-hero-value"><span class="tw-num" data-part="total"></span><span class="tw-unit">kW</span></span>
         <span class="tw-hero-side"><span class="tw-hero-label">${escapeHtml(t("totalPowerShort"))}</span><small data-part="count"></small></span>
       </div>
       <div class="tw-socket-grid" data-part="sockets"></div>
+      <div class="tw-bulk" data-part="bulk"></div>
       <p class="tw-card-caption" data-part="status" aria-live="polite"></p>`;
-    card.querySelector('[data-action="all-sockets"]').addEventListener("click", (event) => {
-      const infos = socketInfos();
-      const desired = !infos.some(({ info }) => info.on);
-      const targets = infos.filter(({ info }) => info.on !== desired && info.on !== null).map(({ device }) => device.id);
-      confirmSwitch(event.currentTarget, targets, desired, t(desired ? "confirmAllOn" : "confirmAllOff"), { status: card.querySelector('[data-part="status"]'), onClose: renderSocketCard });
-    });
   }
   if (confirmOpen()) return; // do not redraw under an open confirmation
   const infos = socketInfos();
@@ -253,9 +248,7 @@ function renderSocketCard() {
     const id = input.closest("[data-socket]").dataset.socket;
     confirmSwitch(input.closest(".tw-switch"), [id], input.checked, t(input.checked ? "confirmOn" : "confirmOff", { id }), { status: card.querySelector('[data-part="status"]'), onClose: renderSocketCard });
   }));
-  const allButton = card.querySelector('[data-action="all-sockets"]');
-  allButton.hidden = infos.length < 2 || !interactive || pending.size > 0;
-  allButton.textContent = t(on ? "allOff" : "allOn");
+  renderBulkButtons(card.querySelector('[data-part="bulk"]'), infos, { status: card.querySelector('[data-part="status"]'), onClose: renderSocketCard });
   controlStatus(card.querySelector('[data-part="status"]'));
 }
 

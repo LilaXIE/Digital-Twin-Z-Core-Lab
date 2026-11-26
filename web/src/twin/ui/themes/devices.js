@@ -118,11 +118,30 @@ const batteryLevel = (device) => {
   return !Number.isFinite(battery) ? "" : battery < 20 ? "poor" : battery < 50 ? "caution" : "";
 };
 
+// Every live reading of a device except housekeeping (battery, tamper), in the model's own order.
+const HOUSEKEEPING = ["battery", "tamperStatus"];
+const liveMetrics = (device) => device.metrics.filter((m) => !HOUSEKEEPING.includes(m.key) && sensorReading(device.id, m.key).value !== null);
+
 function latestSummary(device) {
-  const metric = device.metrics.find((m) => !["battery", "tamperStatus"].includes(m.key) && sensorReading(device.id, m.key).value !== null);
+  const metric = liveMetrics(device)[0];
   if (!metric) return "";
   return valueHtml(metric, sensorReading(device.id, metric.key).value);
 }
+
+// Short names for the reading chips: the panel's own words for the room metrics, else the metric label.
+const SHORT_KEYS = { co2: "co2", temperature: "tempShort", humidity: "humidity", pm25: "pm25", noiseLaeq: "noise" };
+const shortLabel = (metric) => (SHORT_KEYS[metric.key] ? t(SHORT_KEYS[metric.key]) : pick(metric.label));
+
+// The 3-in-1 and 8-in-1 sensors measure several things at once: show all of them, not just the first.
+function readingChips(device) {
+  const metrics = liveMetrics(device);
+  if (metrics.length < 2) return "";
+  // The TVOC "index" unit only repeats its label.
+  const chipMetric = (metric) => (metric.unit === "index" ? { ...metric, unit: "" } : metric);
+  return `<span class="tw-device-readings">${metrics.map((metric) => `<span class="tw-reading"><small>${escapeHtml(shortLabel(metric))}</small><span>${valueHtml(chipMetric(metric), sensorReading(device.id, metric.key).value)}</span></span>`).join("")}</span>`;
+}
+
+const allReadingsHtml = (device) => liveMetrics(device).map((metric) => `${escapeHtml(shortLabel(metric))} ${valueHtml(metric, sensorReading(device.id, metric.key).value)}`).join("<br>");
 
 // The same state as everywhere else (data/derived.js deviceState).
 const statusLevel = (id) => deviceState(id).level;
@@ -158,7 +177,7 @@ function renderList() {
   if (!visible.length) { list.innerHTML = emptyResult(); return; }
   if (listMode === "table") {
     list.innerHTML = `<div class="tw-table-wrap"><table class="tw-table"><thead><tr><th>${escapeHtml(t("colName"))}</th><th>${escapeHtml(t("colId"))}</th><th>${escapeHtml(t("colStatus"))}</th><th>${escapeHtml(t("colLatest"))}</th><th>${escapeHtml(t("colBattery"))}</th><th>${escapeHtml(t("colLastSeen"))}</th></tr></thead><tbody>
-      ${visible.map((device) => { const snapshot = data().snapshots.get(device.id); const battery = snapshot?.values.battery; return `<tr data-device="${device.id}" tabindex="0"><td>${escapeHtml(pick(device.type))}</td><td>${escapeHtml(device.id)}</td><td><span class="tw-dot" data-level="${statusLevel(device.id)}"></span> ${escapeHtml(statusText(device.id))}</td><td>${latestSummary(device)}</td><td>${Number.isFinite(battery) ? `${Math.round(battery)}%` : ""}</td><td>${snapshot?.updatedAt ? escapeHtml(ago(snapshot.updatedAt)) : ""}</td></tr>`; }).join("")}
+      ${visible.map((device) => { const snapshot = data().snapshots.get(device.id); const battery = snapshot?.values.battery; return `<tr data-device="${device.id}" tabindex="0"><td>${escapeHtml(pick(device.type))}</td><td>${escapeHtml(device.id)}</td><td><span class="tw-dot" data-level="${statusLevel(device.id)}"></span> ${escapeHtml(statusText(device.id))}</td><td>${allReadingsHtml(device)}</td><td>${Number.isFinite(battery) ? `${Math.round(battery)}%` : ""}</td><td>${snapshot?.updatedAt ? escapeHtml(ago(snapshot.updatedAt)) : ""}</td></tr>`; }).join("")}
     </tbody></table></div>`;
   } else {
     list.innerHTML = groups.filter((group) => visible.some((device) => sensorGroupFor(device).key === group.key)).map((group) => `
@@ -167,7 +186,8 @@ function renderList() {
           <button type="button" class="tw-device${ui.selection?.kind === "sensor" && ui.selection.id === device.id ? " is-selected" : ""}" data-device="${device.id}">
             <span class="tw-dot" data-level="${statusLevel(device.id)}" aria-label="${escapeHtml(statusText(device.id))}"></span>
             <span><strong>${escapeHtml(device.id)}</strong><small>${escapeHtml(pick(device.type))}</small><small class="tw-device-meta${batteryLevel(device) ? ` is-${batteryLevel(device)}` : ""}">${escapeHtml(deviceMeta(device))}</small></span>
-            <span class="tw-device-value">${latestSummary(device)}</span>
+            <span class="tw-device-value">${readingChips(device) ? "" : latestSummary(device)}</span>
+            ${readingChips(device)}
           </button>`).join("")}
       </div>`).join("");
   }
