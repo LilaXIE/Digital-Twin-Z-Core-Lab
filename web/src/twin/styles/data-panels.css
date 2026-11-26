@@ -1,5 +1,10 @@
 /* Data panels: reading chips in the device list, socket bulk switching, and the environment panel. */
 
+/* No visible scrollbars anywhere (docks, panels, AI page, tables): every area still scrolls with the
+   wheel, touch and keyboard. Overrides the thin scrollbars set in components.css. */
+* { scrollbar-width: none !important; }
+*::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+
 /* ---- Device list: every reading of a multi-sensor ---- */
 .tw-device-readings { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: -0.125rem; }
 .tw-reading { display: inline-flex; align-items: baseline; gap: 0.3125rem; padding: 0.125rem 0.5rem; border-radius: 62.4375rem; background: var(--surface-sunken); font-size: var(--fs-caption); line-height: 1.5; white-space: nowrap; }
