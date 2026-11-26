@@ -53,7 +53,7 @@ button { cursor: pointer; }
   transition: transform var(--dur-release) var(--ease-spring), background 160ms ease;
 }
 .tw-icon-button:hover { background: var(--surface-sunken); }
-.is-pressed { transform: scale(0.97); transition-duration: var(--dur-press); }
+
 
 .tw-seg { display: inline-flex; padding: 0.1875rem; gap: 2px; border-radius: 62.4375rem; background: var(--surface-sunken); }
 .tw-seg button {
@@ -81,6 +81,8 @@ button { cursor: pointer; }
 .tw-dot[data-level="caution"] { background: var(--caution); }
 .tw-dot[data-level="poor"] { background: var(--poor); }
 .tw-dot[data-level="stale"], .tw-dot[data-level="offline"] { background: var(--offline); }
+/* Online but switched off (a socket): a hollow ring, so it never looks like "offline". */
+.tw-dot[data-level="idle"] { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-3); }
 
 .tw-term { text-decoration: underline dotted var(--text-3); text-underline-offset: 0.1875rem; cursor: help; }
 .tw-unit { font-size: 0.76em; color: var(--text-3); font-weight: 400; margin-left: 2px; }
@@ -115,8 +117,7 @@ button { cursor: pointer; }
 .tw-capsule-wrap { position: relative; }
 .tw-capsule {
   display: inline-flex; align-items: center; gap: 0.5rem; min-height: var(--tap); padding: 0 1rem 0 0.75rem;
-  border-radius: 62.4375rem; font-size: var(--fs-capsule); white-space: nowrap; cursor: pointer;
-  transition: transform var(--dur-release) var(--ease-spring);
+  border-radius: 62.4375rem; font-size: var(--fs-capsule); white-space: nowrap; cursor: pointer; overflow: hidden;
 }
 .tw-capsule .tw-capsule-value { font-weight: 500; letter-spacing: -0.01em; }
 .tw-capsule-icon { font-size: 1.0625rem; color: var(--accent); }
@@ -124,6 +125,8 @@ button { cursor: pointer; }
 .tw-capsule.is-stale .tw-capsule-value, .tw-capsule.is-stale .tw-capsule-label { color: var(--text-3); }
 body[data-view]:not([data-view="home"]) .tw-capsule { min-height: 2rem; padding: 0 0.75rem 0 0.625rem; font-size: 0.9375rem; }
 body[data-view]:not([data-view="home"]) .tw-capsule .tw-capsule-label { display: none; }
+/* The smaller capsules stay centred on the same line as the controls at the top right. */
+body[data-view]:not([data-view="home"]) .tw-capsules { margin-top: calc((var(--tap) - 2rem) / 2); }
 .tw-capsule-detail {
   position: absolute; top: calc(100% + 0.5rem); left: 50%; width: 15.5rem; padding: 0.75rem 0.875rem 0.625rem; border-radius: 1.25rem;
   transform: translate(-50%, -0.375rem) scale(0.97); opacity: 0; pointer-events: none;
@@ -147,7 +150,7 @@ body[data-view]:not([data-view="home"]) .tw-capsule .tw-capsule-label { display:
 .tw-actions { justify-self: end; display: flex; align-items: center; gap: 0.5rem; }
 .tw-alarm-capsule {
   display: inline-flex; align-items: center; gap: 0.5rem; height: var(--tap); padding: 0 0.875rem; border-radius: 62.4375rem;
-  font-size: 0.8125rem; font-weight: 500; white-space: nowrap; transition: transform var(--dur-release) var(--ease-spring);
+  font-size: 0.8125rem; font-weight: 500; white-space: nowrap; overflow: hidden;
 }
 .tw-alarm-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--good); }
 .tw-alarm-capsule.has-alarms { background: var(--caution); color: #fff; border-color: transparent; }
@@ -159,12 +162,20 @@ body[data-view]:not([data-view="home"]) .tw-capsule .tw-capsule-label { display:
   font-size: 0.8125rem; font-weight: 500; color: var(--text-2); transition: color 150ms ease;
 }
 .tw-segmented button[aria-checked="true"] { color: var(--text); }
+/* The selection lens: a drop of clearer glass that slides (and stretches) between options and
+   lifts out of the bar while pressed or dragged (ui/shell.js). */
 .tw-seg-thumb, .tw-tab-thumb {
-  position: absolute; top: 0.25rem; bottom: 0.25rem; left: 0; border-radius: 62.4375rem; background: var(--glass-thick-bg);
-  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 2px 0.5rem rgba(15, 23, 42, 0.12);
-  transition: transform var(--dur-tab) var(--ease-spring), width var(--dur-tab) var(--ease-spring);
+  position: absolute; top: 0.25rem; bottom: 0.25rem; left: 0; border-radius: 62.4375rem; background: var(--lens-thumb-bg);
+  box-shadow: var(--glass-edge-dark), inset 0 1px 0.5px rgba(255, 255, 255, 0.9), inset 0 -1px 1px rgba(255, 255, 255, 0.35), 0 2px 0.625rem rgba(15, 23, 42, 0.14);
+  transition: width var(--dur-tab) var(--ease-liquid), scale 380ms var(--ease-jelly), box-shadow 250ms ease;
 }
-.tw-toolgroup { display: inline-flex; gap: 2px; padding: 2px; border-radius: 62.4375rem; }
+.tw-tabbar.is-pressing .tw-tab-thumb, .tw-segmented.is-pressing .tw-seg-thumb, .tw-tabbar.is-dragging .tw-tab-thumb {
+  scale: 1.1 1.16; transition-duration: var(--dur-tab), 200ms, 250ms;
+  box-shadow: var(--glass-edge-dark), inset 0 1px 0.5px rgba(255, 255, 255, 1), inset 0 -1px 1px rgba(255, 255, 255, 0.5), 0 0.5rem 1.5rem rgba(15, 23, 42, 0.2);
+}
+/* Same height as the alarm capsule and the language switch beside it (all var(--tap)). */
+.tw-toolgroup { display: inline-flex; align-items: center; gap: 2px; height: var(--tap); padding: 2px; border-radius: 62.4375rem; }
+.tw-toolgroup .tw-icon-button { width: calc(var(--tap) - 4px); height: calc(var(--tap) - 4px); }
 
 /* ---------- AI card ---------- */
 .tw-ai-card {
@@ -258,7 +269,7 @@ body:not([data-view="home"]) .tw-details-toggle, body[data-replay] .tw-details-t
 .tw-iaq-badge strong { font-size: 0.875rem; font-weight: 600; color: var(--text); }
 .tw-iaq-badge small { font-size: var(--fs-caption); color: var(--text-2); }
 .tw-today-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.375rem; }
-.tw-today-grid > div { display: grid; gap: 2px; min-width: 0; padding: 0.5rem 0.625rem; border-radius: 0.75rem; background: var(--card-inset); box-shadow: var(--card-inset-rim); }
+.tw-today-grid > div { display: grid; gap: 2px; align-content: space-between; min-width: 0; padding: 0.5rem 0.625rem; border-radius: 0.75rem; background: var(--card-inset); box-shadow: var(--card-inset-rim); }
 /* Labels wrap inside the tile; a word longer than the tile breaks rather than spilling out. */
 .tw-today-grid small { min-width: 0; font-size: var(--fs-caption); color: var(--text-2); line-height: 1.3; overflow-wrap: anywhere; hyphens: auto; }
 .tw-today-grid strong { font-size: 1.125rem; font-weight: 500; color: var(--text); }
@@ -397,7 +408,10 @@ body:not([data-view="home"]) .tw-details-toggle, body[data-replay] .tw-details-t
 .tw-row > span:first-child { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--text-2); font-size: 0.8125rem; min-width: 0; }
 .tw-row > span:first-child i { font-size: 1rem; color: var(--text-3); }
 .tw-row strong { font-weight: 500; font-size: 0.9375rem; white-space: nowrap; }
+.tw-row strong > .tw-dot { vertical-align: 0.15em; margin-right: 0.125rem; }
 .tw-row.is-stale strong { color: var(--text-3); }
+.tw-row-note { display: block; flex-basis: 100%; margin-left: 1.5rem; font-size: var(--fs-caption); color: var(--text-3); line-height: 1.3; }
+.tw-row > span:first-child:has(.tw-row-note) { flex-wrap: wrap; row-gap: 0; padding: 0.125rem 0; }
 .tw-big { display: flex; align-items: baseline; gap: 0.375rem; }
 .tw-big strong { font-size: 2.5rem; font-weight: 300; letter-spacing: -0.02em; line-height: 1.05; }
 .tw-big span { color: var(--text-3); font-size: 0.9375rem; }
@@ -419,6 +433,7 @@ body:not([data-view="home"]) .tw-details-toggle, body[data-replay] .tw-details-t
 .tw-pill[data-level="fault"], .tw-pill[data-level="poor"] { background: var(--poor-soft); color: var(--poor); }
 .tw-pill[data-level="caution"] { background: var(--caution-soft); color: var(--caution); }
 .tw-pill[data-level="offline"], .tw-pill[data-level="unavailable"] { background: var(--offline-soft); color: var(--text-3); }
+.tw-pill[data-level="idle"] { background: var(--surface-sunken); color: var(--text-2); }
 details.tw-collapse { border-radius: var(--r-inner); background: var(--surface-sunken); margin-top: 0.75rem; }
 details.tw-collapse summary { list-style: none; display: flex; align-items: center; justify-content: space-between; min-height: 2.5rem; padding: 0 0.75rem; cursor: pointer; font-size: 0.8125rem; font-weight: 500; color: var(--text-2); }
 details.tw-collapse summary::-webkit-details-marker { display: none; }
@@ -448,6 +463,41 @@ dl.tw-props dd { margin: 0; font-family: var(--font-mono); overflow-wrap: anywhe
 .tw-socket .tw-socket-power { font-size: 0.9375rem; font-weight: 500; text-align: right; min-width: 4rem; }
 .tw-socket.is-off .tw-socket-power { color: var(--text-3); }
 .tw-socket.is-all { background: transparent; border-bottom: 1px solid var(--line); border-radius: 0; }
+
+/* Energy schedule (ui/energy-schedule.js): one 24-hour track per system, a single "now" line across. */
+.tw-sched { --name-w: 8.75rem; --col-gap: 0.625rem; position: relative; display: grid; gap: 0.375rem; }
+.tw-sched-row { display: grid; grid-template-columns: var(--name-w) minmax(0, 1fr); align-items: center; gap: var(--col-gap); min-height: 2.125rem; }
+.tw-sched-name { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.tw-sched-name > i { flex: none; display: grid; place-items: center; width: 1.625rem; height: 1.625rem; border-radius: 0.5rem; background: var(--surface-sunken); font-size: 0.9375rem; color: var(--text-2); }
+.tw-sched-name > span { display: grid; min-width: 0; line-height: 1.25; }
+.tw-sched-name strong { font-size: 0.8125rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-sched-name small { display: flex; align-items: center; gap: 0.3125rem; font-size: 0.6875rem; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tw-sched-name small .tw-dot { width: 0.375rem; height: 0.375rem; }
+.tw-sched-track { position: relative; height: 1.125rem; border-radius: 0.375rem; background: var(--surface-sunken); overflow: hidden;
+  background-image: linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 25% 100%; }
+.tw-sched-bar { position: absolute; top: 0.1875rem; bottom: 0.1875rem; border-radius: 0.25rem; background: var(--bar, var(--accent)); opacity: var(--strength, 1); }
+.tw-sched-bar.is-past { filter: saturate(0.35); opacity: calc(var(--strength, 1) * 0.45); }
+.tw-sched-bar.is-ahu { --bar: var(--series-1); }
+.tw-sched-bar.is-air { --bar: #14b8a6; border-radius: 0; }
+.tw-sched-bar.is-light { --bar: #e8b100; }
+.tw-sched-bar.is-power { --bar: var(--power); }
+.tw-sched-bar.is-meet { --bar: var(--replay); }
+.tw-sched-bar.is-cut { background: repeating-linear-gradient(135deg, var(--line-strong) 0 2px, transparent 2px 5px); opacity: 1; }
+.tw-sched-axis-row { min-height: 0; }
+.tw-sched-axis { position: relative; height: 0.875rem; }
+.tw-sched-axis span { position: absolute; top: 0; transform: translateX(-50%); font-size: 0.6875rem; color: var(--text-3); }
+.tw-sched-axis span:first-child { transform: none; }
+.tw-sched-axis span:last-child { transform: translateX(-100%); }
+.tw-sched-now { position: absolute; top: -0.25rem; bottom: 1rem; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--poor); pointer-events: none;
+  left: calc(var(--name-w) + var(--col-gap) + (100% - var(--name-w) - var(--col-gap)) * var(--now)); box-shadow: 0 0 0 1px var(--surface-raised); }
+.tw-sched-now b { position: absolute; bottom: 100%; left: 50%; transform: translate(-50%, -2px); padding: 0 0.3125rem; border-radius: 0.375rem; background: var(--poor); color: #fff; font-size: 0.625rem; font-weight: 600; line-height: 1.5; white-space: nowrap; }
+.tw-sched { padding-top: 0.75rem; }
+.tw-sched-legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.875rem; margin: 0.5rem 0 0; font-size: var(--fs-caption); color: var(--text-2); }
+.tw-sched-legend span { display: inline-flex; align-items: center; gap: 0.375rem; }
+.tw-sched-legend i { width: 0.875rem; height: 0.5rem; border-radius: 2px; }
+.tw-sched-legend i.is-ahu { background: var(--series-1); }
+.tw-sched-legend i.is-cut { background: repeating-linear-gradient(135deg, var(--line-strong) 0 2px, transparent 2px 5px); box-shadow: inset 0 0 0 1px var(--line); }
+.tw-sched-legend i.is-now { width: 2px; height: 0.75rem; background: var(--poor); }
 
 /* Device list and table. */
 .tw-search { position: relative; }
@@ -533,7 +583,7 @@ table.tw-table tr:hover td { background: var(--surface-sunken); }
 .tw-tab i { font-size: 1.125rem; }
 .tw-tab[aria-selected="true"] { color: var(--text); }
 .tw-tab-thumb { top: 0.3125rem; bottom: 0.3125rem; }
-.tw-tabbar.is-dragging .tw-tab-thumb { transform-origin: center; opacity: 0.85; }
+.tw-tabbar.is-dragging .tw-tab-thumb { transform-origin: center; }
 .tw-reset-view {
   position: fixed; z-index: 21; left: 50%; bottom: calc(var(--edge) + var(--tap) + 1.625rem); transform: translateX(-50%);
   display: inline-flex; align-items: center; gap: 0.375rem; height: 2.125rem; padding: 0 0.875rem; border-radius: 62.4375rem; font-size: 0.8125rem; font-weight: 500;
@@ -640,7 +690,7 @@ table.tw-table tr:hover td { background: var(--surface-sunken); }
 .tw-tile.is-main strong { color: var(--accent-strong); }
 .tw-ai-reason-line { grid-column: 1 / -1; margin: 2px 0 0; font-size: 0.875rem; color: var(--text); }
 .tw-ai-reason-line.is-warning, .tw-caption.is-warning { color: var(--caution); }
-.tw-card { margin-top: 1rem; padding: 1rem 1.125rem; border-radius: 1.5rem; background: var(--surface-raised); border: 1px solid var(--line); }
+.tw-ai-page .tw-card { margin-top: 1rem; padding: 1rem 1.125rem; border-radius: 1.5rem; background: var(--surface-raised); border: 1px solid var(--line); }
 .tw-card > header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 0.5rem 1rem; margin-bottom: 0.625rem; }
 .tw-card > header h2 { margin: 0; font-size: 0.9375rem; font-weight: 500; }
 .tw-card > header p { margin: 2px 0 0; font-size: var(--fs-caption); color: var(--text-3); }
@@ -756,7 +806,34 @@ table.tw-energy th:first-child { text-align: left; color: var(--text-2); font-we
   font-size: 0.8125rem; font-weight: 500; white-space: nowrap; color: var(--text);
 }
 .tw-marker-label small { margin-left: 2px; font-size: 0.75rem; color: var(--text-2); font-weight: 400; }
-.tw-marker.has-label:not(.is-occluded) .tw-marker-label, .tw-marker.is-hovered .tw-marker-label { display: block; }
+.tw-marker.has-label:not(.is-occluded) .tw-marker-label, .tw-marker.has-label.is-hovered .tw-marker-label { display: block; }
+.tw-marker-label[data-level]::before { content: ""; display: inline-block; width: 0.375rem; height: 0.375rem; margin: 0 0.3125rem 0 -1px; border-radius: 50%; vertical-align: 0.12em; background: var(--offline); }
+.tw-marker-label[data-level="good"]::before { background: var(--good); }
+.tw-marker-label[data-level="caution"]::before { background: var(--caution); }
+.tw-marker-label[data-level="poor"]::before { background: var(--poor); }
+/* Energy theme: a socket drawing power lights up (amber), matching its glow in the room. */
+:root { --power: #f08c00; --power-glow: rgba(255, 159, 28, 0.55); }
+:root[data-theme="dark"] { --power: #ffb547; --power-glow: rgba(255, 181, 71, 0.5); }
+.tw-marker.is-powered .tw-marker-core { background: var(--power); box-shadow: 0 0 0.375rem var(--power-glow); }
+.tw-marker.is-powered .tw-marker-dot { box-shadow: 0 0 0 0.1875rem var(--power-glow), 0 0 0.875rem var(--power-glow), 0 1px 0.25rem rgba(15, 23, 42, 0.3); }
+.tw-marker-label[data-level="power"]::before { content: "\26A1"; width: auto; height: auto; margin-right: 0.1875rem; background: none; color: var(--power); font-size: 0.75rem; vertical-align: 0; }
+.tw-marker[data-status="idle"] .tw-marker-core { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-3); }
+
+/* Hover card over a sensor (ui/marker-tip.js): ID, kind and state; the readings open with a click. */
+.tw-marker-tip {
+  position: fixed; z-index: 45; left: 0; top: 0; display: grid; gap: 1px; min-width: 9.5rem; max-width: 16rem;
+  padding: 0.5rem 0.75rem 0.5625rem; border-radius: 1rem; pointer-events: none; font-size: var(--fs-caption); line-height: 1.4;
+}
+.tw-marker-tip > * { opacity: 0; scale: 0.9; transform-origin: var(--tip-origin, left center); }
+.tw-marker-tip strong { font-size: 0.9375rem; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+.tw-marker-tip-type { color: var(--text-2); }
+.tw-marker-tip-state { display: inline-flex; align-items: center; gap: 0.375rem; margin-top: 2px; color: var(--text); font-weight: 500; }
+.tw-marker-tip small { margin-top: 0.25rem; color: var(--text-3); font-size: 0.6875rem; }
+.tw-marker-tip { opacity: 0; filter: blur(4px); scale: 0.86; transform-origin: var(--tip-origin, left center); transition: opacity 140ms ease, filter 140ms ease, scale 140ms ease; }
+.tw-marker-tip.is-shown { opacity: 1; filter: none; scale: 1; transition: opacity 180ms ease, filter 220ms ease, scale 420ms var(--ease-jelly); }
+.tw-marker-tip.is-shown > * { opacity: 1; scale: 1; transition: opacity 200ms ease 40ms, scale 420ms var(--ease-liquid) 40ms; }
+.tw-cached-note { display: flex; align-items: center; gap: 0.375rem; margin: 0 0.25rem 0.5rem; color: var(--text-2); }
+.tw-cached-note i { font-size: 0.875rem; color: var(--text-3); }
 .tw-marker.is-stale .tw-marker-label { color: var(--text-3); }
 .tw-marker.is-flashing .tw-marker-dot::after, .tw-marker.is-pulsing .tw-marker-dot::after {
   content: ""; position: absolute; left: 50%; top: 50%; width: 1rem; height: 1rem; border-radius: 50%;
@@ -778,8 +855,6 @@ table.tw-energy th:first-child { text-align: left; color: var(--text-2); font-we
 .tw-marker-seat.is-selected:not([data-state="occupied"]) .tw-seat { color: var(--accent); }
 .tw-marker-seat.is-flashing .tw-seat { animation: tw-seat-tap 420ms var(--ease-out) 1; }
 @keyframes tw-seat-tap { 50% { transform: scale(1.5); } }
-.tw-marker-node .tw-marker-dot { display: none; }
-.tw-marker-node .tw-marker-label { display: block; bottom: 0.375rem; color: var(--accent-strong); }
 .tw-digital-label {
   position: absolute; left: 0; top: 0; margin: -1.625rem 0 0 0.5rem; padding: 1px 0.375rem; border-radius: 0.375rem;
   font-family: var(--font-mono); font-size: 0.75rem; color: #e8f2ff; background: rgba(20, 90, 200, 0.78); white-space: nowrap; will-change: transform;
@@ -876,3 +951,17 @@ body[data-mobile] .tw-mobile {
 
 /* Lab display: the cards read from further away. */
 
+/* ---------- Liquid glass interaction (kept last so it wins over the per-component transitions) ---------- */
+/* Press: glass controls swell under the finger and brighten, then spring back (liquid glass);
+   large surfaces and list rows only give a little. Release uses the bouncy spring. */
+.tw-button, .tw-icon-button, .tw-capsule, .tw-alarm-capsule, .tw-tab, .tw-ai-card, .tw-device, .tw-stat, .tw-tag, .tw-seg button, .tw-segmented button, .tw-feedback-buttons button, .tw-details-toggle, .tw-reset-view {
+  transition-property: transform, filter, background, color, box-shadow, --rim-lit; transition-duration: var(--dur-release), 300ms, 160ms, 150ms, 300ms, 450ms;
+  transition-timing-function: var(--ease-jelly), ease, ease, ease, ease, ease;
+}
+.is-pressed { transition-duration: 220ms, 120ms, 160ms, 150ms, 300ms, 450ms; transition-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1); }
+.tw-button.is-pressed, .tw-icon-button.is-pressed, .tw-capsule.is-pressed, .tw-alarm-capsule.is-pressed, .tw-tag.is-pressed, .tw-seg button.is-pressed, .tw-segmented button.is-pressed, .tw-feedback-buttons button.is-pressed, .tw-details-toggle.is-pressed, .tw-reset-view.is-pressed { transform: scale(1.08); filter: brightness(1.08) saturate(1.1); }
+.tw-tab.is-pressed { transform: scale(1.04); }
+.tw-ai-card.is-pressed { transform: scale(1.015); }
+.tw-device.is-pressed, .tw-stat.is-pressed { transform: scale(0.985); }
+.tw-reset-view.is-pressed { transform: translateX(-50%) scale(1.08); }
+@media (prefers-reduced-motion: reduce) { .is-pressed { transform: none !important; } }

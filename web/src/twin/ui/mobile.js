@@ -4,7 +4,7 @@
 import { t, formatNumber, clockTime, ago } from "../i18n.js";
 import { on, ui } from "../state.js";
 import { data } from "../data/store.js";
-import { roomMetric, metricStatus, occupancyInfo, recommendationState, roomSeries, todaySummary, lastReadingAt, sensorReading, deviceStatus } from "../data/derived.js";
+import { roomMetric, metricStatus, occupancyInfo, recommendationState, roomSeries, todaySummary, lastReadingAt, sensorReading, deviceState } from "../data/derived.js";
 import { deviceById } from "../data/devices.js";
 import { pick } from "../i18n.js";
 import { valueHtml, metricLabel } from "./format.js";
@@ -55,9 +55,9 @@ function sensorCard() {
   if (!device) return "";
   const rows = device.metrics.map((metric) => ({ metric, reading: sensorReading(device.id, metric.key) })).filter(({ reading }) => reading.value !== null);
   const snapshot = data().snapshots.get(device.id);
-  const online = deviceStatus(device.id) === "normal";
+  const state = deviceState(device.id);
   return `<section class="tw-m-card tw-m-sensor"><h2>${icon("ph-cpu")}${escapeHtml(pick(device.name))}</h2>
-    <small><i class="tw-dot" data-level="${online ? "good" : "offline"}"></i> ${escapeHtml(snapshot?.updatedAt ? t("lastRecord", { ago: ago(snapshot.updatedAt) }) : t("noRecord"))}</small>
+    <small><i class="tw-dot" data-level="${state.level}"></i> ${escapeHtml(t(state.key))} · ${escapeHtml(snapshot?.updatedAt ? t("lastRecord", { ago: ago(snapshot.updatedAt) }) : t("noRecord"))}</small>
     <div class="tw-m-grid">${rows.map(({ metric, reading }) => `<div class="tw-m-tile${reading.stale ? " is-stale" : ""}">${icon(metric.icon)}<small>${escapeHtml(metricLabel(metric))}</small><strong>${valueHtml(metric, reading.value)}</strong></div>`).join("")}</div></section>`;
 }
 

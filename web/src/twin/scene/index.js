@@ -7,7 +7,7 @@ import { initNight } from "./night.js";
 import { initPresets, flyToView, focusBox, presetFor, offPreset, startSway, stopSway, jumpToView } from "./camera-presets.js";
 import { initCutaway, fadedWallMeshes } from "./cutaway.js";
 import { initMarkers, addMarker, setDisplayMode } from "./markers.js";
-import { initFlowLines, setFlowsVisible } from "./flow-lines.js";
+import { initPowerGlow, setPowerGlowVisible } from "./power-glow.js";
 import { initDigitalLayer } from "./digital-layer.js";
 import { startPlan, setPlanProgress, alignPlan, failPlan, playIntro } from "./intro.js";
 import { setSelectionOutline, setHoverOutline } from "./outline.js";
@@ -25,7 +25,6 @@ export const sceneState = {
   deviceItems: new Map(), // deviceId → display item
   layerVisibility: { archi: true, mep: true, sensor: true },
   sensorMode: "all",
-  totalNode: null,
 };
 
 export async function initScene({ canvas, markerLayer, onProgress }) {
@@ -84,11 +83,10 @@ export async function initScene({ canvas, markerLayer, onProgress }) {
   initPresets({ box: archiBox, floorY, tableCenter, socketCenter });
   initCutaway(result.walls, archiBox.getCenter(new THREE.Vector3()));
 
-  // The total-demand node sits just inside the door (south wall, +Z).
-  const door = result.byCategory.get("IFCDOOR")?.[0];
-  const doorCenter = door ? door.box.getCenter(new THREE.Vector3()) : archiBox.getCenter(new THREE.Vector3()).setZ(archiBox.max.z);
-  const nodePosition = new THREE.Vector3(doorCenter.x - 1.1, floorY, archiBox.max.z - 0.55);
-  sceneState.totalNode = initFlowLines({ sockets: socketAnchors, nodePosition, box: archiBox, floorY });
+  // Powered sockets glow in the Energy theme (no wiring is drawn). The ring lies on what the socket stands on.
+  const tableBox = table?.box || null;
+  const onTable = (a) => tableBox && a.x > tableBox.min.x && a.x < tableBox.max.x && a.z > tableBox.min.z && a.z < tableBox.max.z && a.y > tableBox.max.y;
+  initPowerGlow({ sockets: socketAnchors.map(({ id, anchor }) => ({ id, anchor, surfaceY: onTable(anchor) ? tableBox.max.y : floorY })) });
 
   const markerAnchors = [...sceneState.anchors.entries()].map(([id, anchor]) => ({ id, anchor }));
   initDigitalLayer({ items: result.items, sensorAnchors: markerAnchors, topY: Math.min(archiBox.max.y, floorY + 4.2), element: markerLayer });
@@ -106,7 +104,6 @@ export async function initScene({ canvas, markerLayer, onProgress }) {
       addMarker(device.id, anchor, { halo: ["AM103", "AM308"].includes(device.model) });
     }
   }
-  addMarker("total-power", sceneState.totalNode.clone().setY(floorY + 0.25), { kind: "node" });
 
   // Manual orbiting shows "back to default view"; flights do not count.
   getControls().addEventListener("start", () => { sceneState.userMoved = true; stopSway(); });
@@ -147,7 +144,7 @@ export function setSensorMode(mode) {
 
 export function themeLayers(view) {
   currentView = view;
-  setFlowsVisible(view === "energy");
+  setPowerGlowVisible(view === "energy");
   applyMep();
 }
 

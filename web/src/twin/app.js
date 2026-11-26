@@ -6,18 +6,18 @@ import { registerProviders, setDemo, data, provider } from "./data/store.js";
 import { connect, bridgeApi } from "./data/bridge.js";
 import { demoFactory, activeDemo, previewTime } from "./data/demo.js";
 import { registry, deviceById } from "./data/devices.js";
-import { deviceStatus, metricStatus, roomMetric, occupancyInfo, seatOccupancy, socketInfo, sensorReading, isSuspect } from "./data/derived.js";
+import { deviceState, metricStatus, roomMetric, occupancyInfo, seatOccupancy, socketInfo } from "./data/derived.js";
 import { SITE } from "./config/site.js";
 import { stopReplay } from "./data/replay.js";
 import { initScene, runIntro, sceneState, flyToView, offPreset, themeLayers, warmFragments } from "./scene/index.js";
 import { getControls, requestRender } from "./scene/viewer.js";
 import { applyDaylight } from "./scene/daylight.js";
 import { updateMarker, updateSeat, flashMarker, revealMarkers, setDisplayMode, refreshOcclusion } from "./scene/markers.js";
-import { updateFlow } from "./scene/flow-lines.js";
+import { updatePowerGlow } from "./scene/power-glow.js";
 import { initHomeDock, renderHomeDock } from "./ui/home-dock.js";
 import { captureSnapshot } from "./scene/snapshot.js";
 import { initShell, renderShell } from "./ui/shell.js";
-import { initPanel, showTheme, relabelTheme, markerReadout, energyTotalReadout } from "./ui/panel.js";
+import { initPanel, showTheme, relabelTheme, markerReadout } from "./ui/panel.js";
 import { initSensorSheet, openSelection } from "./ui/sensor-sheet.js";
 import { initAiCard } from "./ui/ai-card.js";
 import { initAiPage, openAiPage, closeAiPage } from "./ui/ai-page.js";
@@ -96,34 +96,34 @@ function updateSceneBindings() {
       updateSeat(device.id, ui.view !== "energy" && !ui.replay ? seatState : null, { selected: ui.selection?.kind === "sensor" && ui.selection.id === device.id });
       continue;
     }
-    const status = deviceStatus(device.id);
-    let markerStatus = status === "normal" ? "normal" : status === "fault" ? "fault" : "offline";
+    // The dot is the device's own state, the same colour as in the device list and the sensor sheet.
+    // Readings (CO₂ level and so on) are shown by the label and the floor halo, never by the dot.
+    const state = deviceState(device.id);
+    const markerStatus = state.key === "readingSuspect" ? "suspect" : state.level;
     let label = null;
     let halo = null;
-    let stale = false;
+    let stale = !state.online;
+    let powered = false;
     if (ui.view === "environment" && ENV_MODELS.includes(device.model)) {
       const readout = markerReadout("environment", device.id);
       if (readout) {
-        label = readout;
-        stale = readout.stale;
-        markerStatus = readout.stale ? "offline" : readout.suspect ? "suspect" : readout.status?.level || "normal";
-        halo = readout.stale || readout.suspect ? "offline" : readout.status?.level || null;
-      } else markerStatus = "offline";
+        const outdated = readout.stale || !state.online;
+        label = { ...readout, level: outdated ? "offline" : readout.suspect ? "caution" : readout.status?.level || null };
+        stale = outdated;
+        halo = outdated || readout.suspect ? "offline" : readout.status?.level || null;
+      }
     } else if (ui.view === "energy" && device.model === "WS523") {
       label = markerReadout("energy", device.id);
-      stale = Boolean(label?.stale);
-    } else if (ENV_MODELS.includes(device.model) && status === "normal") {
-      // Elsewhere an environment sensor's dot shows its own CO₂ state.
-      const reading = sensorReading(device.id, "co2");
-      if (reading.value !== null) { markerStatus = reading.stale ? "offline" : isSuspect(device.id) ? "suspect" : metricStatus("co2", reading.value)?.level || "normal"; stale = reading.stale; }
+      stale = Boolean(label?.stale) || !state.online;
+      const info = socketInfo(device.id);
+      powered = !stale && info.on === true;
+      if (label) label = { ...label, level: powered ? "power" : null };
     }
-    updateMarker(device.id, { status: markerStatus, label, halo, stale, selected: ui.selection?.kind === "sensor" && ui.selection.id === device.id });
+    updateMarker(device.id, { status: markerStatus, label, halo, stale, powered, selected: ui.selection?.kind === "sensor" && ui.selection.id === device.id });
   }
-  const total = ui.view === "energy" ? energyTotalReadout() : null;
-  updateMarker("total-power", { status: "normal", label: total ? { text: `Σ ${total.text}`, unit: total.unit } : null, wanted: Boolean(total), stale: total?.stale });
   for (const device of registry.devices.filter((d) => d.model === "WS523")) {
     const info = socketInfo(device.id);
-    updateFlow(device.id, info.power, info.stale);
+    updatePowerGlow(device.id, info.power, info.stale, info.on);
   }
   requestRender();
 }
@@ -300,7 +300,12 @@ let lastHistoryRequest = 0;
 function requestHistory(force = false) {
   if (!force && Date.now() - lastHistoryRequest < 60000) return;
   lastHistoryRequest = Date.now();
-  if (provider().isOpen()) void provider().requestRoomHistory(24, 10);
+  if (provider().isOpen()) {
+    void provider().requestRoomHistory(24, 10);
+    // Each device's real reporting interval decides when it counts as offline (data/derived.js
+    // deviceState), so every page needs it, not only the Devices panel.
+    provider().requestDeviceHealth?.();
+  }
 }
 
 window.addEventListener("hashchange", () => {

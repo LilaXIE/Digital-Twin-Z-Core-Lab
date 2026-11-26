@@ -5,7 +5,7 @@ import { t, pick, ago, formatNumber } from "../i18n.js";
 import { ui, settings, select, on, emit } from "../state.js";
 import { data, provider } from "../data/store.js";
 import { deviceById } from "../data/devices.js";
-import { deviceStatus, sensorHealth, sensorReading } from "../data/derived.js";
+import { deviceState, sensorHealth, sensorReading } from "../data/derived.js";
 import { sceneState, focusDevice, focusItem, selectOutline, detailsFor, itemByKey } from "../scene/index.js";
 import { markerFor } from "../scene/markers.js";
 import { planOutline } from "../scene/intro.js";
@@ -171,10 +171,9 @@ function render() {
   const device = deviceById(current.id);
   if (!device) return;
   header(pick(device.name));
-  const status = deviceStatus(device.id);
+  const state = deviceState(device.id);
   const snapshot = data().snapshots.get(device.id);
-  const statusLevel = status === "normal" ? "normal" : status === "fault" ? "fault" : "offline";
-  const statusText = ({ normal: t("statusNormal"), fault: t("statusFault"), offline: t("statusOffline"), unavailable: t("statusUnavailable") })[status];
+  const statusText = t(state.key);
   const metrics = device.metrics.filter((metric) => !(device.model === "WS301" && metric.key === "tamperStatus"));
   const readings = metrics.map((metric) => ({ metric, reading: sensorReading(device.id, metric.key) })).filter(({ reading }) => reading.value !== null || settings.internal);
   const trendMetrics = metrics.filter((metric) => (snapshot?.trends[metric.key] || []).length).filter((metric) => metric.key !== "battery").slice(0, 3);
@@ -183,12 +182,13 @@ function render() {
   body.innerHTML = `
     ${locationMap(device.id)}
     <div class="tw-sheet-status">
-      <span class="tw-pill" data-level="${statusLevel}"><span class="tw-dot" data-level="${statusLevel === "normal" ? "good" : statusLevel === "fault" ? "poor" : "offline"}"></span>${escapeHtml(statusText)}</span>
+      <span class="tw-pill" data-level="${state.level}"><span class="tw-dot" data-level="${state.level}"></span>${escapeHtml(statusText)}</span>
       <span>${escapeHtml(snapshot?.updatedAt ? t("lastRecord", { ago: ago(snapshot.updatedAt) }) : t("noRecord"))}</span>
       <button type="button" class="tw-button tw-button-small" data-action="qr">${icon("ph-qr-code")}<span>${escapeHtml(t("qrCode"))}</span></button>
     </div>
+    ${!state.online && snapshot?.updatedAt && readings.length ? `<p class="tw-caption tw-cached-note">${icon("ph-clock-counter-clockwise")}${escapeHtml(t("offlineLastKnown", { ago: ago(snapshot.updatedAt) }))}</p>` : ""}
     ${readings.length ? `<div class="tw-metric-grid">${readings.map(({ metric, reading }) => `
-      <div class="tw-metric${reading.stale ? " is-stale" : ""}"><span>${icon(metric.icon)}${metric.glossary ? term(metric.glossary, metricLabel(metric)) : escapeHtml(metricLabel(metric))}</span>
+      <div class="tw-metric${reading.stale || !state.online ? " is-stale" : ""}"><span>${icon(metric.icon)}${metric.glossary ? term(metric.glossary, metricLabel(metric)) : escapeHtml(metricLabel(metric))}</span>
       <strong>${reading.value !== null ? valueHtml(metric, reading.value) : `<span class="tw-unit">${escapeHtml(t("notConnected"))}</span>`}</strong></div>`).join("")}</div>` : ""}
     <section class="tw-section">
       <h3>${escapeHtml(t("history"))}</h3>
