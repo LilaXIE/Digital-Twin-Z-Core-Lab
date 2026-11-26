@@ -44,15 +44,15 @@ export const SENSOR_GROUPS = [
 ];
 
 const TYPES = {
-  AM103: { zh: "室内环境传感器（三合一）", "zh-Hant": "室內環境感測器（三合一）", en: "Indoor environment sensor (3-in-1)" },
-  AM308: { zh: "室内环境传感器（八合一）", "zh-Hant": "室內環境感測器（八合一）", en: "Indoor environment sensor (8-in-1)" },
-  VS341: { zh: "人体存在传感器", "zh-Hant": "人體存在感測器", en: "Occupancy sensor" },
-  WS301: { zh: "门磁传感器", "zh-Hant": "門磁感測器", en: "Magnetic contact sensor" },
-  WS302: { zh: "噪声传感器", "zh-Hant": "噪音感測器", en: "Noise sensor" },
-  WS303: { zh: "漏水传感器", "zh-Hant": "漏水感測器", en: "Leak detection sensor" },
+  AM103: { zh: "室内环境传感器（三合一）", "zh-Hant": "室內環境感應器（三合一）", en: "Indoor environment sensor (3-in-1)" },
+  AM308: { zh: "室内环境传感器（八合一）", "zh-Hant": "室內環境感應器（八合一）", en: "Indoor environment sensor (8-in-1)" },
+  VS341: { zh: "人体存在传感器", "zh-Hant": "人體存在感應器", en: "Occupancy sensor" },
+  WS301: { zh: "门磁传感器", "zh-Hant": "門磁感應器", en: "Magnetic contact sensor" },
+  WS302: { zh: "噪声传感器", "zh-Hant": "噪音感應器", en: "Noise sensor" },
+  WS303: { zh: "漏水传感器", "zh-Hant": "漏水感應器", en: "Leak detection sensor" },
   WS523: { zh: "智能插座", "zh-Hant": "智能插座", en: "Smart portable socket" },
 };
-export const deviceType = (model) => TYPES[model] || { zh: "IoT 传感器", "zh-Hant": "IoT 感測器", en: "IoT sensor" };
+export const deviceType = (model) => TYPES[model] || { zh: "IoT 传感器", "zh-Hant": "IoT 感應器", en: "IoT sensor" };
 
 export function sensorGroupFor(device) {
   const keys = new Set(device.metrics.map((metric) => metric.key));

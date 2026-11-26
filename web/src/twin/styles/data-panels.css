@@ -69,9 +69,27 @@
 .tw-row.is-chartable { display: grid; grid-template-columns: minmax(0, 1fr) 4.5rem auto; width: 100%; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; transition: background 150ms ease, box-shadow 150ms ease; }
 .tw-row.is-chartable:hover, .tw-row.is-chartable:focus-visible { box-shadow: inset 0 0 0 1px var(--line-strong); }
 .tw-row.is-chartable[aria-pressed="true"] { background: var(--accent-soft); }
-.tw-row.is-chartable:not(:has(.tw-row-spark)) { grid-template-columns: minmax(0, 1fr) auto; }
-.tw-row-spark { display: block; height: 1.25rem; }
-.tw-row-spark svg { display: block; width: 100%; height: 100%; }
-.tw-row-spark .tw-spark-line { fill: none; stroke: var(--series-1); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-.tw-row-spark .tw-spark-limit { stroke: var(--poor); stroke-dasharray: 3 3; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.tw-row.is-chartable { grid-template-columns: minmax(0, 1fr) auto; }
 .tw-row strong { text-align: right; }
+.tw-env-axis { min-height: 1.5rem; cursor: default; }
+.tw-env-axis:hover { background: transparent; }
+.tw-env-axis-track { position: relative; height: 1.125rem; border-top: 1px solid var(--line-strong); }
+.tw-env-axis-track i { position: absolute; top: 0; height: 0.25rem; border-left: 1px solid var(--line-strong); }
+.tw-env-axis-track b { position: absolute; top: 0.3125rem; transform: translateX(-50%); font-size: 0.6875rem; font-weight: 400; color: var(--text-3); white-space: nowrap; }
+.tw-env-axis .tw-unit { text-align: right; font-size: 0.6875rem; color: var(--text-3); }
+
+/* ---- Charts: axis lines, unit title, day dividers, legend swatch for a shaded area ---- */
+.tw-chart .axis-line line { stroke: var(--line-strong); stroke-width: 1; }
+.tw-chart .axis-title { fill: var(--text-3); font-size: 0.6875rem; }
+.tw-chart .axis text.minor { fill: var(--text-3); font-size: 0.625rem; }
+.tw-chart .divider { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; }
+.tw-legend i.area { height: 0.5rem; border: 0; border-radius: 2px; background: currentColor; opacity: 0.35; }
+
+/* ---- Compact trends with axes (home CO₂ card, top-bar capsules, phone view) ---- */
+.tw-card-spark.tw-chart { height: 6.25rem; margin-top: 0.5rem; }
+.tw-card-spark.tw-chart svg { height: 100%; }
+.tw-card-spark[hidden] { display: none; }
+.tw-capsule-chart { height: 6.5rem; margin: 0.25rem 0; }
+.tw-capsule-detail .tw-capsule-chart svg { height: 100%; margin-top: 0; }
+.tw-m-chart { height: 8.5rem; }
+

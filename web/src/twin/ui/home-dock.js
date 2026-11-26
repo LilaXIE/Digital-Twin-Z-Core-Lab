@@ -13,7 +13,7 @@ import { deviceById } from "../data/devices.js";
 import { SITE, thresholds } from "../config/site.js";
 import { startReplay } from "../data/replay.js";
 import { daylightState } from "../scene/daylight.js";
-import { sparkline } from "./charts/timeline.js";
+import { miniChart } from "./charts/timeline.js";
 import { compassText } from "./format.js";
 import { $, escapeHtml, icon, rollNumber } from "./dom.js";
 import { controlStatus, confirmSwitch, confirmOpen, pendingSocketIds, renderBulkButtons, socketStateHtml, switchesInteractive } from "./sockets.js";
@@ -25,6 +25,8 @@ const INDOOR_STATS = [
   { key: "temperature", unit: "°C", digits: 1, icon: "ph-thermometer-simple" },
   { key: "humidity", unit: "%", digits: 0, icon: "ph-drop" },
   { key: "pm25", unit: "µg/m³", digits: 0, icon: "ph-circles-three" },
+  // Six tiles fill the 3 × 2 grid; PM10 (from the 8-in-1 sensor) opens the particle chart.
+  { key: "pm10", unit: "µg/m³", digits: 0, icon: "ph-circles-four", chart: "pm25" },
   { key: "noise", unit: "dB(A)", digits: 0, icon: "ph-waveform" },
 ];
 const MAX_ALARMS = 3;
@@ -52,7 +54,7 @@ function renderIndoor() {
         <span class="tw-hero-value"><span class="tw-num" data-part="co2"></span><span class="tw-unit">ppm</span></span>
         <span class="tw-hero-side"><span class="tw-hero-label">CO₂</span><span class="tw-pill" data-part="co2-status"></span></span>
       </button>
-      <div class="tw-card-spark" data-part="spark"></div>
+      <div class="tw-card-spark tw-chart" data-part="spark"></div>
       <div class="tw-card-caption" data-part="caption-row"><span data-part="caption"></span>
         <button type="button" class="tw-link" data-action="replay">${icon("ph-clock-counter-clockwise")}<span>${escapeHtml(t("replay"))}</span></button></div>
       <div class="tw-card-stats" data-part="stats"></div>
@@ -75,11 +77,10 @@ function renderIndoor() {
   }
   const cutoff = (ui.replay ? ui.replay.stop : Date.now()) - 24 * 3600000;
   const points = roomSeries(data().roomHistory, "co2").filter((p) => p.t >= cutoff);
-  const spark = hasCo2 ? sparkline(points, { width: 268, height: 40, limit: thresholds.co2.goodBelow }) : "";
-  // During replay a cursor marks the replayed moment on the 24-hour curve.
-  const span = points.length > 1 ? points.at(-1).t - points[0].t : 0;
-  const cursor = ui.replay && span > 0 ? `<i class="tw-spark-cursor" style="left:${Math.max(0, Math.min(100, ((ui.replay.t - points[0].t) / span) * 100)).toFixed(2)}%"></i>` : "";
-  setHtml(card.querySelector('[data-part="spark"]'), spark ? spark + cursor : "");
+  // The last 24 hours with time and ppm axes; during replay a cursor marks the replayed moment.
+  const sparkHost = card.querySelector('[data-part="spark"]');
+  sparkHost.hidden = !hasCo2 || points.length < 2;
+  if (!sparkHost.hidden) miniChart(sparkHost, points, { label: "CO₂", unit: "ppm", limit: thresholds.co2.goodBelow, cursorT: ui.replay?.t ?? null, xMin: cutoff, xMax: ui.replay ? ui.replay.stop : Date.now(), minSpan: 80 });
   card.querySelector('[data-part="caption"]').textContent = [points.length > 1 ? t("last24h") : "", co2.sources ? t("sensorsMedian", { n: co2.sources }) : "", co2.excluded ? t("sensorsExcluded", { n: co2.excluded }) : ""].filter(Boolean).join(" · ");
   card.querySelector('[data-action="replay"]').hidden = Boolean(ui.replay) || points.length < 2;
 
@@ -88,7 +89,7 @@ function renderIndoor() {
     const metric = roomMetric(spec.key);
     if (metric.value === null) continue; // no source: no tile, never a dash
     const status = metricStatus(spec.key, metric.value);
-    tiles.push(stat({ key: spec.key, label: t(spec.key === "temperature" ? "tempShort" : spec.key), html: valueHtml(metric.value, spec.digits, spec.unit), level: status ? (metric.stale ? "stale" : status.level) : null, title: status ? t(status.word) : "",
+    tiles.push(stat({ key: spec.chart || spec.key, label: t(spec.key === "temperature" ? "tempShort" : spec.key), html: valueHtml(metric.value, spec.digits, spec.unit), level: status ? (metric.stale ? "stale" : status.level) : null, title: status ? t(status.word) : "",
       sub: metric.stale ? t("stale") : "", stale: metric.stale, iconName: spec.icon }));
     if (spec.key === "humidity") {
       const occupancy = occupancyInfo();
