@@ -129,7 +129,9 @@ export function updateMarker(id, state) {
   marker.el.classList.toggle("has-label", Boolean(state.label));
   marker.el.classList.toggle("is-selected", Boolean(state.selected));
   marker.el.classList.toggle("is-stale", Boolean(state.stale));
+  marker.el.classList.toggle("is-powered", Boolean(state.powered));
   if (state.label) {
+    if (state.label.level) marker.label.dataset.level = state.label.level; else delete marker.label.dataset.level;
     const text = `${state.label.text}${state.label.unit ? `<small>${state.label.unit}</small>` : ""}`;
     if (marker.label.innerHTML !== text) marker.label.innerHTML = text;
   }

@@ -17,7 +17,7 @@ function memberRow() {
   const dataset = data();
   if (dataset.kind !== "live" || !dataset.control.writeProtected) return "";
   const member = dataset.member;
-  return `<div class="tw-menu-row"><span>${escapeHtml(t("memberLabel"))}<small>${escapeHtml(member ? t("memberAs", { name: member.name }) : t("visitorHint"))}</small></span>
+  return `<div class="tw-menu-row"><span>${escapeHtml(t("memberLabel"))}${member ? `<small>${escapeHtml(t("memberAs", { name: member.name }))}</small>` : ""}</span>
     <button type="button" class="tw-button tw-button-small" data-action="${member ? "logout" : "login"}">${escapeHtml(t(member ? "logout" : "login"))}</button></div>`;
 }
 

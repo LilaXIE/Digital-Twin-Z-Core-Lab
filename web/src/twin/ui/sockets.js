@@ -31,10 +31,13 @@ export async function unlockControl() {
   return Boolean(ok);
 }
 
-// Read-only socket state in place of a switch: a dot and "On" / "Off".
+// Read-only socket state in place of a switch, from the shared device state (data/derived.js
+// deviceState): the same dot colour as in the device list, the sensor sheet and the scene.
 export function socketStateHtml(info) {
-  if (info.on === null) return "";
-  return `<span class="tw-socket-state" data-on="${info.on}"><i class="tw-dot" data-level="${info.on ? "good" : "offline"}"></i>${escapeHtml(t(info.on ? "socketOn" : "socketOff"))}</span>`;
+  const state = info.state;
+  if (!state || (state.online && info.on === null)) return "";
+  const text = !state.online ? t("statusOffline") : t(info.on ? "socketOn" : "socketOff");
+  return `<span class="tw-socket-state" data-on="${state.online ? info.on : "offline"}"><i class="tw-dot" data-level="${state.level}"></i>${escapeHtml(text)}</span>`;
 }
 
 export const pendingSocketIds = () => new Set([...data().pendingControls.values()].map((item) => item.deviceId));
@@ -47,14 +50,14 @@ export function controlStatus(element) {
   if (!availability.ok) {
     // Customers see that this is a view-only page; the technical reason is for internal mode.
     element.className = "tw-caption";
-    element.textContent = settings.internal ? `${t("controlUnavailable")} · ${availability.reason}` : t("controlViewOnly");
+    element.textContent = settings.internal ? `${t("controlUnavailable")} · ${availability.reason}` : "";
   } else if (!controlUnlocked()) {
     element.className = "tw-caption";
     element.innerHTML = `${escapeHtml(t("controlLocked"))} <button type="button" class="tw-link" data-action="unlock">${icon("ph-lock-key")}${escapeHtml(t("login"))}</button>`;
     element.querySelector('[data-action="unlock"]').addEventListener("click", () => { void unlockControl(); });
   }
   else if (message && Date.now() - message.at < 120000) { element.className = `tw-caption is-${message.level}`; element.textContent = t(message.key, message.vars); }
-  else { element.className = "tw-caption"; element.textContent = data().kind === "demo" ? t("demoControl") : ""; }
+  else { element.className = "tw-caption"; element.textContent = ""; }
 }
 
 // The confirmation grows out of the switch that was pressed.

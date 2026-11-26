@@ -1,7 +1,7 @@
 // The home layer (section 4): identity, up to four status capsules, the one-line status,
 // mode badges, the alarm capsule, the language switch, tools and the tab bar.
 import { t, ago, clockTime, formatNumber, getLang, pick } from "../i18n.js";
-import { ui, settings, setView, setFocusMetric, emit, on, updateSetting, coarsePointer } from "../state.js";
+import { ui, settings, setView, setFocusMetric, emit, on, updateSetting, coarsePointer, reducedMotion } from "../state.js";
 import { data } from "../data/store.js";
 import { roomMetric, metricStatus, occupancyInfo, lastReadingAt, alarms, socketDevices, socketInfo, safetyFacts, recommendationState, roomSeries, healthSummary } from "../data/derived.js";
 import { SITE, isWorkingTime, thresholds } from "../config/site.js";
@@ -191,12 +191,26 @@ function renderAlarmCapsule() {
 }
 
 // ---- Tab bar with a sliding glass thumb (drag it to another tab on touch or mouse) ----
+// The lens travels like a drop of liquid: it stretches along the way and settles with a small
+// overshoot (the iOS 26/27 tab bar).
 function moveThumb(container, target, thumb) {
   if (!target) return;
   const box = container.getBoundingClientRect();
   const rect = target.getBoundingClientRect();
+  const x = rect.left - box.left;
+  const previous = Number.parseFloat(thumb.dataset.x);
   thumb.style.width = `${rect.width}px`;
-  thumb.style.transform = `translateX(${rect.left - box.left}px)`;
+  thumb.style.transform = `translateX(${x}px)`;
+  thumb.dataset.x = String(x);
+  if (!Number.isFinite(previous) || Math.abs(previous - x) < 1 || reducedMotion() || container.classList.contains("is-dragging")) return;
+  const stretch = 1 + Math.min(0.32, (Math.abs(x - previous) / Math.max(1, rect.width)) * 0.14);
+  const jelly = getComputedStyle(document.documentElement).getPropertyValue("--ease-jelly").trim() || "ease-out";
+  thumb.getAnimations().forEach((animation) => animation.cancel());
+  thumb.animate([
+    { transform: `translateX(${previous}px)`, scale: "1 1", easing: "cubic-bezier(0.35, 0, 0.45, 1)" },
+    { transform: `translateX(${previous + (x - previous) * 0.62}px)`, scale: `${stretch} ${1 - (stretch - 1) * 0.45}`, offset: 0.38, easing: jelly },
+    { transform: `translateX(${x}px)`, scale: "1 1" },
+  ], { duration: 620 });
 }
 
 function renderTabs() {
@@ -232,7 +246,8 @@ function bindTabs() {
     const width = thumb.getBoundingClientRect().width;
     const x = Math.max(5, Math.min(drag.box.width - width - 5, event.clientX - drag.box.left - width / 2));
     thumb.style.transition = "none";
-    thumb.style.transform = `translateX(${x}px) scale(1.06)`;
+    thumb.style.transform = `translateX(${x}px)`;
+    thumb.dataset.x = String(x);
   });
   const finish = (event) => {
     if (!drag || drag.id !== event.pointerId) return;

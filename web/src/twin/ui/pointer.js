@@ -7,6 +7,7 @@ import { nearestMarker, setHovered, hoveredMarker } from "../scene/markers.js";
 import { ripple, lensStart, lensMove, lensEnd } from "../scene/digital-layer.js";
 import { pick, hoverOutline, sceneState } from "../scene/index.js";
 import { closePopover, popoverOpen } from "./dom.js";
+import { showMarkerTip, hideMarkerTip } from "./marker-tip.js";
 
 let press = null;
 let lensActive = false;
@@ -19,39 +20,42 @@ export function setCoordinatePick(callback) {
 
 function markerRadius() { return coarsePointer() ? 44 : 28; }
 
-// Liquid-glass cards: a soft ripple where the pointer enters, a stronger one where it presses.
-// The rings sit under the card's content and fade within a second, so the data stays readable.
-const LIQUID_GLASS = ".tw-dock > .glass-thick, .tw-identity.glass-thin";
-function glassRipple(glass, x, y, strong) {
+// Liquid glass: light wells up where the glass is pressed (or, on the Overview cards, where the
+// pointer enters) and spreads towards the edges, under the content so the data stays readable.
+const BLOOM_HOSTS = ".glass-thin, .glass-thick";
+const HOVER_BLOOM = ".tw-dock > .glass-thick, .tw-identity.glass-thin";
+function glassBloom(glass, x, y, strong) {
   if (reducedMotion() || settings.transparency === "reduced") return;
   const rect = glass.getBoundingClientRect();
-  const size = Math.hypot(rect.width, rect.height) * (strong ? 1.5 : 1.15);
-  const ring = document.createElement("span");
-  ring.className = "tw-glass-ripple";
-  ring.setAttribute("aria-hidden", "true");
-  ring.style.cssText = `left:${x - rect.left}px;top:${y - rect.top}px;width:${size}px;height:${size}px`;
-  glass.appendChild(ring);
-  // The ring keeps its brightness while it spreads, then fades as it reaches the edges.
-  const peak = strong ? 1 : 0.75;
-  ring.animate([
-    { transform: "translate(-50%, -50%) scale(0.04)", opacity: peak, easing: "cubic-bezier(0.25, 0.6, 0.4, 1)" },
-    { transform: "translate(-50%, -50%) scale(0.5)", opacity: peak * 0.85, offset: 0.4, easing: "cubic-bezier(0.3, 0.4, 0.5, 1)" },
+  const size = Math.min(Math.hypot(rect.width, rect.height) * (strong ? 1.4 : 1.1), strong ? 640 : 520);
+  const light = document.createElement("span");
+  light.className = "tw-glass-bloom";
+  light.setAttribute("aria-hidden", "true");
+  light.style.cssText = `left:${x - rect.left}px;top:${y - rect.top}px;width:${size}px;height:${size}px`;
+  glass.appendChild(light);
+  const peak = strong ? 1 : 0.6;
+  light.animate([
+    { transform: "translate(-50%, -50%) scale(0.05)", opacity: peak, easing: "cubic-bezier(0.2, 0.9, 0.3, 1)" },
+    { transform: "translate(-50%, -50%) scale(0.55)", opacity: peak * 0.8, offset: 0.35, easing: "cubic-bezier(0.3, 0.4, 0.5, 1)" },
     { transform: "translate(-50%, -50%) scale(1)", opacity: 0 },
-  ], { duration: strong ? 1100 : 1500 }).finished.catch(() => {}).finally(() => ring.remove());
+  ], { duration: strong ? 900 : 1300 }).finished.catch(() => {}).finally(() => light.remove());
 }
 
-function bindGlassRipples() {
+function bindGlassBlooms() {
   const lastEnter = new WeakMap();
-  for (const glass of document.querySelectorAll(LIQUID_GLASS)) {
-    glass.addEventListener("pointerenter", (event) => {
-      if (event.pointerType === "touch") return;
-      const now = performance.now();
-      if (now - (lastEnter.get(glass) || 0) < 900) return; // no ripple storm when skimming along an edge
-      lastEnter.set(glass, now);
-      glassRipple(glass, event.clientX, event.clientY, false);
-    });
-    glass.addEventListener("pointerdown", (event) => glassRipple(glass, event.clientX, event.clientY, true));
-  }
+  document.addEventListener("pointerover", (event) => {
+    if (event.pointerType === "touch") return;
+    const glass = event.target.closest?.(HOVER_BLOOM);
+    if (!glass || glass.contains(event.relatedTarget)) return;
+    const now = performance.now();
+    if (now - (lastEnter.get(glass) || 0) < 900) return; // no bloom storm when skimming along an edge
+    lastEnter.set(glass, now);
+    glassBloom(glass, event.clientX, event.clientY, false);
+  });
+  document.addEventListener("pointerdown", (event) => {
+    const glass = event.target.closest?.(BLOOM_HOSTS);
+    if (glass && getComputedStyle(glass).overflow !== "visible") glassBloom(glass, event.clientX, event.clientY, true);
+  });
 }
 
 export function initPointer() {
@@ -62,7 +66,7 @@ export function initPointer() {
     const rect = canvas.getBoundingClientRect();
     if (press) {
       const moved = Math.hypot(event.clientX - press.x, event.clientY - press.y);
-      if (moved > 5 && !lensActive) { press.dragging = true; window.clearTimeout(press.holdTimer); canvas.classList.add("is-dragging"); }
+      if (moved > 5 && !lensActive) { press.dragging = true; window.clearTimeout(press.holdTimer); canvas.classList.add("is-dragging"); hideMarkerTip(); }
       if (lensActive) {
         const hit = pick(event.clientX, event.clientY, { selectableOnly: false });
         if (hit.surface) lensMove(hit.surface);
@@ -72,13 +76,15 @@ export function initPointer() {
     if (event.pointerType === "touch" || !sceneState.ready) return;
     const marker = sceneState.sensorMode === "all" ? nearestMarker(event.clientX - rect.left, event.clientY - rect.top, markerRadius()) : null;
     setHovered(marker);
+    showMarkerTip(marker, rect);
     let hoverItem = null;
     if (!marker && ui.view === "devices") hoverItem = pick(event.clientX, event.clientY).item;
     hoverOutline(hoverItem && !(ui.selection?.kind === "ifc" && ui.selection.key === `${hoverItem.modelId}:${hoverItem.localId}`) ? hoverItem : null);
     canvas.classList.toggle("is-pointing", Boolean(marker || hoverItem));
   });
 
-  canvas.addEventListener("pointerleave", () => { if (!press) { setHovered(null); hoverOutline(null); } });
+  canvas.addEventListener("pointerleave", () => { hideMarkerTip(); if (!press) { setHovered(null); hoverOutline(null); } });
+  canvas.addEventListener("wheel", hideMarkerTip, { passive: true });
 
   canvas.addEventListener("pointerdown", (event) => {
     if (!sceneState.ready || event.button > 0) return;
@@ -111,7 +117,7 @@ export function initPointer() {
   canvas.addEventListener("pointercancel", release);
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
-  bindGlassRipples();
+  bindGlassBlooms();
 
   // Glass sheen and button press feedback.
   let sheenFrame = 0;
@@ -129,8 +135,10 @@ export function initPointer() {
     });
   }, { passive: true });
   document.addEventListener("pointerdown", (event) => {
-    const button = event.target.closest?.(".tw-button, .tw-icon-button, .tw-capsule, .tw-alarm-capsule, .tw-ai-card, .tw-device, .tw-tab");
+    const button = event.target.closest?.(".tw-button, .tw-icon-button, .tw-capsule, .tw-alarm-capsule, .tw-ai-card, .tw-device, .tw-tab, .tw-stat, .tw-tag, .tw-seg button, .tw-segmented button, .tw-feedback-buttons button, .tw-details-toggle, .tw-reset-view");
     button?.classList.add("is-pressed");
+    // Pressing a tab or a language option lifts the selection lens out of its bar.
+    event.target.closest?.(".tw-tabbar, .tw-segmented")?.classList.add("is-pressing");
     if (coarsePointer()) {
       // Touch: a one-off soft highlight where the finger lands.
       const glass = event.target.closest?.(".glass-thin, .glass-thick");
@@ -143,7 +151,7 @@ export function initPointer() {
       }
     }
   });
-  const unpress = () => document.querySelectorAll(".is-pressed").forEach((element) => element.classList.remove("is-pressed"));
+  const unpress = () => document.querySelectorAll(".is-pressed, .is-pressing").forEach((element) => element.classList.remove("is-pressed", "is-pressing"));
   document.addEventListener("pointerup", unpress);
   document.addEventListener("pointercancel", unpress);
 }
