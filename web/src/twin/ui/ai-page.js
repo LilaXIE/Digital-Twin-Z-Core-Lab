@@ -97,13 +97,13 @@ function renderControl() {
   // The mode switch can never be used before AHU data and FMO authorisation exist, so customers see
   // a plain statement instead of two disabled buttons; internal mode keeps the full detail.
   const showSwitch = Boolean(demo) || settings.internal;
-  host.innerHTML = `<header><div><h2>${escapeHtml(t("aiControlMode"))}</h2><p>${escapeHtml(demo ? t("badgeDemo") : settings.internal ? t("aiControlReadOnly") : t("aiAdviceOnly"))}</p></div>
+  host.innerHTML = `<header><div><h2>${escapeHtml(t("aiControlMode"))}</h2>${demo ? `<p>${escapeHtml(t("badgeDemo"))}</p>` : ""}</div>
       ${showSwitch ? `<div class="tw-seg" role="group" aria-label="${escapeHtml(t("aiControlMode"))}">
         <button type="button" ${demo ? "" : "disabled"} aria-pressed="${Boolean(demo?.autoMode)}">${icon("ph-sparkle")} ${escapeHtml(t("aiAutoMode"))}</button>
         <button type="button" ${demo ? "" : "disabled"} aria-pressed="${demo ? !demo.autoMode : true}">${icon("ph-hand")} ${escapeHtml(t("aiManualMode"))}</button>
       </div>` : ""}</header>
     <div class="tw-control-rec">
-      ${demo || settings.internal ? `<div><span>${escapeHtml(t("aiSupplySetpoint"))}</span>${demo ? `<strong><span class="tw-num">${demo.supplySetpoint.recommended.toFixed(1)}</span><span class="tw-unit">°C</span></strong><span>${escapeHtml(t("aiCurrentSetpoint", { v: `${demo.supplySetpoint.current.toFixed(1)}°C` }))}</span><br><em class="${demo.supplySetpoint.executed ? "" : "is-waiting"}">${escapeHtml(t(demo.supplySetpoint.executed ? "aiExecuted" : "aiAwaiting"))}</em>` : `<p class="tw-caption">${escapeHtml(t("aiSetpointUnavailable"))}</p>`}</div>` : ""}
+      ${demo ? `<div><span>${escapeHtml(t("aiSupplySetpoint"))}</span>${demo ? `<strong><span class="tw-num">${demo.supplySetpoint.recommended.toFixed(1)}</span><span class="tw-unit">°C</span></strong><span>${escapeHtml(t("aiCurrentSetpoint", { v: `${demo.supplySetpoint.current.toFixed(1)}°C` }))}</span><br><em class="${demo.supplySetpoint.executed ? "" : "is-waiting"}">${escapeHtml(t(demo.supplySetpoint.executed ? "aiExecuted" : "aiAwaiting"))}</em>` : ""}</div>` : ""}
       <div><span>${term("damper", t("aiDamperRec"))}</span>${ahuOff(rec) ? `<p class="tw-caption">${escapeHtml(t("ahuOffNoSavings"))}</p>` : Number.isFinite(recommendedDamper) ? `<strong><span class="tw-num">${recommendedDamper}</span><span class="tw-unit">%</span></strong><span>${escapeHtml(t("aiCurrentPosition", { v: `${rec.ahu?.assumedDamperPct ?? rec.airflow.baselineDamperPct}%` }))}</span>` : `<p class="tw-caption">${escapeHtml(t("noData"))}</p>`}</div>
     </div>`;
   if (demo) host.querySelectorAll(".tw-seg button").forEach((button, index) => button.addEventListener("click", () => { demo.autoMode = index === 0; renderControl(); }));
@@ -324,7 +324,7 @@ function renderInternal() {
     <div class="tw-toolbar" style="margin-top:12px"><span class="tw-caption" style="margin:0">${escapeHtml(t("controlLevel"))}</span>
       <div class="tw-seg" role="group">${["L0", "L1", "L2"].map((level) => `<button type="button" data-mode="${level}" aria-pressed="${mode === level}" title="${escapeHtml(modeName(level))}" ${!connected || (level === "L2" && !internal?.l2Available) ? "disabled" : ""}>${level}</button>`).join("")}</div>
       <button type="button" class="tw-button tw-button-danger tw-button-small" data-action="exit-auto" ${mode !== "L2" ? "disabled" : ""}>${escapeHtml(t("exitAuto"))}</button></div>
-    <p class="tw-caption" data-part="control-status" role="status"></p><p class="tw-caption">${escapeHtml(t("l2Note"))}</p>`;
+    <p class="tw-caption" data-part="control-status" role="status"></p>`;
   const status = host.querySelector('[data-part="control-status"]');
   const send = async (mode) => {
     const result = await provider().writeRequest({ type: "control-mode-request", mode });

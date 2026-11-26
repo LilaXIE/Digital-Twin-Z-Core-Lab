@@ -51,10 +51,13 @@ export function growFrom(element, origin, { duration = 450, distance = 1 } = {})
   const dx = (source.left + source.width / 2 - (target.left + target.width / 2)) * distance;
   const dy = (source.top + source.height / 2 - (target.top + target.height / 2)) * distance;
   const scale = Math.max(0.12, Math.min(0.6, Math.max(source.width / target.width, source.height / target.height)));
+  // Liquid: the surface condenses out of its trigger (blurred, then sharp) and settles with a spring.
+  const spring = getComputedStyle(document.documentElement).getPropertyValue("--ease-liquid").trim() || "cubic-bezier(0.32, 0.72, 0, 1)";
   element.animate([
-    { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 0 },
-    { transform: "none", opacity: 1 },
-  ], { duration, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
+    { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 0, filter: "blur(8px)" },
+    { opacity: 1, filter: "blur(0px)", offset: 0.45 },
+    { transform: "none", opacity: 1, filter: "blur(0px)" },
+  ], { duration: Math.round(duration * 1.6), easing: spring });
 }
 
 export function shrinkTo(element, origin, { duration = 320 } = {}) {
@@ -69,9 +72,9 @@ export function shrinkTo(element, origin, { duration = 320 } = {}) {
   const dy = source.top + source.height / 2 - (target.top + target.height / 2);
   const scale = Math.max(0.12, Math.min(0.6, Math.max(source.width / target.width, source.height / target.height)));
   const animation = element.animate([
-    { transform: "none", opacity: 1 },
-    { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 0 },
-  ], { duration, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
+    { transform: "none", opacity: 1, filter: "blur(0px)" },
+    { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 0, filter: "blur(6px)" },
+  ], { duration, easing: "cubic-bezier(0.4, 0, 0.6, 1)" });
   return animation.finished.then(() => { element.hidden = true; }).catch(() => { element.hidden = true; });
 }
 

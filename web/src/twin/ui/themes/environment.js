@@ -330,7 +330,12 @@ function renderIndoor() {
       { stale: value.stale, chart: metric.key }));
   }
   const occupancy = occupancyInfo();
-  if (occupancy) rows.push(row("ph-users-three", occupancy.measured ? escapeHtml(t("occupancy")) : term("estimated", t("occupancyEstimated")), `<span class="tw-num">${occupancy.count}</span>`));
+  if (occupancy) {
+    // Say where the number comes from: the seat sensors reporting now, or the CO₂ estimate, and when.
+    const source = occupancy.measured && occupancy.seats ? t("seatsReporting", { n: occupancy.seats, total: occupancy.totalSeats }) : t(occupancy.measured ? "occupancyMeasuredNote" : "occupancyEstimatedNote");
+    const when = Number.isFinite(occupancy.at) && occupancy.at > 0 ? ` · ${t("updatedAtShort", { time: clockTime(occupancy.at) })}` : "";
+    rows.push(row("ph-users-three", `${occupancy.measured ? escapeHtml(t("occupancy")) : term("estimated", t("occupancyEstimated"))}<small class="tw-row-note">${escapeHtml(source + when)}</small>`, `<span class="tw-num">${occupancy.count}</span>`));
+  }
   body.querySelector('[data-part="indoor"]').innerHTML = rows.join("");
 }
 

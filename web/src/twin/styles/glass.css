@@ -1,48 +1,55 @@
-/* Two glass thicknesses. Glass is for navigation and controls; data panels use the thicker frost.
-   No refraction: blur, saturation and a lit top edge carry the material. Never glass on glass. */
+/* Liquid glass, after Apple's iOS 26 material as refined in iOS 27:
+   - an almost clear body that softens, brightens and saturates the scene behind it;
+   - a bright specular rim (brightest top-left and bottom-right) that catches the pointer like light;
+   - iOS 27's darkened outer edge, so the glass separates from busy content behind it;
+   - light that blooms from where it is touched, and controls that swell (not shrink) under the finger
+     and spring back (ui/pointer.js, motion.css).
+   Two thicknesses: thin for controls and the Overview cards, thick (more tint, for legibility) for
+   panels, sheets and popovers that carry dense data. Never glass on glass. */
+@property --rim-lit { syntax: "<number>"; inherits: true; initial-value: 0; }
+
 .glass-thin,
 .glass-thick {
   position: relative;
   isolation: isolate;
   color: var(--text);
-  border: 1px solid var(--glass-edge);
-  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+  border: 0;
+  box-shadow: var(--glass-edge-dark), var(--glass-inner), var(--glass-shadow);
+  transition: --rim-lit 450ms ease, box-shadow 300ms ease;
 }
 .glass-thin {
   background: var(--glass-thin-bg);
-  -webkit-backdrop-filter: blur(var(--glass-blur-thin)) saturate(1.8);
-  backdrop-filter: blur(var(--glass-blur-thin)) saturate(1.8);
+  -webkit-backdrop-filter: blur(var(--glass-blur-thin)) saturate(1.9) brightness(1.06);
+  backdrop-filter: blur(var(--glass-blur-thin)) saturate(1.9) brightness(1.06);
 }
 .glass-thick {
   background: var(--glass-thick-bg);
-  -webkit-backdrop-filter: blur(var(--glass-blur-thick)) saturate(1.6);
-  backdrop-filter: blur(var(--glass-blur-thick)) saturate(1.6);
+  -webkit-backdrop-filter: blur(var(--glass-blur-thick)) saturate(1.7) brightness(1.04);
+  backdrop-filter: blur(var(--glass-blur-thick)) saturate(1.7) brightness(1.04);
 }
 
-/* Liquid glass: the Overview cards, the AI card beside them and the identity card. */
-@property --rim-lit { syntax: "<number>"; inherits: true; initial-value: 0; }
+/* Overview cards and the identity card: the clearest glass, the scene shows through. */
 .tw-dock > .glass-thick,
 .tw-identity.glass-thin {
-  overflow: hidden; /* keeps the hover ripples inside the card; transitions are set in components.css */
+  overflow: hidden; /* keeps the touch bloom inside the card */
   background: var(--glass-card-bg);
-  border-color: transparent;
-  box-shadow: var(--glass-card-glow), var(--glass-card-shadow);
-  -webkit-backdrop-filter: blur(var(--glass-blur-card)) saturate(1.7) brightness(1.05);
-  backdrop-filter: blur(var(--glass-blur-card)) saturate(1.7) brightness(1.05);
+  box-shadow: var(--glass-edge-dark), var(--glass-card-glow), var(--glass-card-shadow);
+  -webkit-backdrop-filter: blur(var(--glass-blur-card)) saturate(1.8) brightness(1.06);
+  backdrop-filter: blur(var(--glass-blur-card)) saturate(1.8) brightness(1.06);
 }
-/* The specular rim: a white gradient ring drawn with a mask on a pseudo-element (masking the card
-   itself would stop its backdrop blur). It adds light to what is behind it, so its colour comes from
-   the scene, as with real glass. */
-.tw-dock > .glass-thick::before,
-.tw-identity.glass-thin::before {
+
+/* The specular rim: a gradient ring drawn with a mask on a pseudo-element (masking the glass itself
+   would stop its backdrop blur). It adds light to what is behind it, so its colour comes from the
+   scene, as with real glass. Near the pointer the rim catches the light. */
+.glass-thin:not(.tw-capsule-detail)::before,
+.glass-thick::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 1;
-  padding: 1.5px;
+  padding: 1.25px;
   border-radius: inherit;
-  /* Near the pointer the rim catches the light. */
-  background: radial-gradient(10.625rem circle at var(--px, 50%) var(--py, 50%), rgb(255 255 255 / calc(var(--rim-lit) * 0.95)), transparent 72%), var(--glass-card-rim);
+  background: radial-gradient(9rem circle at var(--px, 50%) var(--py, 50%), rgb(255 255 255 / calc(var(--rim-lit) * var(--rim-hot))), transparent 72%), var(--glass-rim);
   mix-blend-mode: plus-lighter;
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -50,24 +57,10 @@
   mask-composite: exclude;
   pointer-events: none;
 }
+.tw-dock > .glass-thick::before,
+.tw-identity.glass-thin::before { padding: 1.5px; background: radial-gradient(10.625rem circle at var(--px, 50%) var(--py, 50%), rgb(255 255 255 / calc(var(--rim-lit) * 0.95)), transparent 72%), var(--glass-card-rim); }
 
-/* Hover: the rim lights up near the pointer and a soft glow follows it, under the content. */
-.tw-dock > .glass-thick.is-lit,
-.tw-identity.glass-thin.is-lit { --rim-lit: 1; box-shadow: var(--glass-card-glow), var(--glass-card-shadow-lit); }
-.tw-dock > .glass-thick::after,
-.tw-identity.glass-thin::after {
-  background: radial-gradient(13.75rem circle at var(--px, 50%) var(--py, 50%), var(--glass-card-hover), transparent 72%);
-  mix-blend-mode: plus-lighter;
-  transition: opacity 450ms ease;
-}
-/* Ripples spread from where the pointer enters or presses (ui/pointer.js), also under the content. */
-.tw-glass-ripple {
-  position: absolute; z-index: -1; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%) scale(0);
-  background: radial-gradient(circle, transparent 38%, var(--glass-ripple) 46%, transparent 52%, transparent 58%, var(--glass-ripple-strong) 66%, transparent 71%);
-  mix-blend-mode: plus-lighter;
-}
-
-/* Pointer-following sheen (positions set by ui/pointer.js through --px / --py). */
+/* Pointer light: a soft glow under the content that follows the pointer. */
 .glass-thin::after,
 .glass-thick::after {
   content: "";
@@ -78,17 +71,32 @@
   pointer-events: none;
   opacity: 0;
   background: radial-gradient(7.5rem circle at var(--px, 50%) var(--py, 50%), var(--glass-sheen), transparent 70%);
+  mix-blend-mode: plus-lighter;
   transition: opacity 240ms ease;
 }
+.tw-dock > .glass-thick::after,
+.tw-identity.glass-thin::after { background: radial-gradient(13.75rem circle at var(--px, 50%) var(--py, 50%), var(--glass-card-hover), transparent 72%); transition: opacity 450ms ease; }
+.glass-thin.is-lit,
+.glass-thick.is-lit { --rim-lit: 1; }
 .glass-thin.is-lit::after,
 .glass-thick.is-lit::after { opacity: 1; }
+.tw-dock > .glass-thick.is-lit,
+.tw-identity.glass-thin.is-lit { box-shadow: var(--glass-edge-dark), var(--glass-card-glow), var(--glass-card-shadow-lit); }
 .glass-thin.is-touch-lit::after,
 .glass-thick.is-touch-lit::after { opacity: 1; transition: opacity 500ms ease; }
+
+/* Touch bloom (ui/pointer.js): light that wells up where the glass is pressed and spreads to the
+   edges, under the content so the data stays readable. */
+.tw-glass-bloom {
+  position: absolute; z-index: -1; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%) scale(0);
+  background: radial-gradient(circle, var(--glass-bloom) 0%, var(--glass-bloom-soft) 38%, transparent 70%);
+  mix-blend-mode: plus-lighter;
+}
 
 /* Low quality tier halves the blur radius. */
 :root[data-quality="low"] { --glass-blur-thin: 0.625rem; --glass-blur-thick: 1.125rem; --glass-blur-card: 0.75rem; }
 
-/* Reduced transparency (system or setting): opaque surfaces, no blur, no sheen. */
+/* Reduced transparency (system or setting): opaque surfaces, no blur, no light effects. */
 :root[data-transparency="reduced"] .glass-thin,
 :root[data-transparency="reduced"] .glass-thick,
 :root[data-transparency="reduced"] .tw-dock > .glass-thick,
@@ -96,10 +104,12 @@
   background: var(--opaque-bg);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+  box-shadow: 0 0 0 1px var(--line-strong), var(--glass-shadow);
 }
-:root[data-transparency="reduced"] .tw-dock > .glass-thick::before,
-:root[data-transparency="reduced"] .tw-identity.glass-thin::before,
+:root[data-transparency="reduced"] .glass-thin::before,
+:root[data-transparency="reduced"] .glass-thick::before,
 :root[data-transparency="reduced"] .glass-thin::after,
 :root[data-transparency="reduced"] .glass-thick::after,
-:root[data-touch="true"] .glass-thin::after,
+:root[data-transparency="reduced"] .tw-glass-bloom,
+:root[data-touch="true"] .glass-thin:not(.is-touch-lit)::after,
 :root[data-touch="true"] .glass-thick:not(.is-touch-lit)::after { display: none; }

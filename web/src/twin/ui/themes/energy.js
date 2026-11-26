@@ -8,6 +8,7 @@ import { socketDevices, socketInfo, totalPowerKw } from "../../data/derived.js";
 import { sceneState } from "../../scene/index.js";
 import { lineChart, cssVar } from "../charts/timeline.js";
 import { escapeHtml, icon, term, rollNumber, closePopover } from "../dom.js";
+import { scheduleHtml } from "../energy-schedule.js";
 import { controlStatus, confirmSwitch as confirmSockets, confirmOpen, pendingSocketIds, renderBulkButtons, socketStateHtml, switchesInteractive } from "../sockets.js";
 
 let body = null;
@@ -20,6 +21,10 @@ export function mount(element) {
     <section class="tw-section">
       <h3>${term("power", t("totalPower"))}</h3>
       <div class="tw-big"><strong class="tw-num" data-part="total"></strong><span>kW</span></div>
+    </section>
+    <section class="tw-section">
+      <h3>${escapeHtml(t("scheduleTitle"))}<small>${escapeHtml(t("today"))}</small></h3>
+      <div data-part="schedule"></div>
     </section>
     <section class="tw-section">
       <h3>${escapeHtml(t("sockets"))}<span class="tw-h3-actions tw-bulk" data-part="bulk"></span></h3>
@@ -41,6 +46,7 @@ export function mount(element) {
   body.querySelectorAll("[data-range]").forEach((button) => button.addEventListener("click", () => { demandRange = button.dataset.range; requestDemand(true); update(); }));
   requestDemand();
   provider().requestStandbyReport?.();
+  if (!data().recHistory?.length) provider().requestRecommendationHistory?.(24); // the schedule's fresh-air row
   update();
 }
 
@@ -151,6 +157,9 @@ export function update() {
     rollNumber(totalEl, total.value, { digits: 2 });
     totalEl.style.color = total.stale ? "var(--text-3)" : "";
   }
+  const schedule = body.querySelector('[data-part="schedule"]');
+  const html = scheduleHtml();
+  if (schedule.dataset.html !== html) { schedule.dataset.html = html; schedule.innerHTML = html; }
   if (confirmOpen()) return; // do not redraw under an open confirmation
   renderSockets();
   renderDemand();
@@ -160,7 +169,7 @@ export function update() {
 export function markerReadout(deviceId) {
   const info = socketInfo(deviceId);
   if (info.power === null) return null;
-  return { text: formatNumber(info.power, info.power >= 100 ? 0 : 1), unit: "W", stale: info.stale, status: info.on === false ? null : { level: "good" } };
+  return { text: formatNumber(info.power, info.power >= 100 ? 0 : 1), unit: "W", stale: info.stale, status: info.on === true ? { level: "good" } : null };
 }
 
 export function totalReadout() {

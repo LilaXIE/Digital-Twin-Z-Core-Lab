@@ -46,15 +46,23 @@
   --series-grid: rgba(17, 24, 39, 0.08);
 
   /* Glass */
-  --glass-thin-bg: rgba(255, 255, 255, 0.42);
-  --glass-thick-bg: rgba(250, 251, 253, 0.80);
+  --glass-thin-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.32));
+  --glass-thick-bg: linear-gradient(180deg, rgba(252, 253, 255, 0.84), rgba(246, 248, 251, 0.76));
+  /* iOS 27 liquid glass: darkened outer edge, bright specular rim, light through the thickness. */
+  --glass-edge-dark: 0 0 0 0.5px rgba(15, 23, 42, 0.16);
+  --glass-inner: inset 0 1px 0.5px rgba(255, 255, 255, 0.8), inset 0 -1px 0.5px rgba(255, 255, 255, 0.28), inset 0 0 0.875rem rgba(255, 255, 255, 0.14);
+  --glass-rim: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.45) 14%, rgba(255, 255, 255, 0.06) 38%, rgba(255, 255, 255, 0.04) 62%, rgba(255, 255, 255, 0.4) 88%, rgba(255, 255, 255, 0.9) 100%);
+  --rim-hot: 0.95;
+  --glass-bloom: rgba(255, 255, 255, 0.6);
+  --glass-bloom-soft: rgba(255, 255, 255, 0.22);
+  --lens-thumb-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.7));
   --glass-full-bg: rgba(250, 251, 253, 0.94);
   /* Overview cards: liquid glass. Almost no tint, the scene shows through softened and brightened;
      the material is carried by a thin specular rim (brightest top-left and bottom-right, faintly
      iridescent) and a soft inner edge glow. */
   --glass-card-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04) 55%, rgba(255, 255, 255, 0.08));
   --glass-blur-card: 1.125rem;
-  --glass-card-rim: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.55) 10%, rgba(255, 255, 255, 0.1) 32%, rgba(255, 255, 255, 0.05) 68%, rgba(255, 255, 255, 0.5) 90%, #fff 100%);
+  --glass-card-rim: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.7) 10%, rgba(255, 255, 255, 0.14) 32%, rgba(255, 255, 255, 0.06) 68%, rgba(255, 255, 255, 0.62) 90%, #fff 100%);
   --glass-card-glow: inset 0 1px 1px rgba(255, 255, 255, 0.45), inset 0 0 0.875rem rgba(255, 255, 255, 0.1);
   --glass-card-shadow: 0 0.625rem 1.875rem rgba(15, 23, 42, 0.08);
   --glass-card-shadow-lit: 0 0.875rem 2.5rem rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.25);
@@ -121,8 +129,15 @@
   --series-2: #f2a33a;
   --series-3: #b4bcc8;
   --series-grid: rgba(255, 255, 255, 0.08);
-  --glass-thin-bg: rgba(28, 30, 34, 0.45);
-  --glass-thick-bg: rgba(22, 24, 28, 0.80);
+  --glass-thin-bg: linear-gradient(180deg, rgba(40, 43, 50, 0.5), rgba(22, 24, 28, 0.42));
+  --glass-thick-bg: linear-gradient(180deg, rgba(30, 33, 39, 0.84), rgba(20, 22, 26, 0.78));
+  --glass-edge-dark: 0 0 0 0.5px rgba(0, 0, 0, 0.6);
+  --glass-inner: inset 0 1px 0.5px rgba(255, 255, 255, 0.2), inset 0 -1px 0.5px rgba(255, 255, 255, 0.06), inset 0 0 0.875rem rgba(255, 255, 255, 0.04);
+  --glass-rim: linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.2) 14%, rgba(255, 255, 255, 0.03) 38%, rgba(255, 255, 255, 0.02) 62%, rgba(255, 255, 255, 0.16) 88%, rgba(255, 255, 255, 0.5) 100%);
+  --rim-hot: 0.45;
+  --glass-bloom: rgba(255, 255, 255, 0.18);
+  --glass-bloom-soft: rgba(255, 255, 255, 0.06);
+  --lens-thumb-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
   --glass-full-bg: rgba(22, 24, 28, 0.94);
   --glass-card-bg: linear-gradient(160deg, rgba(48, 52, 60, 0.34), rgba(16, 18, 22, 0.26) 55%, rgba(30, 33, 40, 0.32));
   --glass-card-rim: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.22) 10%, rgba(255, 255, 255, 0.05) 32%, rgba(255, 255, 255, 0.03) 68%, rgba(255, 255, 255, 0.2) 90%, rgba(255, 255, 255, 0.5) 100%);

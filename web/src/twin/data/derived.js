@@ -23,7 +23,7 @@ export function deviceStatus(id, dataset = data()) {
   return device ? deviceStatusFromValues(device, snapshot.values) : snapshot.status;
 }
 
-export const isOnline = (id) => ["normal", "fault", "warning"].includes(deviceStatus(id));
+export const isOnline = (id) => deviceState(id).online;
 
 export function isStale(timeMs, at = Date.now()) {
   return !Number.isFinite(timeMs) || at - timeMs > SITE.staleAfterMs;
@@ -41,6 +41,40 @@ export function sensorReading(id, key) {
   const value = snapshot?.values[key];
   const at = snapshot?.metricUpdatedAt[key] ?? null;
   return { value: Number.isFinite(value) ? value : null, at, stale: isStale(at) };
+}
+
+// How long a device may stay silent before it counts as offline. Periodic sensors report every few
+// minutes; seats, doors and the leak sensor report on events plus a slow heartbeat. When the bridge's
+// data-health report knows a device's real interval, three missed reports is the limit.
+const PERIODIC = ["AM103", "AM308", "WS302", "WS523"];
+export function silenceLimitMs(device) {
+  const interval = data().deviceHealth?.devices?.[device.id]?.intervalMinutes;
+  if (Number.isFinite(interval) && interval > 0) return Math.max(30, interval * 3) * 60000;
+  return PERIODIC.includes(device.model) ? 30 * 60000 : 24 * 3600000;
+}
+
+// The one state of a device, used by every page (device list, sensor sheet, scene marker, socket tiles),
+// so a device never looks online in one place and offline in another.
+//   level: good | idle | caution | poor | offline · key: i18n text · online: reporting now · on: socket relay
+export function deviceState(id) {
+  const device = deviceById(id);
+  const status = deviceStatus(id);
+  const snapshot = data().snapshots.get(id);
+  const lastAt = snapshot?.updatedAt || null;
+  const base = { lastAt, on: null };
+  if (status === "fault") return { ...base, level: "poor", key: "statusFault", online: true };
+  if (status === "offline") return { ...base, level: "offline", key: "statusOffline", online: false };
+  if (status === "unavailable") return { ...base, level: "offline", key: lastAt ? "statusNoSource" : "statusNoData", online: false };
+  if (!ui.replay && device && Date.now() - lastAt > silenceLimitMs(device)) return { ...base, level: "offline", key: "statusSilent", online: false };
+  if (isSuspect(id)) return { ...base, level: "caution", key: "readingSuspect", online: true };
+  if (device?.model === "WS523") {
+    // Green only when the socket's own latest report in InfluxDB (socketStatus) says its relay is on.
+    const relay = data().snapshots.get(id)?.values.socketStatus;
+    const on = Number.isFinite(relay) ? relay > 0 : null;
+    if (on !== true) return { ...base, level: "idle", key: on === false ? "socketOffState" : "statusNormal", online: true, on };
+    return { ...base, level: "good", key: "socketOnState", online: true, on };
+  }
+  return { ...base, level: "good", key: "statusNormal", online: true };
 }
 
 // CO₂ health from the bridge (scripts/co2-quality.mjs): { state: "ok" | "suspect" | "stale", reasons }.
@@ -103,12 +137,13 @@ export function recommendationState() {
   return { rec, stale, valid: rec.status !== "no-data" };
 }
 
-// Measured (VS341 seats) when fresh seat readings exist, otherwise the strategy's estimate.
+// Measured from the seat sensors that are reporting now (a seat whose sensor went silent is never
+// counted from its last cached reading), otherwise the strategy's CO₂ estimate.
 export function occupancyInfo() {
   if (ui.replay) return null;
   const seats = registry.devices.filter((device) => device.model === "VS341");
-  const readings = seats.map((device) => sensorReading(device.id, "occupancy")).filter((reading) => reading.value !== null && !reading.stale);
-  if (readings.length) return { count: readings.filter((reading) => reading.value > 0).length, measured: true, at: Math.max(...readings.map((r) => r.at)) };
+  const live = seats.filter((device) => deviceState(device.id).online).map((device) => sensorReading(device.id, "occupancy")).filter((reading) => reading.value !== null);
+  if (live.length) return { count: live.filter((reading) => reading.value > 0).length, measured: true, seats: live.length, totalSeats: seats.length, at: Math.max(...live.map((r) => r.at || 0)) };
   const { rec, stale, valid } = recommendationState();
   if (rec && valid && !stale && Number.isFinite(rec.occupancy?.current)) {
     return { count: rec.occupancy.current, measured: Boolean(rec.occupancy.measured), at: Date.parse(rec.generatedAt) };
@@ -126,16 +161,25 @@ export function socketDevices() {
   return registry.devices.filter((device) => device.model === "WS523").sort((a, b) => a.id.localeCompare(b.id));
 }
 
+// A socket that stopped reporting has no known relay state: its last cached "on" is not shown as on.
 export function socketInfo(id) {
   const power = sensorReading(id, "activePower");
-  const state = sensorReading(id, "socketStatus");
-  return { id, power: power.value, powerAt: power.at, stale: power.stale, on: state.value === null ? null : state.value > 0, hasData: power.value !== null || state.value !== null };
+  const relay = sensorReading(id, "socketStatus");
+  const state = ui.replay ? { online: true, level: "good", key: "statusNormal" } : deviceState(id);
+  const lastOn = relay.value === null ? null : relay.value > 0;
+  // Freshness follows the socket's own reporting interval (most report every 20 minutes), not the
+  // 15-minute rule for room readings, so a socket does not flicker to "stale" between reports.
+  const stale = ui.replay ? power.stale : !state.online;
+  return { id, power: power.value, powerAt: power.at, relayAt: relay.at, stale, online: state.online, state, on: state.online ? lastOn : null, lastOn, hasData: power.value !== null || relay.value !== null };
 }
 
+// Total demand of the sockets reporting now; only when none is, the last known total (shown as stale).
 export function totalPowerKw() {
   const values = socketDevices().map((device) => socketInfo(device.id)).filter((info) => info.power !== null);
   if (!values.length) return null;
-  return { value: values.reduce((sum, info) => sum + info.power, 0) / 1000, stale: values.every((info) => info.stale) };
+  const live = values.filter((info) => !info.stale);
+  const used = live.length ? live : values;
+  return { value: used.reduce((sum, info) => sum + info.power, 0) / 1000, stale: !live.length };
 }
 
 export function safetyFacts() {
@@ -157,12 +201,12 @@ export function lastReadingAt() {
 export function healthSummary() {
   const dataset = data();
   const devices = registry.devices.filter((device) => device.model !== "WEATHER");
-  const statuses = devices.map((device) => deviceStatus(device.id));
+  const states = devices.map((device) => deviceState(device.id));
   const batteries = devices.map((device) => dataset.snapshots.get(device.id)?.values.battery).filter(Number.isFinite);
   return {
-    online: statuses.filter((status) => status === "normal").length,
-    offline: statuses.filter((status) => status === "unavailable" || status === "offline").length,
-    fault: statuses.filter((status) => status === "fault").length,
+    online: states.filter((state) => state.online && state.level !== "poor").length,
+    offline: states.filter((state) => !state.online).length,
+    fault: states.filter((state) => state.level === "poor").length,
     batteryHigh: batteries.filter((value) => value >= 50).length,
     batteryMid: batteries.filter((value) => value >= 20 && value < 50).length,
     batteryLow: batteries.filter((value) => value < 20).length,

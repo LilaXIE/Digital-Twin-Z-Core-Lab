@@ -22,6 +22,13 @@ export const SITE = Object.freeze({
   carbonKgPerKwh: 0.38,
   // Room representative values are the median of these five sensors (as the strategy service does).
   envSensors: ["AM103-05", "AM103-06", "AM103-07", "AM103-08", "AM308-01"],
+  // Energy schedule (Energy theme), Hong Kong time. The AHU hours here are only used until the
+  // strategy service sends its own; lighting and socket power follow these hours.
+  energySchedule: Object.freeze({
+    ahu: { weekday: [["08:00", "18:00"]], weekend: [] },
+    lighting: { weekday: [["08:30", "19:30"]], weekend: [] },
+    sockets: { weekday: [["08:00", "20:00"]], weekend: [] },
+  }),
 });
 
 const minutesOf = (text) => {
